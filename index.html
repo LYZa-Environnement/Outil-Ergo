@@ -24,6 +24,7 @@
       <button type="button" role="tab" id="t-anamnese" aria-controls="p-anamnese" aria-selected="false" tabindex="-1">Anamnèse</button>
       <button type="button" role="tab" id="t-ecriture" aria-controls="p-ecriture" aria-selected="false" tabindex="-1">Écriture</button>
       <button type="button" role="tab" id="t-bhk" aria-controls="p-bhk" aria-selected="false" tabindex="-1">BHK</button>
+      <button type="button" role="tab" id="t-sensoriel" aria-controls="p-sensoriel" aria-selected="false" tabindex="-1">Sensoriel</button>
       <button type="button" role="tab" id="t-bilans" aria-controls="p-bilans" aria-selected="false" tabindex="-1">Autres bilans</button>
       <button type="button" role="tab" id="t-compte-rendu" aria-controls="p-compte-rendu" aria-selected="false" tabindex="-1">Compte rendu</button>
       <button type="button" role="tab" id="t-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1">Réglages</button>
@@ -134,6 +135,7 @@
     <!-- ============ Écriture ============ -->
     <section id="p-ecriture" role="tabpanel" aria-labelledby="t-ecriture" class="panneau" hidden>
       <p class="note">Touchez une réponse pour la choisir, touchez-la à nouveau pour l'effacer. Seuls les éléments renseignés apparaissent dans le compte rendu.</p>
+      <div id="auto"></div>
       <fieldset class="groupe">
         <legend>Main et prise du crayon</legend>
         <div class="champ">
@@ -207,6 +209,17 @@
         <p class="note">Mots, ponctuations et apostrophes ; « j' » compte pour deux caractères.</p>
       </fieldset>
 
+      <fieldset class="groupe">
+        <legend>Photo de la copie</legend>
+        <p class="note">Elle apparaît dans le compte rendu Word, sous les résultats du BHK.</p>
+        <div class="barre-actions">
+          <label class="bouton bouton-second">Ajouter une photo
+            <input type="file" accept="image/*" capture="environment" data-action="photo" class="masque"></label>
+          <button type="button" class="bouton-lien" data-action="retirer-photo" hidden>Retirer la photo</button>
+        </div>
+        <img id="apercu-photo" class="apercu-photo" alt="Photo de la copie du BHK" hidden>
+      </fieldset>
+
       <section class="resultats" aria-labelledby="h-resultats">
         <h2 id="h-resultats">Résultats</h2>
         <div class="resultat" id="res-qualite"></div>
@@ -233,14 +246,23 @@
         <div class="champ"><span>Remarques non cotées</span><div class="cases" id="remarques"></div></div>
         <label class="champ"><span>Autres observations sur le BHK</span><textarea data-champ="bhkNotes" rows="2"></textarea></label>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="bilans">Passer aux autres bilans</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Passer au bilan sensoriel</button></div>
       <div class="recap" id="recap" aria-live="polite"></div>
+    </section>
+
+
+    <!-- ============ Sensoriel ============ -->
+    <section id="p-sensoriel" role="tabpanel" aria-labelledby="t-sensoriel" class="panneau" hidden>
+      <p class="note">Cochez chaque bilan réalisé. Les questionnaires protégés (Profil sensoriel 2, ESO, SensOT-dir) se saisissent avec les scores, classifications et résultats de leurs feuilles de cotation.</p>
+      <div id="sensoriel"></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="bilans">Passer aux autres bilans</button></div>
     </section>
 
     <!-- ============ Autres bilans ============ -->
     <section id="p-bilans" role="tabpanel" aria-labelledby="t-bilans" class="panneau" hidden>
       <p class="note">Cochez les bilans réalisés et saisissez les scores donnés par leurs manuels. La déviation standard et l'appréciation se calculent selon le type de score.</p>
       <div id="tests"></div>
+      <div id="manip"></div>
       <div class="suite"><button type="button" class="bouton" data-aller="compte-rendu">Voir le compte rendu</button></div>
     </section>
 
@@ -255,20 +277,27 @@
       <p class="note" id="a-completer"></p>
 
       <fieldset class="groupe">
-        <legend>Conclusion</legend>
-        <label class="champ"><span>Contexte (ajouté après la présentation de l'enfant)</span><textarea data-champ="conclusionContexte" rows="2" placeholder="Difficultés présentes depuis le CP, sans aménagement jusqu'ici…"></textarea></label>
-        <label class="champ"><span>Autres points mis en avant (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2"></textarea></label>
-        <label class="champ"><span>Points d'appui</span><input type="text" data-champ="conclusionForces" placeholder="volontaire, bonne prise d'informations visuelles…"></label>
+        <legend>Diagnostic ergothérapique</legend>
+        <div class="champ"><span>Occupations en difficulté</span><div class="cases" id="occupations"></div></div>
+        <label class="champ"><span>Retentissement au quotidien</span><textarea data-champ="diagImpact" rows="2" placeholder="ne prend pas tous ses cours, devoirs très longs…"></textarea></label>
+        <div class="grille2">
+          <label class="champ"><span>Obstacles dans l'environnement</span><textarea data-champ="envObstacles" rows="2" placeholder="classe bruyante, pas d'aménagement…"></textarea></label>
+          <label class="champ"><span>Facilitateurs dans l'environnement</span><textarea data-champ="envFacilitateurs" rows="2" placeholder="enseignante attentive, parents disponibles…"></textarea></label>
+        </div>
+        <label class="champ"><span>Contexte (après la présentation de l'enfant)</span><textarea data-champ="conclusionContexte" rows="2" placeholder="Difficultés présentes depuis le CP, sans aménagement jusqu'ici…"></textarea></label>
+        <label class="champ"><span>Autres constats (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2"></textarea></label>
+        <label class="champ"><span>Points d'appui</span><input type="text" data-champ="conclusionForces" placeholder="volontaire, bonne compréhension des consignes…"></label>
       </fieldset>
 
       <fieldset class="groupe">
-        <legend>Préconisations</legend>
-        <label class="champ champ-court"><span>Dispositif proposé</span>
+        <legend>Objectifs et préconisations</legend>
+        <label class="champ"><span>Objectifs d'intervention (un par ligne)</span><textarea data-champ="objectifsLibre" rows="2" placeholder="Améliorer la lisibilité de l'écriture en classe…"></textarea></label>
+        <p class="note">L'outil propose en premier, dans chaque rubrique, les préconisations justifiées par les résultats saisis. Cochez celles que vous retenez : le compte rendu indique le constat qui les justifie.</p>
+        <div id="preconisations"></div>
+        <label class="champ champ-court"><span>Dispositif scolaire</span>
           <select data-champ="dispositif"><option value="">Non précisé</option><option>PAP</option><option>PPRE</option><option>PPS</option></select></label>
-        <div class="cases" id="amenagements"></div>
-        <label class="champ"><span>Autres aménagements (un par ligne)</span><textarea data-champ="amenagementsLibre" rows="2"></textarea></label>
-        <label class="case"><input type="checkbox" data-champ="reeducation"><span>Accompagnement en ergothérapie (rééducation graphique)</span></label>
-        <label class="champ"><span>Objectif de la rééducation</span><input type="text" data-champ="reeducationObjet" placeholder="afin d'améliorer la fluidité du geste…"></label>
+        <label class="champ"><span>Autres aménagements scolaires (un par ligne)</span><textarea data-champ="amenagementsLibre" rows="2"></textarea></label>
+        <label class="champ"><span>Modalités de l'accompagnement</span><input type="text" data-champ="reeducationObjet" placeholder="1 séance par semaine pendant 6 mois"></label>
         <label class="champ champ-court"><span>Réévaluation</span>
           <select data-champ="reevaluation"><option value="">Non précisée</option><option value="3 mois">Dans 3 mois</option><option value="6 mois">Dans 6 mois</option><option value="un an">Dans un an</option></select></label>
         <label class="champ"><span>Autres préconisations (une par ligne)</span><textarea data-champ="precoLibre" rows="2"></textarea></label>
@@ -302,6 +331,12 @@
         <label class="case"><input type="checkbox" data-reg-bool="inverserQualite"><span>Qualité du BHK : inverser le signe, pour qu'un DS négatif signale une écriture dégradée</span></label>
       </fieldset>
       <fieldset class="groupe">
+        <legend>Questionnaire d'auto-évaluation de l'écriture</legend>
+        <p class="note">Saisissez une fois le nom du questionnaire et le libellé de ses questions. Ils restent dans ce navigateur et figurent dans le tableau du compte rendu.</p>
+        <label class="champ"><span>Nom du questionnaire</span><input type="text" data-reg-texte="autoNom"></label>
+        <div id="questions-auto"></div>
+      </fieldset>
+      <fieldset class="groupe">
         <legend>Normes du BHK enfant</legend>
         <p id="etat-normes-reglages"></p>
         <label class="bouton bouton-second">Importer des normes
@@ -331,6 +366,8 @@
   <div class="statut" id="statut" role="status" aria-live="polite"></div>
   <div class="impression doc" id="impression"></div>
 
+  <script src="js/sensoriel.js"></script>
+  <script src="js/graphiques.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/docx.js"></script>
   <script src="js/app.js"></script>

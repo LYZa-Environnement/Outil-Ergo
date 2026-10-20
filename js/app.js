@@ -131,6 +131,25 @@
     }).finally(() => { input.value = ""; });
   }
 
+  // Accès aux champs imbriqués du dossier (« senso.otipis.scores.3 »).
+  function lireChemin(obj, chemin) {
+    return chemin.split(".").reduce((o, k) => (o === null || o === undefined ? undefined : o[k]), obj);
+  }
+  function ecrireChemin(obj, chemin, v) {
+    const ks = chemin.split(".");
+    let o = obj;
+    for (let i = 0; i < ks.length - 1; i++) {
+      if (o[ks[i]] === null || typeof o[ks[i]] !== "object") o[ks[i]] = /^\d+$/.test(ks[i + 1]) ? [] : {};
+      o = o[ks[i]];
+    }
+    o[ks[ks.length - 1]] = v;
+  }
+  function effacerChemin(obj, chemin) {
+    const ks = chemin.split(".");
+    const parent = lireChemin(obj, ks.slice(0, -1).join("."));
+    if (parent && typeof parent === "object") delete parent[ks[ks.length - 1]];
+  }
+
   function ajuster(ta) {
     if (!ta.offsetParent) return;
     ta.style.height = "auto";
@@ -149,7 +168,8 @@
     $("#prise").innerHTML = `<option value="">Non précisé</option>` + B.PRISES.map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join("");
     $("#mode-copie").innerHTML = `<option value="">Non précisée</option>` + B.MODES_COPIE.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join("");
     $("#remarques").innerHTML = B.REMARQUES.map((x) => `<label><input type="checkbox" value="${x.id}" data-liste="remarques"><span>${esc(x.label)}</span></label>`).join("");
-    $("#amenagements").innerHTML = B.AMENAGEMENTS.map((x) => `<label><input type="checkbox" value="${x.id}" data-liste="amenagements"><span>${esc(x.label)}</span></label>`).join("");
+    $("#occupations").innerHTML = B.OCCUPATIONS.map((x) => `<label><input type="checkbox" value="${x.id}" data-liste="occDifficultes"><span>${esc(B.maj(x.texte))}</span></label>`).join("");
+    $$(".critere-global .critere-tete").forEach((t, i) => { t.insertAdjacentHTML("beforeend", `<output class="ds-critere" id="dsc-${i + 1}"></output>`); });
     $("#c1").innerHTML = `<option value="">Selon la taille</option>` + [0, 1, 2, 3, 4, 5].map((v) => `<option value="${v}">${v} (saisi)</option>`).join("");
     $("#c2").innerHTML = radios("c2", [0, 1, 2, 3, 4, 5].map((v) => [String(v), String(v)]), 'data-champ="c2"');
   }
@@ -178,7 +198,155 @@
             ${[0, 1, 2, 3, 4].map((i) => `<label><input type="checkbox" data-ligne="${c.id}:${i}" aria-label="${esc(c.nom)}, ligne ${i + 1}"><span>L${i + 1}</span></label>`).join("")}
             <output class="score-critere" id="sc-${c.id}">0</output>
           </div>
+          <output class="ds-critere" id="dsc-${c.id}"></output>
         </fieldset>`).join("") + `</div>`;
+    }).join("");
+  }
+
+  /* ---------- Bilan sensoriel, manipulations, auto-évaluation ---------- */
+
+  const S = window.Senso;
+
+  function blocRealise(id, titre, chemin, contenu) {
+    return `<fieldset class="groupe test" id="bloc-${id}">
+      <legend><label class="case case-titre"><input type="checkbox" data-chemin="${chemin}.fait" data-bascule="#corps-${id}"><span>${esc(titre)}</span></label></legend>
+      <div class="test-corps" id="corps-${id}" hidden>${contenu}</div>
+    </fieldset>`;
+  }
+  function pastilles(nom, chemin, valeurs) {
+    return `<div class="choix" role="radiogroup">${valeurs.map((v) => `<label><input type="radio" name="${nom}" value="${esc(v[0])}" data-chemin="${chemin}"><span>${esc(v[1])}</span></label>`).join("")}</div>`;
+  }
+  function champTexte(libelle, chemin, attrs) { return `<label class="champ"><span>${esc(libelle)}</span><input type="text" data-chemin="${chemin}" ${attrs || ""}></label>`; }
+  function champZone(libelle, chemin, lignes) { return `<label class="champ"><span>${esc(libelle)}</span><textarea data-chemin="${chemin}" rows="${lignes || 2}"></textarea></label>`; }
+  function champNombre(libelle, chemin) { return `<label class="champ"><span>${esc(libelle)}</span><input type="text" inputmode="decimal" data-chemin="${chemin}"></label>`; }
+  function champDate(libelle, chemin) { return `<label class="champ"><span>${esc(libelle)}</span><input type="date" data-chemin="${chemin}"></label>`; }
+  function liste(chemin, options, vide) {
+    return `<select data-chemin="${chemin}"><option value="">${esc(vide || "–")}</option>${options.map((o) => `<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("")}</select>`;
+  }
+
+  function htmlOtipis() {
+    const c = "senso.otipis";
+    let h = `<div class="grille2">
+        <div class="champ"><span>Présence d'un parent</span>${pastilles("ot-parent", c + ".parent", [["oui", "Oui"], ["non", "Non"]])}</div>
+        <div class="champ"><span>Main</span>${pastilles("ot-main", c + ".main", [["droite", "Droite"], ["gauche", "Gauche"]])}</div>
+        <div class="champ"><span>Œil</span>${pastilles("ot-oeil", c + ".oeil", [["droit", "Droit"], ["gauche", "Gauche"]])}</div>
+        <div class="champ"><span>Pied</span>${pastilles("ot-pied", c + ".pied", [["droit", "Droit"], ["gauche", "Gauche"]])}</div>
+      </div>
+      <p class="note">Cotation : 3 adapté, 2 quelques difficultés, 1 difficultés marquées. Les items 1 à 10 s'observent tout au long de la passation.</p>`;
+    let groupe = "";
+    S.OTIPIS.forEach((it) => {
+      if (it.groupe !== groupe) { groupe = it.groupe; if (groupe) h += `<h4 class="sous-groupe">${esc(groupe)}</h4>`; }
+      const dom = S.DOMAINES_OC.find((d) => d.id === it.domaine);
+      h += `<div class="item-otipis">
+        <span class="item-label"><span class="code" style="color:${dom.couleur}">${esc(it.code)}</span> ${esc(it.groupe ? it.nom.replace(it.groupe + ", ", "") : it.nom)}</span>
+        ${pastilles("ot-" + it.id, c + ".scores." + it.id, [["3", "3"], ["2", "2"], ["1", "1"]])}
+        <input type="text" class="remarque" data-chemin="${c}.notes.${it.id}" placeholder="Remarque" aria-label="Remarque, ${esc(it.nom)}">
+      </div>`;
+    });
+    h += `<div class="grille2">${champNombre("Extension contre la gravité : temps (sur 20 s)", c + ".temps20")}${champNombre("Flexion contre la gravité : temps (sur 20 s)", c + ".temps22")}
+      ${champNombre("Perception des formes : erreurs main droite", c + ".erreursMD")}${champNombre("Perception des formes : erreurs main gauche", c + ".erreursMG")}</div>
+      ${champZone("Autres observations", c + ".autres")}${champZone("Comportement global, temps de transition", c + ".comportement")}${champZone("Discussion à l'issue du bilan", c + ".discussion")}
+      <div class="graphique" id="g-otipis" hidden></div>`;
+    return h;
+  }
+
+  function htmlDunn(forme) {
+    const cle = forme === "enfant" ? "dunnEnfant" : "dunnScolaire";
+    const f = S.FORMES_DUNN[forme];
+    const c = "senso." + cle;
+    let h = `<div class="grille2">${champTexte("Rempli par", c + ".repondant", `placeholder="${esc(f.repondant)}"`)}${champDate("Date", c + ".date")}</div>
+      <p class="note">Score brut et classification lus dans le manuel du Profil sensoriel 2.</p>`;
+    f.groupes.forEach((g) => {
+      h += `<h4 class="sous-groupe">${esc(g.titre)}</h4>`;
+      g.lignes.forEach((l) => {
+        h += `<div class="ligne-dunn"><span class="item-label">${esc(l[1])}</span>
+          <input type="text" inputmode="decimal" class="score-brut" data-chemin="${c}.lignes.${l[0]}.brut" placeholder="Score" aria-label="Score brut, ${esc(l[1])}">
+          ${liste(c + ".lignes." + l[0] + ".classe", S.CLASSIFICATIONS.map((x) => [x.id, x.label]), "Classification")}</div>`;
+      });
+    });
+    h += champZone("Observations", c + ".notes") + `<div class="graphique" id="g-dunn-${forme}" hidden></div>`;
+    return h;
+  }
+
+  function htmlEso() {
+    const c = "senso.eso";
+    let h = `<div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
+      <p class="note">Valeurs reportées depuis la fiche de synthèse : roues de 0 à 3, et sous-totaux de chaque domaine pour les systèmes sensoriels (le pourcentage se calcule).</p>
+      <h4 class="sous-groupe">Roues par domaine d'occupation</h4>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Domaine</th>${S.SECTEURS_ESO.map((s) => `<th scope="col">${s}</th>`).join("")}</tr></thead><tbody>
+      ${S.DOMAINES_ESO.map((dm) => `<tr><th scope="row">${esc(dm[1])}</th>${S.SECTEURS_ESO.map((s) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.roues.${dm[0]}.${s}" aria-label="${esc(dm[1])}, ${s}"></td>`).join("")}</tr>`).join("")}
+      </tbody></table></div>
+      <h4 class="sous-groupe">Systèmes sensoriels</h4>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Système</th><th scope="col">Soins pers.</th><th scope="col">Productivité</th><th scope="col">Loisirs</th><th scope="col">%</th></tr></thead><tbody>
+      ${S.SYSTEMES_ESO.map((sy) => `<tr><th scope="row">${esc(sy.nom)}</th>${["sp", "p", "l"].map((k) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.systemes.${sy.id}.${k}" aria-label="${esc(sy.nom)}, ${k}"></td>`).join("")}<td><output id="eso-pct-${sy.id}"></output></td></tr>`).join("")}
+      </tbody></table></div>
+      ${champZone("Observations", c + ".notes")}
+      <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div>`;
+    return h;
+  }
+
+  function htmlSensot() {
+    const c = "senso.sensot";
+    let h = `${champDate("Date", c + ".date")}
+      <h4 class="sous-groupe">Classement des cartes par thème</h4>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Thème</th><th scope="col">Gêne</th><th scope="col">Sans gêne</th><th scope="col">Plaisir</th></tr></thead><tbody>
+      ${S.THEMES_SENSOT.map((t) => `<tr><th scope="row">${esc(t.nom)}</th>${["gene", "neutre", "plaisir"].map((k) => `<td><input type="text" inputmode="numeric" data-chemin="${c}.themes.${t.id}.${k}" aria-label="${esc(t.nom)}, ${k}"></td>`).join("")}</tr>`).join("")}
+      </tbody></table></div>
+      <h4 class="sous-groupe">Situations prioritaires (5 au plus)</h4>`;
+    for (let i = 0; i < S.NB_PRIORITES; i++) {
+      const p = c + ".priorites." + i;
+      h += `<div class="priorite">
+        ${champTexte("Situation " + (i + 1), p + ".situation", 'placeholder="telle qu\'écrite sur la carte"')}
+        <div class="grille3">
+          <label class="champ"><span>Thème</span>${liste(p + ".theme", S.THEMES_SENSOT.map((t) => [t.id, t.nom]))}</label>
+          <label class="champ"><span>Contexte</span>${liste(p + ".contexte", S.CONTEXTES_SENSOT.map((x) => [x, x]))}</label>
+          <label class="champ"><span>Fréquence de la gêne</span>${liste(p + ".frequence", S.FREQUENCES_SENSOT.map((x) => [x, B.maj(x)]))}</label>
+          <label class="champ"><span>Intensité (1 à 5)</span>${liste(p + ".intensite", [1, 2, 3, 4, 5].map((x) => [String(x), String(x)]))}</label>
+          ${champTexte("Ressenti", p + ".ressenti")}${champTexte("Objectif", p + ".objectif")}
+        </div></div>`;
+    }
+    return h + champZone("Observations", c + ".notes");
+  }
+
+  function construireSenso() {
+    $("#sensoriel").innerHTML =
+      blocRealise("otipis", "Observations cliniques OTIPIS", "senso.otipis", htmlOtipis()) +
+      blocRealise("dunn-enfant", "Profil sensoriel 2 de Dunn : questionnaire enfant", "senso.dunnEnfant", htmlDunn("enfant")) +
+      blocRealise("dunn-scolaire", "Profil sensoriel 2 de Dunn : compagnon scolaire", "senso.dunnScolaire", htmlDunn("scolaire")) +
+      blocRealise("eso", "Engagement sensori-occupationnel (ESO)", "senso.eso", htmlEso()) +
+      blocRealise("sensot", "SensOT-dir (version enfant)", "senso.sensot", htmlSensot());
+  }
+
+  function construireManip() {
+    const lignes = B.MANIPULATIONS.map((it) => `<tr><th scope="row">${esc(it.nom)}</th>${["md", "mg"].map((m) =>
+      `<td>${liste("manip." + m + "." + it.id, [3, 2, 1, 0].map((v) => [String(v), v + " " + B.COTATION_MANIP[v]]))}</td>`).join("")}</tr>`).join("");
+    $("#manip").innerHTML = blocRealise("manip", "Exner et Benbow : manipulations dans la main", "manip",
+      `<p class="note">Cotation : 3 fonctionnel, 2 avec lenteur ou compensation, 1 en partie, 0 non fonctionnel.</p>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Manipulation</th><th scope="col">Main droite</th><th scope="col">Main gauche</th></tr></thead><tbody>${lignes}</tbody></table></div>
+      ${champZone("Observations", "manip.notes")}`);
+  }
+
+  function construireAuto() {
+    const n = reglages.autoQuestions.length;
+    let h = `<p class="note">Libellés des questions et nom du questionnaire : onglet Réglages.</p>`;
+    for (let i = 1; i <= n; i++) {
+      h += `<div class="item-grille"><span class="item-label" id="lq-${i}">${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>
+        ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e]))}</div>`;
+    }
+    $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h + champZone("Synthèse de l'auto-évaluation", "auto.notes"));
+  }
+
+  let signaturePreco = "";
+  function majPreconisations() {
+    const liste = B.proposerPreconisations(dossier, reglages);
+    const sig = JSON.stringify(liste.map((p) => [p.id, p.raison, p.choisie]));
+    if (sig === signaturePreco) return;
+    signaturePreco = sig;
+    $("#preconisations").innerHTML = B.CATEGORIES_PRECO.map((cat) => {
+      const items = liste.filter((p) => p.cat === cat.id).sort((x, y) => (y.raison ? 1 : 0) - (x.raison ? 1 : 0));
+      return `<div class="preco-cat"><h3>${esc(cat.titre)}</h3>${items.map((p) =>
+        `<label class="preco${p.raison ? " proposee" : ""}"><input type="checkbox" value="${p.id}" data-liste="amenagements"${p.choisie ? " checked" : ""}>
+          <span class="preco-texte"><span class="preco-label">${esc(p.label)}</span>${p.raison ? `<span class="preco-raison">Proposé : ${esc(p.raison)}</span>` : ""}</span></label>`).join("")}</div>`;
     }).join("");
   }
 
@@ -282,6 +450,11 @@
     $$("[data-reg]").forEach((el) => { const [a, b] = el.dataset.reg.split("."); el.value = reglages[a][b] || ""; });
     $$("[data-reg-num]").forEach((el) => { el.value = B.formaterNombre(reglages[el.dataset.regNum]); el.removeAttribute("aria-invalid"); });
     $$("[data-reg-bool]").forEach((el) => { el.checked = !!reglages[el.dataset.regBool]; });
+    $$("[data-reg-texte]").forEach((el) => { el.value = reglages[el.dataset.regTexte] || ""; });
+    $("#questions-auto").innerHTML = reglages.autoQuestions.map((q, i) =>
+      `<label class="champ"><span>Question ${i + 1}</span><input type="text" data-reg-question="${i}" value="${esc(q)}"></label>`).join("") +
+      `<div class="barre-actions"><button type="button" class="bouton bouton-second" data-action="ajouter-question">Ajouter une question</button>` +
+      (reglages.autoQuestions.length > 1 ? `<button type="button" class="bouton-lien" data-action="retirer-question">Retirer la dernière question</button>` : "") + `</div>`;
     construirePraticiens();
     construireNormes();
     $("#note-brouillon").textContent = reglages.brouillon
@@ -305,6 +478,15 @@
       const essai = Object.assign({}, reglages, { [k]: v });
       const ok = v !== null && v > 0 && essai.seuilPatho >= essai.seuilInferieur;
       if (ok) { reglages[k] = v; el.removeAttribute("aria-invalid"); } else el.setAttribute("aria-invalid", "true");
+    } else if (el.dataset.regTexte) {
+      reglages[el.dataset.regTexte] = el.value;
+      const titre = $("#bloc-auto legend span");
+      if (titre) titre.textContent = el.value || "Questionnaire d'auto-évaluation";
+    } else if (el.dataset.regQuestion !== undefined) {
+      const i = Number(el.dataset.regQuestion);
+      reglages.autoQuestions[i] = el.value;
+      const lab = $("#lq-" + (i + 1));
+      if (lab) lab.textContent = el.value || "Question " + (i + 1);
     } else if (el.dataset.regBool) {
       reglages[el.dataset.regBool] = el.checked;
       if (el.dataset.regBool === "brouillon") {
@@ -333,7 +515,48 @@
     });
     $$("[data-grille]").forEach((el) => { el.checked = dossier.grille[el.dataset.grille] === el.value; });
     $$("[data-grille-note]").forEach((el) => { el.value = dossier.grilleNotes[el.dataset.grilleNote] || ""; });
+    $$("[data-chemin]").forEach((el) => {
+      const v = lireChemin(dossier, el.dataset.chemin);
+      const t = v === undefined || v === null ? "" : String(v);
+      if (el.type === "radio") el.checked = t !== "" && el.value === t;
+      else if (el.type === "checkbox") el.checked = t === "oui";
+      else el.value = t;
+      if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
+    });
     construireTests();
+    majPhoto();
+  }
+
+  function majPhoto() {
+    const img = $("#apercu-photo");
+    img.hidden = !dossier.photoCopie;
+    if (dossier.photoCopie) img.src = dossier.photoCopie; else img.removeAttribute("src");
+    $$("[data-action='retirer-photo']").forEach((b) => { b.hidden = !dossier.photoCopie; });
+  }
+
+  // Réduit la photo (1600 px au plus, JPEG) pour garder des dossiers légers.
+  function chargerPhoto(fichier) {
+    return new Promise((ok, ko) => {
+      const lecteur = new FileReader();
+      lecteur.onerror = () => ko(new Error("La photo n'a pas pu être lue."));
+      lecteur.onload = () => {
+        const img = new Image();
+        img.onerror = () => ko(new Error("Ce fichier n'est pas une image lisible."));
+        img.onload = () => {
+          const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+          const l = Math.round(img.width * k), h = Math.round(img.height * k);
+          const canvas = document.createElement("canvas");
+          canvas.width = l; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, l, h);
+          ctx.drawImage(img, 0, 0, l, h);
+          ok({ donnees: canvas.toDataURL("image/jpeg", 0.82), l: l, h: h });
+        };
+        img.src = lecteur.result;
+      };
+      lecteur.readAsDataURL(fichier);
+    });
   }
 
   function surSaisie(e) {
@@ -341,7 +564,12 @@
     if (!el.dataset) return;
     if (el.closest("#p-reglages")) { surSaisieReglages(e); return; }
 
-    if (el.dataset.champ) {
+    if (el.dataset.chemin) {
+      if (el.type === "radio" && !el.checked) return;
+      if (el.tagName === "SELECT" && el.value === "" && el.dataset.chemin.indexOf("manip.") === 0) effacerChemin(dossier, el.dataset.chemin);
+      else ecrireChemin(dossier, el.dataset.chemin, el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value);
+      if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
+    } else if (el.dataset.champ) {
       if (el.type === "radio" && !el.checked) return;
       dossier[el.dataset.champ] = el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value;
     } else if (el.dataset.liste) {
@@ -392,6 +620,9 @@
     if (el.dataset.grille && dossier.grille[el.dataset.grille] === el.value) {
       el.checked = false;
       delete dossier.grille[el.dataset.grille];
+    } else if (el.dataset.chemin && String(lireChemin(dossier, el.dataset.chemin)) === el.value) {
+      el.checked = false;
+      effacerChemin(dossier, el.dataset.chemin);
     } else if (el.dataset.champ && RADIOS_EFFACABLES.indexOf(el.dataset.champ) >= 0 && dossier[el.dataset.champ] === el.value) {
       el.checked = false;
       dossier[el.dataset.champ] = "";
@@ -498,6 +729,29 @@
       o.textContent = l.ds === null ? (l.remplie ? "DS non calculable" : "") : "DS " + B.formaterDS(l.ds) + " : " + B.APPRECIATIONS[l.niveau];
     }));
 
+    // DS par critère
+    B.CRITERES.forEach((c, i) => {
+      const o = $("#dsc-" + c.id);
+      if (!o) return;
+      const k = r.criteres[i];
+      o.className = "ds-critere" + (k.niveau ? " niveau-" + k.niveau : "");
+      o.textContent = k.ds === null ? "" : "DS " + B.formaterDS(k.ds);
+    });
+
+    // Bilan sensoriel : graphiques et pourcentages ESO
+    ["otipis", "dunn-enfant", "dunn-scolaire", "eso-roues", "eso-systemes"].forEach((id) => {
+      const zone = $("#g-" + id);
+      if (!zone) return;
+      const g = window.Graph.graphique(id, dossier.senso);
+      zone.hidden = !g;
+      zone.innerHTML = g ? g.svg : "";
+    });
+    S.systemesEso(S.normaliser(dossier.senso).eso).forEach((sy) => {
+      const o = $("#eso-pct-" + sy.id);
+      if (o) o.textContent = sy.pourcentage === null ? "" : Math.round(sy.pourcentage) + " %";
+    });
+    majPreconisations();
+
     // Compte rendu
     genere = B.rediger(dossier, reglages);
     B.SECTIONS.forEach((s) => {
@@ -544,6 +798,10 @@
       else if (b.type === "p") h += `<p${b.petit ? ' class="petit"' : ""}>${htmlRuns(b.runs)}</p>`;
       else if (b.type === "puces") h += `<ul>${b.items.map((it) => `<li>${htmlRuns(it)}</li>`).join("")}</ul>`;
       else if (b.type === "signature") h += `<p class="doc-signature">${esc(b.texte)}</p>`;
+      else if (b.type === "graphique") {
+        const g = window.Graph.graphique(b.id, dossier.senso);
+        if (g) h += `<figure class="doc-figure">${g.svg}<figcaption>${esc(b.alt)}</figcaption></figure>`;
+      } else if (b.type === "photo") h += `<figure class="doc-figure"><img src="${esc(b.donnees)}" alt="${esc(b.alt)}"><figcaption>${esc(b.alt)}</figcaption></figure>`;
       else if (b.type === "tableau") {
         h += `<table class="doc-table${b.petit ? " petit" : ""}"><colgroup>${b.largeurs.map((w) => `<col style="width:${(w * 100).toFixed(1)}%">`).join("")}</colgroup>`;
         h += b.lignes.map((l) => `<tr>${l.cellules.map((c) => {
@@ -779,6 +1037,19 @@
         sauverReglages(); construirePraticiens();
         $$("#praticiens .praticien").pop().querySelector("input").focus();
         return;
+      case "ajouter-question":
+        reglages.autoQuestions.push("");
+        sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
+        $$("[data-reg-question]").pop().focus();
+        return;
+      case "retirer-question":
+        reglages.autoQuestions.pop();
+        sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
+        return;
+      case "retirer-photo":
+        dossier.photoCopie = ""; dossier.photoL = ""; dossier.photoH = "";
+        majPhoto(); nonEnregistre = true; majTout();
+        return;
       case "exporter-reglages":
         return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
     }
@@ -793,6 +1064,14 @@
       if (!nonEnregistre) suite();
       else demander("Le dossier en cours n'est pas enregistré. Ouvrir l'autre dossier quand même ?", "Ouvrir le dossier")
         .then((ok) => { if (ok) suite(); else champ.value = ""; });
+    } else if (action === "photo") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return true;
+      chargerPhoto(f).then((p) => {
+        dossier.photoCopie = p.donnees; dossier.photoL = String(p.l); dossier.photoH = String(p.h);
+        majPhoto(); nonEnregistre = true; majTout();
+        annoncer("Photo ajoutée");
+      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "importer-normes") {
       lireFichier(e.target).then((obj) => {
         const n = obj && obj.qualite ? obj : obj && obj.normes ? obj.normes : null;
@@ -805,7 +1084,7 @@
       lireFichier(e.target).then((obj) => {
         if (!obj || obj.type !== "bhk-reglages") throw new Error("Ce fichier ne contient pas de réglages.");
         reglages = B.normaliserReglages(obj);
-        sauverReglages(); remplirReglages(); majTout();
+        sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
         annoncer("Réglages importés");
       }).catch((err) => annoncer(err.message));
     } else return false;
@@ -820,8 +1099,11 @@
     construireGrille();
     construireCriteres();
     construireSections();
+    construireSenso();
+    construireManip();
     initOnglets();
     remplirReglages();
+    construireAuto();
     if (dansClaude) $$("[data-action='imprimer']").forEach((b) => { b.hidden = true; });
 
     const brouillon = reglages.brouillon ? lireStockage(CLE_BROUILLON) : null;

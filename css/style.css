@@ -305,6 +305,53 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .ds-ligne.niveau-superieur { color: var(--encre); }
 .test-corps .bouton { margin: .8rem 0 .2rem; }
 
+/* ---------- Bilan sensoriel ---------- */
+.sous-groupe { font-size: .95rem; color: var(--gris); margin: 1.1rem 0 .2rem; }
+.item-otipis {
+  display: grid; gap: 4px 12px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--seyes-fin);
+}
+@media (min-width: 620px) { .item-otipis { grid-template-columns: 1fr auto 180px; } }
+.item-otipis .code { font-weight: 700; margin-right: 4px; }
+.item-otipis .choix span { min-width: 44px; text-align: center; }
+.item-otipis .remarque { min-height: 40px; padding: 6px 10px; font-size: .92rem; }
+.ligne-dunn {
+  display: grid; grid-template-columns: 1fr 84px; gap: 6px 10px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--seyes-fin);
+}
+.ligne-dunn select { grid-column: 1 / -1; }
+@media (min-width: 620px) { .ligne-dunn { grid-template-columns: 1fr 90px 260px; } .ligne-dunn select { grid-column: auto; } }
+.table-saisie { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.table-saisie th, .table-saisie td { padding: 4px; border-bottom: 1px solid var(--seyes-fin); text-align: left; }
+.table-saisie thead th { font-size: .85rem; color: var(--gris); }
+.table-saisie tbody th { font-weight: 400; font-size: .92rem; white-space: nowrap; padding-right: 10px; }
+.table-saisie input { min-width: 58px; min-height: 40px; padding: 6px 8px; text-align: center; }
+.table-saisie select { min-width: 150px; min-height: 40px; padding: 6px 8px; }
+.table-saisie output { font-weight: 700; color: var(--encre); white-space: nowrap; }
+.priorite { padding: 6px 0 10px; border-bottom: 1px solid var(--seyes-fin); }
+.graphique {
+  margin: 1rem 0; padding: 8px; border-radius: var(--rayon);
+  background: #fff; border: 1px solid var(--seyes-fin); overflow-x: auto;
+}
+.graphique svg { display: block; width: 100%; height: auto; max-width: 720px; margin: 0 auto; }
+.ds-critere { display: block; margin: 4px 0 0 38px; font-size: .88rem; font-weight: 700; }
+.critere-global .ds-critere { margin-left: 10px; display: inline; }
+.ds-critere.niveau-patho { color: var(--marge); }
+.ds-critere.niveau-inferieur { color: var(--ambre); }
+.ds-critere.niveau-moyenne { color: var(--vert); }
+.ds-critere.niveau-superieur { color: var(--encre); }
+.apercu-photo { display: block; max-width: 100%; max-height: 360px; margin: .6rem 0; border: 1px solid var(--seyes); border-radius: var(--rayon); }
+
+/* ---------- Préconisations proposées ---------- */
+.preco-cat h3 { font-size: .98rem; color: var(--encre); margin: 1rem 0 .4rem; }
+.preco { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 0 0 6px; border: 1px solid var(--seyes-fin); border-radius: var(--rayon); cursor: pointer; }
+.preco input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--encre); flex: 0 0 auto; }
+.preco.proposee { border-color: var(--encre); }
+.preco-texte { display: flex; flex-direction: column; min-width: 0; }
+.preco-label { font-weight: 700; }
+.preco-raison { font-size: .88rem; color: var(--encre); }
+.preco:has(input:checked) { background: var(--encre-claire); }
+
 /* ---------- Compte rendu ---------- */
 .section-cr { margin: 1rem 0; }
 .section-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -400,6 +447,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .doc-table .fond-niveau-inferieur { background: #fce5cd; }
 .doc-table .fond-niveau-moyenne { background: #ddebd7; }
 .doc-table .fond-niveau-superieur { background: #d5e4f2; }
+.doc-figure { margin: 8pt 0 10pt; text-align: center; }
+.doc-figure svg, .doc-figure img { display: block; width: 100%; max-width: 15cm; height: auto; margin: 0 auto; }
+.doc-figure figcaption { font-size: 9pt; font-style: italic; color: #4a5568; margin-top: 3pt; }
 .impression { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .statut { transition: none; } }

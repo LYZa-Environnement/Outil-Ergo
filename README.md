@@ -1,8 +1,10 @@
-# Outil Ergo : bilan d'écriture
+# Outil Ergo
 
-Page web pour saisir un bilan d'écriture en ergothérapie, coter le **BHK enfant** et produire le compte rendu en **Word (.docx)**, sur le modèle des comptes rendus du cabinet.
+Page web pour saisir un bilan en ergothérapie (écriture et bilan sensoriel), coter le **BHK enfant**, rédiger un **diagnostic ergothérapique** avec des préconisations argumentées et produire le compte rendu en **Word (.docx)**, sur le modèle des comptes rendus du cabinet.
 
 Tout se passe dans le navigateur : aucune donnée n'est envoyée en ligne.
+
+En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io/Outil-Ergo/
 
 ## Utilisation
 
@@ -17,10 +19,21 @@ Tout se passe dans le navigateur : aucune donnée n'est envoyée en ligne.
 | --- | --- |
 | Dossier | Identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés |
 | Anamnèse | Développement, environnement, occupations à la maison et à l'école (vide = « RAS ») |
-| Écriture | Grille d'observation de l'écriture manuscrite : posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité ; environnement |
-| BHK | Normes (classe ou âge, selon le sexe ou ensemble), cotation ligne par ligne, vitesse, résultats, observations pendant la copie, douleur (EVA) |
-| Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS : scores saisis selon leur type, DS et appréciation calculées |
-| Compte rendu | Conclusion, préconisations, texte modifiable section par section, téléchargement Word, aperçu, impression ou PDF |
+| Écriture | Questionnaire d'auto-évaluation ; grille d'observation de l'écriture manuscrite : posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité ; environnement |
+| BHK | Normes (classe ou âge, selon le sexe ou ensemble), cotation ligne par ligne, DS par critère, vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
+| Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir |
+| Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) |
+| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, texte modifiable section par section, téléchargement Word avec graphiques, aperçu |
+
+### Diagnostic et préconisations
+
+Le diagnostic regroupe les constats du bilan sur le plan de la personne, de l'environnement et des occupations, puis formule l'énoncé : « X présente des difficultés dans [occupations], en lien avec [facteurs] », suivi des points d'appui.
+
+L'outil propose les préconisations justifiées par les résultats (par exemple un tiers-temps quand la vitesse du BHK est inférieure à la moyenne). L'ergothérapeute coche celles qu'elle retient ; le compte rendu indique pour chacune le constat qui la justifie.
+
+### Questionnaires protégés
+
+Les questions du Profil sensoriel 2, de l'ESO, du SensOT-dir et des questionnaires d'auto-évaluation ne sont pas reproduites. L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
 
 4. **Enregistrer le dossier** télécharge un fichier `.json` qu'on rouvre avec **Ouvrir un dossier**. Un brouillon du dossier en cours reste aussi dans le navigateur jusqu'à « Nouveau dossier » (désactivable dans les réglages, à faire sur un ordinateur partagé).
 
@@ -56,7 +69,9 @@ Les normes du BHK viennent du manuel édité par les Éditions et Applications P
 }
 ```
 
-Chaque valeur est `[moyenne, écart-type]` ; `F` filles, `M` garçons, `E` ensemble. Les nombres ci-dessus sont fictifs.
+Chaque valeur est `[moyenne, écart-type]` ; `F` filles, `M` garçons, `E` ensemble. Les nombres ci-dessus sont fictifs. Une clé facultative `criteres` donne, pour chaque critère de 1 à 13 et chaque classe, les normes du critère : elle sert au DS par critère.
+
+Dans les tableaux du manuel par critère, quelques valeurs sont incohérentes (par exemple un écart-type de 0,01 pour le critère 1 des filles de CE2, ou une moyenne de l'ensemble qui ne correspond pas à celles des filles et des garçons pour le critère 9 en CM1 et CM2). L'outil les reprend telles quelles et affiche « < −5 » quand le DS dépasse cette valeur.
 
 ## Données personnelles
 
@@ -67,11 +82,13 @@ Le fichier `.gitignore` empêche d'ajouter au dépôt les dossiers, comptes rend
 Aucune dépendance. Le fichier Word est écrit directement (archive ZIP de XML) par `js/docx.js`.
 
 ```
-index.html      page
-css/style.css   mise en forme (cahier Seyès, thème sombre)
-js/bhk.js       référentiel, calculs, rédaction, modèle du document
-js/docx.js      génération du .docx
-js/app.js       interface
+index.html        page
+css/style.css     mise en forme (cahier Seyès, thème sombre)
+js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
+js/graphiques.js  profils en SVG (OTIPIS, Dunn 2, ESO)
+js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document
+js/docx.js        génération du .docx (texte, tableaux, images)
+js/app.js         interface
 tests/          tests (node --test)
 ```
 

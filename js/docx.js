@@ -167,10 +167,56 @@
     return xml + "</w:tbl>";
   }
 
+  function depuisDataUrl(url) {
+    const m = /^data:image\/(png|jpe?g);base64,(.+)$/.exec(String(url || ""));
+    if (!m) return null;
+    const bin = typeof atob === "function" ? atob(m[2]) : Buffer.from(m[2], "base64").toString("binary");
+    const o = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i);
+    return { octets: o, ext: m[1] === "png" ? "png" : "jpeg" };
+  }
+
+  // Prépare les images (graphiques déjà convertis en PNG, photo en data URL) et leur place dans le document.
+  function preparerImages(modele) {
+    const images = [];
+    modele.blocs.forEach((b) => {
+      let src = null;
+      if (b.type === "graphique" && b.png) src = { octets: b.png, ext: "png" };
+      if (b.type === "photo") src = depuisDataUrl(b.donnees);
+      if (!src || !b.l || !b.h) return;
+      const n = images.length + 1;
+      const cx = Math.round((b.largeurCm || 14) * 360000);
+      const cy = Math.round((cx * b.h) / b.l);
+      const maxCy = Math.round(22 * 360000);
+      const k = cy > maxCy ? maxCy / cy : 1;
+      b._image = { n: n, rid: "rIdImage" + n, nom: "image" + n + "." + (src.ext === "png" ? "png" : "jpeg"), cx: Math.round(cx * k), cy: Math.round(cy * k) };
+      images.push({ nom: "word/media/" + b._image.nom, donnees: src.octets });
+    });
+    return images;
+  }
+
+  function paraImage(b) {
+    const im = b._image;
+    return '<w:p><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="40"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing>' +
+      '<wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="' + im.cx + '" cy="' + im.cy + '"/>' +
+      '<wp:docPr id="' + im.n + '" name="Image ' + im.n + '" descr="' + x(b.alt || "") + '"/>' +
+      '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+      '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
+      '<pic:nvPicPr><pic:cNvPr id="' + im.n + '" name="' + im.nom + '"/><pic:cNvPicPr/></pic:nvPicPr>' +
+      '<pic:blipFill><a:blip r:embed="' + im.rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+      '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + im.cx + '" cy="' + im.cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>' +
+      "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>" +
+      para([{ t: b.alt || "", i: true }], { align: "center", espace: [0, 160], base: { taille: 17, couleur: "4A5568" } });
+  }
+
   function corps(modele) {
     let xml = "";
     modele.blocs.forEach((b) => {
       switch (b.type) {
+        case "graphique":
+        case "photo":
+          if (b._image) xml += paraImage(b);
+          break;
         case "titre":
           xml += para([{ t: b.texte.toUpperCase() }], { style: "Titre" });
           break;
@@ -257,7 +303,11 @@
   }
 
   function construire(modele) {
-    const doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ' + NS + "><w:body>" + corps(modele) +
+    const images = preparerImages(modele);
+    const NS_DOC = NS + ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
+    const relsImages = modele.blocs.filter((b) => b._image).map((b) =>
+      '<Relationship Id="' + b._image.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + b._image.nom + '"/>').join("");
+    const doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ' + NS_DOC + "><w:body>" + corps(modele) +
       '<w:sectPr><w:headerReference w:type="default" r:id="rIdEntete"/><w:footerReference w:type="default" r:id="rIdPied"/>' +
       '<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1134" w:bottom="1418" w:left="1134" w:header="510" w:footer="454" w:gutter="0"/></w:sectPr>' +
       "</w:body></w:document>";
@@ -265,6 +315,7 @@
     return zip([
       { nom: "[Content_Types].xml", donnees: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
         '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+        '<Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/>' +
         '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
         '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
         '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
@@ -283,7 +334,7 @@
         '<Relationship Id="rIdNum" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
         '<Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>' +
         '<Relationship Id="rIdEntete" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>' +
-        '<Relationship Id="rIdPied" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>' },
+        '<Relationship Id="rIdPied" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>' + relsImages + "</Relationships>" },
       { nom: "word/document.xml", donnees: doc },
       { nom: "word/styles.xml", donnees: styles() },
       { nom: "word/numbering.xml", donnees: numerotation() },
@@ -291,7 +342,7 @@
         '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>' },
       { nom: "word/header1.xml", donnees: entete(modele) },
       { nom: "word/footer1.xml", donnees: pied(modele) },
-    ]);
+    ].concat(images));
   }
 
   return { construire: construire, zip: zip, crc32: crc32 };

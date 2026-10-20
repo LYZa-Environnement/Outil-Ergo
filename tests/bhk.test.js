@@ -103,10 +103,76 @@ test("rédaction : accords, BHK, conclusion, préconisations", () => {
   assert.match(t.observation, /Geste graphique : sens de tracé partiellement respecté\./);
   assert.match(t.complementaires, /Coordination œil-main : note standard 5, DS −1,67, très inférieur à la moyenne, pathologique\./);
   assert.match(t.conclusion, /^Léa est une enfant de 8 ans et 7 mois, scolarisée en CE2\./);
+  assert.match(t.conclusion, /Sur le plan de la personne :\n/);
   assert.match(t.conclusion, /une lenteur d'écriture marquée \(BHK : DS −1,50\)/);
-  assert.match(t.conclusion, /Points d'appui : volontaire et attentive\./);
-  assert.match(t.preconisations, /aménagements scolaires soient mis en place \(PAP\) :\n– Accorder un tiers-temps/);
+  assert.match(t.conclusion, /des difficultés visuo-perceptives et visuo-motrices \(DTVP-3 : coordination œil-main DS −1,67\)/);
+  assert.match(t.conclusion, /Diagnostic ergothérapique : Léa présente des difficultés \[occupations à préciser\], en lien avec une lenteur d'écriture/);
+  assert.match(t.conclusion, /Points d'appui : volontaire et attentive ; une bonne prise d'informations visuelles en copie\./);
+  assert.match(t.preconisations, /Aménagements scolaires à formaliser dans un PAP :\n– Accorder un tiers-temps .* \(en lien avec la lenteur d'écriture, BHK : DS −1,50\)\./);
   assert.match(t.salutations, /scolarisation de Léa/);
+});
+
+test("préconisations proposées d'après les résultats", () => {
+  const p = B.proposerPreconisations(dossierTest({ douleurEva: "4" }), reglagesTest());
+  const temps = p.find((x) => x.id === "temps");
+  assert.match(temps.raison, /lenteur d'écriture \(BHK : DS −1,50\)/);
+  assert.match(p.find((x) => x.id === "outil").raison, /EVA 4\/10/);
+  assert.equal(p.find((x) => x.id === "casque").raison, "");
+});
+
+test("DS par critère avec les normes de chaque critère", () => {
+  const reg = reglagesTest();
+  reg.normes = B.normaliserNormes(Object.assign({}, reg.normes, { criteres: { 3: { CE2: { F: [2, 1], M: [2.5, 1], E: [2.2, 1] } } } }));
+  const r = B.calculerBHK(dossierTest(), reg);
+  assert.equal(r.criteres[2].ds, -2); // 4 lignes non planes, moyenne 2, ET 1, signe inversé
+  assert.equal(r.criteres[2].niveau, "patho");
+  const t = B.rediger(dossierTest(), reg);
+  assert.match(t.bhk, /des lignes non planes \(4 lignes sur 5, DS −2,00\)/);
+  assert.match(t.bhk, /le critère le plus atypique est lignes non planes \(DS −2,00\)/);
+  assert.equal(B.formaterDS(-12), "< −5");
+});
+
+test("bilan sensoriel : OTIPIS, Dunn 2, SensOT-dir, et diagnostic", () => {
+  const d = B.dossierVide();
+  Object.assign(d, { prenom: "Tom", sexe: "M", occDifficultes: ["repas"] });
+  d.senso.otipis.fait = "oui";
+  Object.assign(d.senso.otipis.scores, { 1: 3, 3: 1, 6: 2, 17: 3, 13: 2 });
+  d.senso.dunnEnfant.fait = "oui";
+  d.senso.dunnEnfant.lignes = { recherche: { brut: "60", classe: "bp" }, evitement: { brut: "", classe: "c" } };
+  d.senso.sensot.fait = "oui";
+  d.senso.sensot.themes = { auditif: { gene: "3", neutre: "", plaisir: "" } };
+  d.senso.sensot.priorites = [{ situation: "Le bruit de la cantine", theme: "auditif", contexte: "École", frequence: "souvent", intensite: "4", ressenti: "", objectif: "" }];
+  const t = B.rediger(d, B.reglagesParDefaut());
+  assert.equal(t.bhk, ""); // bilan seulement sensoriel : pas de section BHK
+  assert.match(t.otipis, /Modulation sensorielle : 1 item adapté sur 3 ; difficultés marquées en réactions aux stimuli auditifs ; quelques difficultés en niveau d'activité\./);
+  assert.match(t.dunn, /recherche beaucoup plus que les autres \(60\)/);
+  assert.match(t.dunn, /une recherche de stimulations sensorielles beaucoup plus marquée que chez la plupart des enfants/);
+  assert.match(t.sensot, /Le bruit de la cantine \(auditif, école\) : gêne souvent, intensité 4\/5\./);
+  assert.match(t.conclusion, /Tom présente des difficultés dans les repas, en lien avec des difficultés de modulation sensorielle/);
+  assert.match(t.preconisations, /Diminuer la gêne ressentie dans la situation : le bruit de la cantine\./);
+  const p = B.proposerPreconisations(d, B.reglagesParDefaut());
+  assert.match(p.find((x) => x.id === "casque").raison, /stimuli auditifs \(OTIPIS\)/);
+  const m = B.modeleDocument(d, B.reglagesParDefaut());
+  const titres = m.blocs.filter((b) => b.type === "h").map((b) => b.texte);
+  assert.ok(titres.indexOf("Bilan sensoriel") >= 0);
+  assert.ok(titres.indexOf("Écriture") < 0);
+  assert.ok(m.blocs.some((b) => b.type === "graphique" && b.id === "otipis"));
+});
+
+test("Exner et Benbow, auto-évaluation", () => {
+  const d = dossierTest();
+  d.manip = { fait: "oui", md: { "rotation-complexe": 3 }, mg: { "rotation-complexe": 1 }, notes: "" };
+  d.auto = { fait: "oui", reponses: { 1: 4, 2: 0, 3: 3 }, notes: "" };
+  const reg = reglagesTest();
+  reg.autoQuestions[0] = "Question saisie par l'ergo";
+  const t = B.rediger(d, reg);
+  assert.match(t.complementaires, /Rotation complexe : main droite 3 \(fonctionnel\), main gauche 1 \(en partie\)\./);
+  assert.match(t.conclusion, /manipulations dans la main peu fonctionnelles/);
+  assert.match(t.autoeval, /difficulté fréquente \(souvent ou toujours\) pour 2 questions sur 3/);
+  const m = B.modeleDocument(d, reg);
+  const tab = m.blocs.find((b) => b.type === "tableau" && b.lignes[0].cellules[0].runs[0].t === "Question");
+  assert.equal(tab.lignes[1].cellules[0].runs[0].t, "Question saisie par l'ergo");
+  assert.equal(tab.lignes[1].cellules[5].runs[0].t, "X");
 });
 
 test("rédaction d'un dossier vide sans erreur", () => {
