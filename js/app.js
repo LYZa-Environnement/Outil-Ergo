@@ -57,8 +57,28 @@
     return [prefixe, slug(dossier.nom).toUpperCase(), slug(dossier.prenom), dossier.passation].filter(Boolean).join("_") + "." + ext;
   }
 
-  function telecharger(nom, contenu, type) {
-    const url = URL.createObjectURL(new Blob([contenu], { type: type }));
+  // Dans une page partagée sur claude.ai, les fichiers passent par la capacité « downloads » ;
+  // ailleurs (fichier ouvert directement, GitHub Pages), par un lien de téléchargement classique.
+  const dansClaude = typeof window.claude === "object" && window.claude !== null && typeof window.claude.use === "function";
+  const capaciteTelechargement = dansClaude ? window.claude.use("downloads").catch(() => null) : Promise.resolve(null);
+
+  async function telecharger(nom, contenu, type, annonce) {
+    const blob = new Blob([contenu], { type: type });
+    const cap = await capaciteTelechargement;
+    if (cap) {
+      try {
+        await cap.save({ filename: nom, data: blob });
+        if (annonce) annoncer(annonce);
+        return true;
+      } catch (e) {
+        if (e && e.code === "declined") annoncer("Téléchargement annulé");
+        else if (e && e.code === "rate_limited") annoncer("Un téléchargement est déjà en attente de confirmation.");
+        else annoncer("Le téléchargement n'est pas disponible ici" + (e && e.message ? " : " + e.message : "."));
+        return false;
+      }
+    }
+    if (dansClaude) { annoncer("Le téléchargement n'est pas disponible dans cette vue."); return false; }
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = nom;
@@ -66,6 +86,38 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (annonce) annoncer(annonce);
+    return true;
+  }
+
+  // Confirmation dans la page (les fenêtres confirm() ne s'affichent pas dans une page partagée).
+  function demander(message, libelleOui) {
+    return new Promise((resoudre) => {
+      const precedent = document.activeElement;
+      const fond = document.createElement("div");
+      fond.className = "demande";
+      fond.setAttribute("role", "alertdialog");
+      fond.setAttribute("aria-modal", "true");
+      fond.setAttribute("aria-labelledby", "demande-texte");
+      fond.innerHTML = `<div class="demande-boite"><p id="demande-texte">${esc(message)}</p>
+        <div class="barre-actions"><button type="button" class="bouton" data-reponse="oui">${esc(libelleOui || "Confirmer")}</button>
+        <button type="button" class="bouton bouton-second" data-reponse="non">Annuler</button></div></div>`;
+      const fin = (v) => {
+        fond.remove();
+        document.removeEventListener("keydown", clavier, true);
+        if (precedent && precedent.focus) precedent.focus();
+        resoudre(v);
+      };
+      const clavier = (e) => { if (e.key === "Escape") { e.stopPropagation(); fin(false); } };
+      fond.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-reponse]");
+        if (b) fin(b.dataset.reponse === "oui");
+        else if (e.target === fond) fin(false);
+      });
+      document.addEventListener("keydown", clavier, true);
+      document.body.appendChild(fond);
+      fond.querySelector("[data-reponse='oui']").focus();
+    });
   }
 
   function lireFichier(input) {
@@ -520,14 +572,53 @@
 
   function modele() { return B.modeleDocument(dossier, reglages, textes()); }
 
-  function word() {
+  // Convertit un graphique SVG en image PNG (pour le fichier Word).
+  function svgVersPng(svg, l, h) {
+    return new Promise((ok, ko) => {
+      const img = new Image();
+      img.onload = () => {
+        const echelle = 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = l * echelle;
+        canvas.height = h * echelle;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (!blob) return ko(new Error("image non créée"));
+          blob.arrayBuffer().then((buf) => ok(new Uint8Array(buf)), ko);
+        }, "image/png");
+      };
+      img.onerror = () => ko(new Error("graphique illisible"));
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    });
+  }
+
+  async function modeleAvecImages() {
+    const m = modele();
+    for (const b of m.blocs) {
+      if (b.type !== "graphique" || !window.Graph) continue;
+      const g = window.Graph.graphique(b.id, dossier.senso);
+      if (!g) continue;
+      try {
+        b.png = await svgVersPng(g.svg, g.l, g.h);
+        b.l = g.l;
+        b.h = g.h;
+      } catch (e) { /* le graphique est omis du Word */ }
+    }
+    return m;
+  }
+
+  async function word() {
+    let octets;
     try {
-      const octets = W.construire(modele());
-      telecharger(nomFichier("Bilan_ergo", "docx"), octets, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      annoncer("Word téléchargé");
+      octets = W.construire(await modeleAvecImages());
     } catch (e) {
       annoncer("Le fichier Word n'a pas pu être créé : " + e.message);
+      return;
     }
+    await telecharger(nomFichier("Bilan_ergo", "docx"), octets, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Word téléchargé");
   }
 
   function apercu() {
@@ -564,9 +655,8 @@
 
   function enregistrer() {
     const donnees = { type: "bilan-ergo-dossier", version: 2, enregistreLe: new Date().toISOString(), dossier: dossier, compteRendu: cr };
-    telecharger(nomFichier("Dossier", "json"), JSON.stringify(donnees, null, 2), "application/json");
-    nonEnregistre = false;
-    annoncer("Dossier enregistré");
+    telecharger(nomFichier("Dossier", "json"), JSON.stringify(donnees, null, 2), "application/json", "Dossier enregistré")
+      .then((ok) => { if (ok) nonEnregistre = false; });
   }
 
   function charger(obj) {
@@ -589,8 +679,8 @@
     annoncer("Dossier ouvert");
   }
 
-  function nouveau() {
-    if (nonEnregistre && !confirm("Le dossier en cours n'est pas enregistré. Commencer un nouveau dossier ?")) return;
+  async function nouveau() {
+    if (nonEnregistre && !(await demander("Le dossier en cours n'est pas enregistré. Commencer un nouveau dossier ?", "Commencer un nouveau dossier"))) return;
     ecrireStockage(CLE_BROUILLON, null);
     charger({ dossier: B.dossierVide() });
     nonEnregistre = false;
@@ -660,10 +750,12 @@
     }
     if (el.dataset.supprPraticien !== undefined) {
       const i = Number(el.dataset.supprPraticien);
-      if (!confirm("Retirer ce praticien des réglages ?")) return;
-      reglages.praticiens.splice(i, 1);
-      if (reglages.signataire >= reglages.praticiens.length) reglages.signataire = 0;
-      sauverReglages(); construirePraticiens(); majTout();
+      demander("Retirer ce praticien des réglages ?", "Retirer").then((ok) => {
+        if (!ok) return;
+        reglages.praticiens.splice(i, 1);
+        if (reglages.signataire >= reglages.praticiens.length) reglages.signataire = 0;
+        sauverReglages(); construirePraticiens(); majTout();
+      });
       return;
     }
     switch (el.dataset.action) {
@@ -675,9 +767,11 @@
       case "imprimer": $("#impression").innerHTML = htmlModele(modele()); return window.print();
       case "copier": return copier();
       case "effacer-cotation":
-        if (!confirm("Effacer la cotation des 13 critères ?")) return;
-        dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = "";
-        remplirFormulaire(); nonEnregistre = true; majTout();
+        demander("Effacer la cotation des 13 critères ?", "Effacer la cotation").then((ok) => {
+          if (!ok) return;
+          dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = "";
+          remplirFormulaire(); nonEnregistre = true; majTout();
+        });
         return;
       case "ajouter-praticien":
         if (reglages.praticiens.length >= 4) return annoncer("Quatre praticiens au plus dans l'en-tête.");
@@ -686,8 +780,7 @@
         $$("#praticiens .praticien").pop().querySelector("input").focus();
         return;
       case "exporter-reglages":
-        telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json");
-        return annoncer("Réglages exportés");
+        return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
     }
   }
 
@@ -695,8 +788,11 @@
     const action = e.target.dataset && e.target.dataset.action;
     if (!action) return false;
     if (action === "ouvrir") {
-      if (nonEnregistre && !confirm("Le dossier en cours n'est pas enregistré. Ouvrir quand même ?")) { e.target.value = ""; return true; }
-      lireFichier(e.target).then(ouvrir).catch((err) => annoncer(err.message));
+      const champ = e.target;
+      const suite = () => lireFichier(champ).then(ouvrir).catch((err) => annoncer(err.message));
+      if (!nonEnregistre) suite();
+      else demander("Le dossier en cours n'est pas enregistré. Ouvrir l'autre dossier quand même ?", "Ouvrir le dossier")
+        .then((ok) => { if (ok) suite(); else champ.value = ""; });
     } else if (action === "importer-normes") {
       lireFichier(e.target).then((obj) => {
         const n = obj && obj.qualite ? obj : obj && obj.normes ? obj.normes : null;
@@ -719,12 +815,14 @@
   /* ================= Démarrage ================= */
 
   function init() {
+    document.documentElement.lang = "fr";
     construireListes();
     construireGrille();
     construireCriteres();
     construireSections();
     initOnglets();
     remplirReglages();
+    if (dansClaude) $$("[data-action='imprimer']").forEach((b) => { b.hidden = true; });
 
     const brouillon = reglages.brouillon ? lireStockage(CLE_BROUILLON) : null;
     if (brouillon && brouillon.dossier) {
