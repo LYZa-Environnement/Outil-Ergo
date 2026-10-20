@@ -1,0 +1,12 @@
+# Données de patients, comptes rendus, normes du manuel et réglages exportés : jamais dans le dépôt
+Dossier_*.json
+Bilan_ergo_*.docx
+*.docx
+*.doc
+*.pdf
+*.xlsx
+normes*.json
+reglages*.json
+
+.DS_Store
+node_modules/
