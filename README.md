@@ -20,7 +20,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 | Dossier | Identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés |
 | Anamnèse | Développement, environnement, occupations à la maison et à l'école (vide = « RAS ») |
 | Écriture | Questionnaire d'auto-évaluation ; grille d'observation de l'écriture manuscrite : posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité ; environnement |
-| BHK | Normes (classe ou âge, selon le sexe ou ensemble), cotation ligne par ligne, DS par critère, vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
+| BHK | BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie. Normes (classe ou âge, selon le sexe ou ensemble ; pour l'ado, classe ou tous niveaux), cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
 | Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir |
 | Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) |
 | Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, texte modifiable section par section, téléchargement Word avec graphiques, aperçu |
@@ -68,6 +68,8 @@ Les normes du BHK viennent du manuel édité par les Éditions et Applications P
   "vitesse": { "classe": {}, "age": {} }
 }
 ```
+
+Une clé `ado` donne les normes du BHK ado : `ado.vitesse.classe` et `ado.qualite.classe` (de `6e` à `3e`), et `ado.qualite.global` pour la norme de qualité tous niveaux.
 
 Chaque valeur est `[moyenne, écart-type]` ; `F` filles, `M` garçons, `E` ensemble. Les nombres ci-dessus sont fictifs. Une clé facultative `criteres` donne, pour chaque critère de 1 à 13 et chaque classe, les normes du critère : elle sert au DS par critère.
 

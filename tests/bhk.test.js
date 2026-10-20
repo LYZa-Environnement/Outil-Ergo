@@ -175,6 +175,29 @@ test("Exner et Benbow, auto-évaluation", () => {
   assert.equal(tab.lignes[1].cellules[5].runs[0].t, "X");
 });
 
+test("BHK ado : 9 critères, normes de classe ou tous niveaux", () => {
+  const reg = B.reglagesParDefaut();
+  reg.normes = B.normaliserNormes({ ado: { qualite: { classe: { "5e": { E: [12, 4] } }, global: { E: [14, 5] } }, vitesse: { classe: { "5e": { E: [370, 60] } } } } });
+  const d = Object.assign(B.dossierVide(), { prenom: "Inès", sexe: "F", groupe: "5e", vitesse: "250", lignes: { A: [1, 1, 0, 0, 0], G: [1, 1, 1, 1, 1] } });
+  const r = B.calculerBHK(d, reg);
+  assert.equal(r.version, "ado");
+  assert.equal(r.total, 7);
+  assert.equal(r.max, 45);
+  assert.equal(r.dsQ, -(7 - 12) / 4);
+  assert.equal(r.dsV, (250 - 370) / 60);
+  assert.equal(r.mpm, 10);
+  const g = B.calculerBHK(Object.assign({}, d, { adoQualite: "global" }), reg);
+  assert.equal(g.dsQ, -(7 - 14) / 5);
+  const t = B.rediger(d, reg);
+  assert.match(t.bhk, /^On observe sur l'épreuve du BHK ado que :/);
+  assert.match(t.bhk, /250 caractères en 5 minutes, soit 50,0 caractères par minute \(10,00 mots par minute\)/);
+  assert.match(t.bhk, /une instabilité de la forme des mots \(5 phrases sur 5\)/);
+  assert.match(t.conclusion, /\(BHK ado : DS −2,00\)/);
+  assert.equal(B.titreSection("Copie de texte : {bhk}", d), "Copie de texte : BHK ado");
+  const vide = B.calculerBHK(Object.assign(B.dossierVide(), { groupe: "6e" }), reg);
+  assert.equal(vide.complet, false);
+});
+
 test("rédaction d'un dossier vide sans erreur", () => {
   const t = B.rediger(B.dossierVide(), B.reglagesParDefaut());
   B.SECTIONS.forEach((s) => assert.equal(typeof t[s.id], "string"));

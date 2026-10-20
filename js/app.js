@@ -350,6 +350,20 @@
     }).join("");
   }
 
+  function construireCriteresAdo() {
+    $("#criteres-ado").innerHTML = B.DOMAINES_ADO.map((dom) => {
+      const cs = B.CRITERES_ADO.filter((c) => c.domaine === dom.id);
+      return `<div class="domaine"><h3>${esc(B.maj(dom.nom))}</h3>` + cs.map((c) =>
+        `<fieldset class="critere-ligne">
+          <legend class="critere-tete"><span class="num">${c.id}</span><span class="intitule"><span class="nom">${esc(c.nom)}</span><span class="aide">${esc(c.aide)}</span></span></legend>
+          <div class="cases-lignes">
+            ${[0, 1, 2, 3, 4].map((i) => `<label><input type="checkbox" data-ligne="${c.id}:${i}" aria-label="${esc(c.nom)}, phrase ${i + 1}"><span>P${i + 1}</span></label>`).join("")}
+            <output class="score-critere" id="sc-${c.id}">0</output>
+          </div>
+        </fieldset>`).join("") + `</div>`;
+    }).join("");
+  }
+
   function optionsType(sel) {
     return B.TYPES_SCORE.map((t) => `<option value="${t.id}"${t.id === sel ? " selected" : ""}>${esc(t.label)}</option>`).join("");
   }
@@ -426,7 +440,7 @@
 
   function construireNormes() {
     const n = reglages.normes;
-    const nb = ["qualite", "vitesse"].reduce((a, ind) => a + Object.keys(n[ind].classe).length + Object.keys(n[ind].age).length, 0);
+    const nb = ["qualite", "vitesse"].reduce((a, ind) => a + Object.keys(n[ind].classe).length + Object.keys(n[ind].age).length, 0) + Object.keys(n.ado.vitesse.classe).length + Object.keys(n.ado.qualite.classe).length;
     $("#etat-normes-reglages").textContent = nb
       ? "Normes importées" + (n.source ? " : " + n.source : "") + "."
       : "Aucune norme pour l'instant. Importez le fichier de normes pour calculer les déviations standard.";
@@ -439,11 +453,19 @@
         <thead><tr><th scope="col">${ref === "classe" ? "Classe" : "Âge"}</th><th scope="col">Filles</th><th scope="col">Garçons</th><th scope="col">Ensemble</th></tr></thead>
         <tbody>${cles.filter((c) => t[c]).map((c) => `<tr><th scope="row">${ref === "age" ? c + " ans" : c}</th><td>${f(t[c].F)}</td><td>${f(t[c].M)}</td><td>${f(t[c].E)}</td></tr>`).join("")}</tbody></table></div>`;
     };
+    const tableAdo = () => {
+      const a = n.ado;
+      if (!Object.keys(a.vitesse.classe).length && !Object.keys(a.qualite.classe).length) return "";
+      return `<div class="defile"><table class="table-normes"><caption>BHK ado, par classe</caption>
+        <thead><tr><th scope="col">Classe</th><th scope="col">Qualité</th><th scope="col">Vitesse</th></tr></thead>
+        <tbody>${B.CLASSES_ADO.map((c) => `<tr><th scope="row">${c}</th><td>${f(a.qualite.classe[c] && a.qualite.classe[c].E)}</td><td>${f(a.vitesse.classe[c] && a.vitesse.classe[c].E)}</td></tr>`).join("")}
+        ${a.qualite.global ? `<tr><th scope="row">Tous niveaux</th><td>${f(a.qualite.global.E)}</td><td>–</td></tr>` : ""}</tbody></table></div>`;
+    };
     $("#tableau-normes").innerHTML = `<p class="note">Moyenne / écart-type.</p>` +
       table("qualite", "classe", B.CLASSES, "Qualité (score de dégradation), par classe") +
       table("qualite", "age", B.AGES, "Qualité, par âge") +
       table("vitesse", "classe", B.CLASSES, "Vitesse (caractères en 5 minutes), par classe") +
-      table("vitesse", "age", B.AGES, "Vitesse, par âge");
+      table("vitesse", "age", B.AGES, "Vitesse, par âge") + tableAdo();
   }
 
   function remplirReglages() {
@@ -704,6 +726,7 @@
     if (r.horsEtalonnage) etat = "L'âge de l'enfant est hors de l'étalonnage du BHK enfant (6 à 11 ans).";
     else if (!r.cle) etat = r.ref === "classe" ? "Choisissez la classe dans le dossier." : "Renseignez les dates de naissance et du bilan.";
     else if (!r.normeQ && !r.normeV) etat = "Aucune norme pour ce groupe : importez le fichier de normes dans les réglages.";
+    else if (r.version === "ado") etat = "BHK ado. Vitesse comparée à la classe de " + r.cle + ", qualité " + r.referenceQualite + ".";
     else etat = "Comparaison : " + (r.ref === "classe" ? "classe de " + r.cle : r.cle + " ans") + ", " + r.sexeTexte + ".";
     if (r.alerteNormes) etat += " Attention : dans le manuel, les normes des filles et des garçons sont identiques pour ce groupe, ce qui ressemble à une erreur de saisie. Préférez « Ensemble ».";
     $("#etat-normes").textContent = etat;
@@ -711,7 +734,10 @@
     // Cotation
     const auto = B.pointsTaille(dossier.tailleMm, dossier.groupe);
     $("#c1").options[0].textContent = auto === null ? "Selon la taille (taille et classe à renseigner)" : "Selon la taille : " + auto + " point" + (auto > 1 ? "s" : "");
-    B.CRITERES.forEach((c, i) => { const o = $("#sc-" + c.id); if (o) o.textContent = r.scores[i] === null ? "–" : r.scores[i]; });
+    const ado = r.version === "ado";
+    $("#cotation-enfant").hidden = ado; $("#cotation-ado").hidden = !ado;
+    $("#ref-enfant").hidden = ado; $("#ref-ado").hidden = !ado;
+    r.liste.forEach((c, i) => { const o = $("#sc-" + c.id); if (o) o.textContent = r.scores[i] === null ? "–" : r.scores[i]; });
     $("#total-cotation").innerHTML = `Score de dégradation : <strong>${r.total}/${r.max}</strong>` + (r.complet ? "" : " (critères 1 et 2 à renseigner)");
 
     rendreResultat($("#res-qualite"), true, r);
@@ -730,7 +756,7 @@
     }));
 
     // DS par critère
-    B.CRITERES.forEach((c, i) => {
+    r.liste.forEach((c, i) => {
       const o = $("#dsc-" + c.id);
       if (!o) return;
       const k = r.criteres[i];
@@ -1027,7 +1053,7 @@
       case "effacer-cotation":
         demander("Effacer la cotation des 13 critères ?", "Effacer la cotation").then((ok) => {
           if (!ok) return;
-          dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = "";
+          dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = ""; dossier.adoTermine = "";
           remplirFormulaire(); nonEnregistre = true; majTout();
         });
         return;
@@ -1098,6 +1124,7 @@
     construireListes();
     construireGrille();
     construireCriteres();
+    construireCriteresAdo();
     construireSections();
     construireSenso();
     construireManip();

@@ -73,7 +73,8 @@
           <label class="champ"><span>Classe</span>
             <select data-champ="groupe">
               <option value="">Choisir…</option>
-              <option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option>
+              <optgroup label="École (BHK enfant)"><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></optgroup>
+              <optgroup label="Collège (BHK ado)"><option>6e</option><option>5e</option><option>4e</option><option>3e</option></optgroup>
             </select></label>
         </div>
         <label class="champ"><span>Enseignant</span><input type="text" data-champ="enseignant" placeholder="Mme Leroy, enseignante de CE2"></label>
@@ -165,6 +166,7 @@
     <section id="p-bhk" role="tabpanel" aria-labelledby="t-bhk" class="panneau" hidden>
       <fieldset class="groupe">
         <legend>Normes de référence</legend>
+        <div id="ref-enfant">
         <div class="champ">
           <span id="l-ref">Comparer à</span>
           <div class="choix" role="radiogroup" aria-labelledby="l-ref">
@@ -179,11 +181,23 @@
             <label><input type="radio" name="normesSexe" value="ensemble" data-champ="normesSexe"><span>Ensemble</span></label>
           </div>
         </div>
+        </div>
+        <div id="ref-ado" hidden>
+          <p class="note">BHK ado : la vitesse se compare à la classe.</p>
+          <div class="champ">
+            <span id="l-ado-q">Qualité comparée à</span>
+            <div class="choix" role="radiogroup" aria-labelledby="l-ado-q">
+              <label><input type="radio" name="adoQualite" value="classe" data-champ="adoQualite"><span>La classe</span></label>
+              <label><input type="radio" name="adoQualite" value="global" data-champ="adoQualite"><span>Tous niveaux (feuille de correction)</span></label>
+            </div>
+          </div>
+        </div>
         <p class="note" id="etat-normes" aria-live="polite"></p>
       </fieldset>
 
       <fieldset class="groupe">
         <legend>Cotation de la qualité</legend>
+        <div id="cotation-enfant">
         <p class="note">Critères 1 et 2 : sur tout le texte. Critères 3 à 13 : une case par ligne, sur les cinq premières lignes. En cas de doute, ne cochez pas (sauf critère 9).</p>
         <div class="critere-global">
           <div class="critere-tete"><span class="num">1</span><span class="intitule"><span class="nom">Écriture grande</span><span class="aide">Taille moyenne des lettres troncs (calque I, aide C)</span></span></div>
@@ -198,6 +212,12 @@
           <div class="choix echelons" role="radiogroup" aria-label="Points du critère 2" id="c2"></div>
         </div>
         <div id="criteres"></div>
+        </div>
+        <div id="cotation-ado" hidden>
+          <p class="note">BHK ado : 9 critères, une case par phrase sur les cinq premières phrases.</p>
+          <div id="criteres-ado"></div>
+          <label class="case"><input type="checkbox" data-champ="adoTermine"><span>Cotation terminée (à cocher si aucun défaut n'est relevé)</span></label>
+        </div>
         <p class="total-cotation" id="total-cotation"></p>
         <button type="button" class="bouton-lien" data-action="effacer-cotation">Effacer la cotation</button>
       </fieldset>
@@ -337,7 +357,7 @@
         <div id="questions-auto"></div>
       </fieldset>
       <fieldset class="groupe">
-        <legend>Normes du BHK enfant</legend>
+        <legend>Normes du BHK (enfant et ado)</legend>
         <p id="etat-normes-reglages"></p>
         <label class="bouton bouton-second">Importer des normes
           <input type="file" accept=".json,application/json" data-action="importer-normes" class="masque"></label>

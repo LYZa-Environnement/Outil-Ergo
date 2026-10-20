@@ -133,6 +133,29 @@
   ];
   const SCORE_TOTAL_MAX = CRITERES.length * SCORE_MAX;
 
+  // BHK ado (6e à 3e) : 9 critères cotés phrase par phrase sur les cinq premières phrases.
+  const CLASSES_ADO = ["6e", "5e", "4e", "3e"];
+  const TOUTES_CLASSES = CLASSES.concat(CLASSES_ADO);
+  const DOMAINES_ADO = [
+    { id: "hauteur", nom: "hauteur des lettres" },
+    { id: "formes", nom: "formes et liaisons" },
+    { id: "lignes", nom: "organisation des lignes" },
+    { id: "stabilite", nom: "stabilité des formes" },
+  ];
+  const CRITERES_ADO = [
+    { id: "A", domaine: "hauteur", mode: "lignes", nom: "Variation de hauteur des lettres troncs", aide: "Écart de hauteur anormal entre les lettres troncs (aide A)", defaut: "des variations de hauteur des lettres troncs" },
+    { id: "B", domaine: "hauteur", mode: "lignes", nom: "Hauteur relative des lettres troncs et des lettres à hampe ou jambage", aide: "Lettres troncs et lettres à hampe ou jambage de hauteurs trop proches (aide B)", defaut: "une hauteur relative incorrecte entre lettres troncs et lettres à hampe ou jambage" },
+    { id: "C", domaine: "formes", mode: "lignes", nom: "Télescopage", aide: "Lettres qui se touchent ou se chevauchent", defaut: "des télescopages" },
+    { id: "D", domaine: "formes", mode: "lignes", nom: "Lettre ambiguë", aide: "Lettre qui peut être lue comme une autre", defaut: "des lettres ambiguës" },
+    { id: "E", domaine: "formes", mode: "lignes", nom: "Lettre majuscule à l'intérieur des mots", aide: "Majuscule utilisée au milieu d'un mot", defaut: "des majuscules à l'intérieur des mots" },
+    { id: "F", domaine: "lignes", mode: "lignes", nom: "Parallélisme des lignes", aide: "Lignes qui ne restent pas parallèles (aide F)", defaut: "un défaut de parallélisme des lignes" },
+    { id: "G", domaine: "stabilite", mode: "lignes", nom: "Stabilité des mots", aide: "Forme d'un même mot qui change d'une fois à l'autre", defaut: "une instabilité de la forme des mots" },
+    { id: "H", domaine: "stabilite", mode: "lignes", nom: "Stabilité des « a »", aide: "Forme des « a » qui change", defaut: "une instabilité de la forme des « a »" },
+    { id: "I", domaine: "stabilite", mode: "lignes", nom: "Stabilité des « t »", aide: "Forme des « t » qui change", defaut: "une instabilité de la forme des « t »" },
+  ];
+  const SCORE_TOTAL_MAX_ADO = CRITERES_ADO.length * SCORE_MAX;
+  function versionBHK(d) { return CLASSES_ADO.indexOf(d.groupe) >= 0 ? "ado" : "enfant"; }
+
   // Critère 1 : points selon la taille moyenne des lettres troncs (3 mm ou moins, 4, 5, 6, 7, 8, 9 mm ou plus).
   const BAREME_TAILLE = {
     CP: [0, 0, 1, 2, 3, 4, 5], CE1: [0, 0, 1, 2, 3, 4, 5],
@@ -306,13 +329,32 @@
   /* ================= Réglages et normes ================= */
 
   function normesVides() {
-    return { type: "bhk-normes", version: 2, source: "", qualite: { classe: {}, age: {} }, vitesse: { classe: {}, age: {} } };
+    return {
+      type: "bhk-normes", version: 2, source: "", qualite: { classe: {}, age: {} }, vitesse: { classe: {}, age: {} }, criteres: {},
+      ado: { qualite: { classe: {}, global: null }, vitesse: { classe: {} } },
+    };
+  }
+
+  function couple(v) {
+    if (!Array.isArray(v)) return null;
+    const m = nombre(v[0]), e = nombre(v[1]);
+    return m !== null && e !== null && e > 0 ? [m, e] : null;
   }
 
   function normaliserNormes(n) {
     const out = normesVides();
     if (!n || typeof n !== "object") return out;
     out.source = texte(n.source);
+    if (n.ado && typeof n.ado === "object") {
+      CLASSES_ADO.forEach((cl) => {
+        const q = n.ado.qualite && n.ado.qualite.classe && n.ado.qualite.classe[cl];
+        const v = n.ado.vitesse && n.ado.vitesse.classe && n.ado.vitesse.classe[cl];
+        if (q && couple(q.E)) out.ado.qualite.classe[cl] = { E: couple(q.E) };
+        if (v && couple(v.E)) out.ado.vitesse.classe[cl] = { E: couple(v.E) };
+      });
+      const g = n.ado.qualite && n.ado.qualite.global;
+      if (g && couple(g.E)) out.ado.qualite.global = { E: couple(g.E) };
+    }
     out.criteres = {};
     if (n.criteres && typeof n.criteres === "object") {
       CRITERES.forEach((c) => {
@@ -406,7 +448,7 @@
     "reference", "normesSexe", "tailleMm", "c1", "c2", "vitesse", "modeCopie", "reperage", "fautes", "douleurEva", "douleurDetail", "bhkNotes",
     "conclusionContexte", "conclusionPoints", "conclusionForces", "diagImpact", "envObstacles", "envFacilitateurs", "objectifsLibre",
     "dispositif", "amenagementsLibre", "reeducation", "reeducationObjet", "reevaluation", "precoLibre",
-    "photoCopie", "photoL", "photoH",
+    "photoCopie", "photoL", "photoH", "adoQualite", "adoTermine",
   ];
   const CHAMPS_LISTE = ["bilansUtilises", "remarques", "amenagements", "occDifficultes"];
 
@@ -421,6 +463,7 @@
     d.passation = aujourdhui();
     d.reference = "classe";
     d.normesSexe = "auto";
+    d.adoQualite = "classe";
     d.bilansUtilises = ["entretien"];
     d.lignes = {};
     d.grille = {};
@@ -460,7 +503,7 @@
     if (d.reeducation === "oui" && d.amenagements.indexOf("reed-graphisme") < 0) d.amenagements.push("reed-graphisme");
     d.reeducation = "";
     if (src.lignes && typeof src.lignes === "object") {
-      CRITERES.filter((c) => c.mode === "lignes").forEach((c) => {
+      CRITERES.filter((c) => c.mode === "lignes").concat(CRITERES_ADO).forEach((c) => {
         const l = src.lignes[c.id];
         if (Array.isArray(l)) d.lignes[c.id] = Array.from({ length: NB_LIGNES }, (_, i) => (l[i] ? 1 : 0));
       });
@@ -543,6 +586,7 @@
   function calculerBHK(dossier, reglages) {
     const d = normaliserDossier(dossier);
     const reg = normaliserReglages(reglages);
+    if (versionBHK(d) === "ado") return calculerBHKAdo(d, reg);
     const ageEnfant = age(d.naissance, d.passation);
     const ref = d.reference;
     const cle = ref === "classe" ? (CLASSES.indexOf(d.groupe) >= 0 ? d.groupe : "") : (ageEnfant ? String(ageEnfant.ans) : "");
@@ -581,15 +625,49 @@
     const sexeTexte = { F: "filles", M: "garçons", E: "ensemble des enfants" }[sexe];
 
     return {
+      version: "enfant", nomTest: "BHK", liste: CRITERES,
       age: ageEnfant, ref: ref, cle: cle, sexe: sexe, sexeTexte: sexeTexte, horsEtalonnage: horsEtalonnage, referenceTexte: referenceTexte,
       scores: scores, complet: complet, total: total, max: SCORE_TOTAL_MAX, vitesse: vitesse,
-      cpm: vitesse !== null ? vitesse / 5 : null,
+      cpm: vitesse !== null ? vitesse / 5 : null, mpm: null,
       normeQ: nQ, normeV: nV,
       dsQ: dsQ, perfQ: perfQ, dsV: dsV,
       niveauQ: niveau(perfQ, reg), niveauV: niveau(dsV, reg),
       domaines: domaines,
       criteres: criteres,
       alerteNormes: !!((nQ && nQ.identiquesFM && sexe !== "E") || (nV && nV.identiquesFM && sexe !== "E")),
+    };
+  }
+
+  // BHK ado : vitesse comparée à la classe ; qualité comparée à la classe ou à la norme tous niveaux.
+  function calculerBHKAdo(d, reg) {
+    const cl = d.groupe;
+    const nA = reg.normes.ado;
+    const nVc = nA.vitesse.classe[cl] && nA.vitesse.classe[cl].E;
+    const global = d.adoQualite === "global";
+    const nQc = global ? nA.qualite.global && nA.qualite.global.E : nA.qualite.classe[cl] && nA.qualite.classe[cl].E;
+    const nQ = nQc ? { moy: nQc[0], et: nQc[1] } : null;
+    const nV = nVc ? { moy: nVc[0], et: nVc[1] } : null;
+    const scores = CRITERES_ADO.map((c) => (d.lignes[c.id] || []).reduce((a, v) => a + (v ? 1 : 0), 0));
+    const total = scores.reduce((a, s) => a + s, 0);
+    const complet = d.adoTermine === "oui" || total > 0;
+    const vitesse = nombre(d.vitesse);
+    const zQbrut = complet && nQ ? (total - nQ.moy) / nQ.et : null;
+    const perfQ = zQbrut === null ? null : -zQbrut;
+    const dsV = vitesse !== null && nV ? (vitesse - nV.moy) / nV.et : null;
+    const domaines = DOMAINES_ADO.map((dom) => {
+      const idx = CRITERES_ADO.map((c, i) => (c.domaine === dom.id ? i : -1)).filter((i) => i >= 0);
+      return { id: dom.id, nom: dom.nom, total: idx.reduce((a, i) => a + scores[i], 0), max: idx.length * SCORE_MAX, complet: true };
+    });
+    return {
+      version: "ado", nomTest: "BHK ado", liste: CRITERES_ADO,
+      age: age(d.naissance, d.passation), ref: "classe", cle: cl, sexe: "E", sexeTexte: "ensemble des élèves", horsEtalonnage: false,
+      referenceTexte: "en " + cl, referenceQualite: global ? "tous niveaux confondus" : "en " + cl, qualiteGlobale: global,
+      scores: scores, complet: complet, total: total, max: SCORE_TOTAL_MAX_ADO, vitesse: vitesse,
+      cpm: vitesse !== null ? vitesse / 5 : null, mpm: vitesse !== null ? vitesse / 25 : null,
+      normeQ: nQ, normeV: nV,
+      dsQ: zQbrut === null ? null : reg.inverserQualite ? -zQbrut : zQbrut, perfQ: perfQ, dsV: dsV,
+      niveauQ: niveau(perfQ, reg), niveauV: niveau(dsV, reg),
+      domaines: domaines, criteres: CRITERES_ADO.map(() => ({ ds: null, niveau: null })), alerteNormes: false,
     };
   }
 
@@ -691,7 +769,7 @@
     { id: "personne", titre: "Composante liée à la personne", niveau: 3, groupes: ["ecriture"] },
     { id: "environnementale", titre: "Composante environnementale", niveau: 3, groupes: ["ecriture"] },
     { id: "observation", titre: "Observation de l'écriture manuscrite", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
-    { id: "bhk", titre: "Copie de texte : BHK", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
+    { id: "bhk", titre: "Copie de texte : {bhk}", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "vitesse", titre: "Vitesse d'écriture", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "otipis", titre: "Observations cliniques (OTIPIS)", niveau: 3, groupes: ["sensoriel"], graphiques: ["otipis"] },
     { id: "dunn", titre: "Profil sensoriel 2 de Dunn", niveau: 3, groupes: ["sensoriel"], graphiques: ["dunn-enfant", "dunn-scolaire"] },
@@ -724,7 +802,7 @@
 
   function titreSection(titre, d) {
     const prenom = texte(d.prenom).trim();
-    return titre.replace("{enfant}", prenom || "l'enfant");
+    return titre.replace("{enfant}", prenom || "l'enfant").replace("{bhk}", versionBHK(d) === "ado" ? "BHK ado" : "BHK");
   }
 
   function ou(v, defaut) { const t = texte(v).trim(); return t ? point(t) : defaut; }
@@ -769,17 +847,17 @@
 
     if (faible(r.niveauQ)) {
       const ds = formaterDS(r.dsQ);
-      constats.push(r.niveauQ === "patho" ? "une qualité d'écriture très inférieure à la moyenne, en faveur d'une dysgraphie (BHK : DS " + ds + ")" : "une qualité d'écriture inférieure à la moyenne (BHK : DS " + ds + ")");
+      constats.push(r.niveauQ === "patho" ? "une qualité d'écriture très inférieure à la moyenne, en faveur d'une dysgraphie (" + r.nomTest + " : DS " + ds + ")" : "une qualité d'écriture inférieure à la moyenne (" + r.nomTest + " : DS " + ds + ")");
       facteur(r.niveauQ === "patho" ? "une qualité graphique très altérée" : "une qualité graphique fragile");
-      ajout("qualite", "la qualité de l'écriture (BHK : DS " + ds + ")");
-    } else if (r.niveauQ) constats.push("une qualité d'écriture dans la moyenne (BHK : DS " + formaterDS(r.dsQ) + ")");
+      ajout("qualite", "la qualité de l'écriture (" + r.nomTest + " : DS " + ds + ")");
+    } else if (r.niveauQ) constats.push("une qualité d'écriture dans la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsQ) + ")");
     if (faible(r.niveauV)) {
       const ds = formaterDS(r.dsV);
-      constats.push(r.niveauV === "patho" ? "une lenteur d'écriture marquée (BHK : DS " + ds + ")" : "une vitesse d'écriture inférieure à la moyenne (BHK : DS " + ds + ")");
+      constats.push(r.niveauV === "patho" ? "une lenteur d'écriture marquée (" + r.nomTest + " : DS " + ds + ")" : "une vitesse d'écriture inférieure à la moyenne (" + r.nomTest + " : DS " + ds + ")");
       facteur("une lenteur d'écriture");
-      ajout("vitesse", "la lenteur d'écriture (BHK : DS " + ds + ")");
-      if (r.niveauV === "patho") ajout("vitesseForte", "la lenteur d'écriture marquée (BHK : DS " + ds + ")");
-    } else if (r.niveauV) constats.push("une vitesse d'écriture dans la moyenne (BHK : DS " + formaterDS(r.dsV) + ")");
+      ajout("vitesse", "la lenteur d'écriture (" + r.nomTest + " : DS " + ds + ")");
+      if (r.niveauV === "patho") ajout("vitesseForte", "la lenteur d'écriture marquée (" + r.nomTest + " : DS " + ds + ")");
+    } else if (r.niveauV) constats.push("une vitesse d'écriture dans la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsV) + ")");
     tests.filter((t) => t.fait && t.section === "vitesse").forEach((t) => {
       const f = t.lignes.filter((l) => faible(l.niveau));
       if (!f.length) return;
@@ -808,8 +886,8 @@
     if (d.grille["prise.mobilite"] === "reduite") ajout("motriciteFine", "la mobilité réduite des doigts");
     const geste = ecarts("geste").concat(ecarts("lettres"));
     if (geste.length) { constats.push("un geste graphique peu efficace (" + joindre(geste) + ")"); ajout("geste", "le geste graphique (" + geste[0] + ")"); }
-    if (d.grille["lisibilite.ratures"] === "frequentes" || (r.scores[11] || 0) >= 3) ajout("ratures", "les ratures et retouches fréquentes");
-    if ((d.grille["lettres.lignage"] && d.grille["lettres.lignage"] !== "ok") || (r.scores[2] || 0) >= 3) ajout("lignage", "le placement irrégulier sur la ligne");
+    if (d.grille["lisibilite.ratures"] === "frequentes" || (r.version === "enfant" && (r.scores[11] || 0) >= 3)) ajout("ratures", "les ratures et retouches fréquentes");
+    if ((d.grille["lettres.lignage"] && d.grille["lettres.lignage"] !== "ok") || (r.version === "enfant" && (r.scores[2] || 0) >= 3)) ajout("lignage", "le placement irrégulier sur la ligne");
     if (d.grille["lisibilite.fatigue"] === "oui") ajout("fatigue", "la fatigue en cours de tâche");
 
     const LIBELLES_TESTS = {
@@ -869,7 +947,7 @@
     // Bilans utilisés
     {
       const l = BILANS_COURANTS.filter((b) => d.bilansUtilises.indexOf(b.id) >= 0).map((b) => b.texte(a));
-      if (r.complet || r.vitesse !== null) l.push("BHK : échelle d'évaluation rapide de l'écriture chez l'enfant");
+      if (r.complet || r.vitesse !== null) l.push(r.version === "ado" ? "BHK ado : échelle d'évaluation rapide de l'écriture chez l'adolescent" : "BHK : échelle d'évaluation rapide de l'écriture chez l'enfant");
       if (Object.keys(d.grille).length) l.push("Grille d'observation de l'écriture");
       tests.filter((t) => t.fait).forEach((t) => l.push(t.titre));
       const s = d.senso;
@@ -971,7 +1049,7 @@
       if (copie.length) puces.push(copie.join(" "));
 
       if (r.vitesse !== null) {
-        let t = a.sujet + " copie " + formaterNombre(r.vitesse) + " caractères en 5 minutes, soit " + formaterNombre(r.cpm, 1) + " caractères par minute.";
+        let t = a.sujet + " copie " + formaterNombre(r.vitesse) + " caractères en 5 minutes, soit " + formaterNombre(r.cpm, 1) + " caractères par minute" + (r.mpm !== null ? " (" + formaterNombre(r.mpm, 2) + " mots par minute)" : "") + ".";
         if (r.dsV !== null) {
           const s = SITUATION[r.niveauV];
           t += " " + a.Il + " obtient une déviation standard de " + formaterDS(r.dsV) + ", ce qui " + (a.le ? a.le + "situe " : "situe " + a.sujetMin + " ") + s[0] + " attendue " + r.referenceTexte + s[1] + ".";
@@ -982,17 +1060,17 @@
         let t = "Le score de dégradation est de " + r.total + "/" + r.max;
         if (r.dsQ !== null) {
           const s = SITUATION[r.niveauQ];
-          t += ", soit une déviation standard de " + formaterDS(r.dsQ) + " : la qualité de l'écriture se situe " + s[0] + " attendue " + r.referenceTexte + s[1] + ".";
+          t += ", soit une déviation standard de " + formaterDS(r.dsQ) + " : la qualité de l'écriture se situe " + s[0] + " attendue " + (r.referenceQualite || r.referenceTexte) + s[1] + ".";
         } else t += ". " + messageNormes(r, "qualite");
         puces.push(t);
       } else if (r.scores.some((s, i) => i > 1 && s > 0) || r.scores[0] !== null || r.scores[1] !== null) {
         puces.push("[Cotation incomplète : renseigner les critères 1 et 2.]");
       }
 
-      const defauts = CRITERES.map((c, i) => ({ c: c, s: r.scores[i], k: r.criteres[i] })).filter((x) => x.s).sort((x, y) => y.s - x.s || x.c.id - y.c.id);
+      const defauts = r.liste.map((c, i) => ({ c: c, s: r.scores[i], k: r.criteres[i] })).filter((x) => x.s).sort((x, y) => y.s - x.s || r.liste.indexOf(x.c) - r.liste.indexOf(y.c));
       if (defauts.length) {
         puces.push("Les défauts observés sont : " + joindre(defauts.map((x) => x.c.defaut + " (" +
-          (x.c.mode === "lignes" ? x.s + " ligne" + (x.s > 1 ? "s" : "") + " sur 5" : x.s + "/5") +
+          (x.c.mode === "lignes" ? x.s + (r.version === "ado" ? " phrase" : " ligne") + (x.s > 1 ? "s" : "") + " sur 5" : x.s + "/5") +
           (x.k.ds !== null ? ", DS " + formaterDS(x.k.ds) : "") + ")")) + ".");
         const horsNorme = defauts.filter((x) => x.k.niveau === "patho");
         if (horsNorme.length) {
@@ -1001,7 +1079,7 @@
         }
       }
       if (r.complet) {
-        const preserves = r.domaines.filter((dm) => dm.total === 0).map((dm) => dm.preserve);
+        const preserves = r.domaines.filter((dm) => dm.total === 0 && dm.preserve).map((dm) => dm.preserve);
         if (preserves.length) puces.push(maj(joindre(preserves)) + ".");
       }
       const rem = REMARQUES.filter((x) => d.remarques.indexOf(x.id) >= 0).map((x) => min(x.label));
@@ -1012,7 +1090,7 @@
       if (eva !== null) puces.push("Douleur après l'épreuve : EVA " + formaterNombre(eva) + "/10" + (d.douleurDetail.trim() ? " (" + d.douleurDetail.trim().replace(/\.$/, "") + ")" : "") + ".");
 
       const l = [];
-      if (puces.length) l.push("On observe sur l'épreuve du BHK que :", ...puces.map((p) => "– " + p));
+      if (puces.length) l.push("On observe sur l'épreuve du " + r.nomTest + " que :", ...puces.map((p) => "– " + p));
       if (d.bhkNotes.trim()) l.push("", point(maj(d.bhkNotes.trim())));
       out.bhk = l.length ? l.join("\n") : "[Résultats du BHK à compléter.]";
     }
@@ -1037,7 +1115,7 @@
     {
       const blocs = [];
       if (r.vitesse !== null) {
-        let t = "En copie de texte (BHK), " + a.sujetMin + " écrit " + formaterNombre(r.vitesse) + " caractères en 5 minutes, soit " + formaterNombre(r.cpm, 1) + " caractères par minute";
+        let t = "En copie de texte (" + r.nomTest + "), " + a.sujetMin + " écrit " + formaterNombre(r.vitesse) + " caractères en 5 minutes, soit " + formaterNombre(r.cpm, 1) + " caractères par minute";
         t += r.dsV !== null ? " (DS " + formaterDS(r.dsV) + ", " + min(APPRECIATIONS[r.niveauV]) + ")." : ".";
         blocs.push(t);
       }
@@ -1086,7 +1164,7 @@
     {
       const l = [];
       const ag = r.age ? formaterAge(r.age) : "";
-      let p = a.sujet + " est " + a.un + " enfant" + (ag ? " de " + ag : "") + (CLASSES.indexOf(d.groupe) >= 0 ? ", scolarisé" + a.e + " en " + d.groupe : "") + ".";
+      let p = a.sujet + " est " + a.un + " enfant" + (ag ? " de " + ag : "") + (TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? ", scolarisé" + a.e + " en " + d.groupe : "") + ".";
       if (d.conclusionContexte.trim()) p += " " + point(maj(d.conclusionContexte.trim()));
       l.push(p, "", "Synthèse des constats :");
       const liste = (titre, items) => {
@@ -1206,7 +1284,7 @@
     const nomComplet = [texte(d.nom).trim().toUpperCase(), texte(d.prenom).trim()].filter(Boolean).join(" ");
     const lignesInfo = (titre, paires) => [{ entete: true, cellules: [cellule(titre, { colspan: 2, gras: true, fond: "entete", align: "center" })] }]
       .concat(paires.map((p) => ({ cellules: [cellule(p[0], { gras: true }), cellule(texte(p[1]).trim() || "–")] })));
-    const scol = [texte(d.etablissement).trim(), CLASSES.indexOf(d.groupe) >= 0 ? d.groupe : "", texte(d.enseignant).trim()].filter(Boolean).join(", ");
+    const scol = [texte(d.etablissement).trim(), TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? d.groupe : "", texte(d.enseignant).trim()].filter(Boolean).join(", ");
     blocs.push({ type: "h", niveau: 2, texte: "Informations sur l'enfant" });
     blocs.push({ type: "tableau", largeurs: [0.34, 0.66], lignes: []
       .concat(lignesInfo("Administratif", [["Nom, prénom", nomComplet], ["Date de naissance", dateCourte(d.naissance)], ["Âge au bilan", r.age ? formaterAge(r.age) : ""], ["Parents", d.parents], ["Adresse", d.adresse]]))
@@ -1268,8 +1346,8 @@
       cellule(bilan, { gras: true }), cellule(epreuve), cellule(score, { align: "center" }), cellule(ds === null ? "–" : formaterDS(ds), { align: "center" }),
       cellule([{ t: niv ? APPRECIATIONS[niv] : "–" }].concat(commentaire ? [{ t: " – " + commentaire, i: true }] : []), { fond: niv ? "niveau-" + niv : null }),
     ] });
-    if (r.complet) ajout("BHK", "Qualité", r.total + "/" + r.max, r.dsQ, r.niveauQ, "");
-    if (r.vitesse !== null) ajout("BHK", "Vitesse", formaterNombre(r.vitesse) + " car. en 5 min", r.dsV, r.niveauV, "");
+    if (r.complet) ajout(r.nomTest, "Qualité", r.total + "/" + r.max, r.dsQ, r.niveauQ, "");
+    if (r.vitesse !== null) ajout(r.nomTest, "Vitesse", formaterNombre(r.vitesse) + " car. en 5 min", r.dsV, r.niveauV, "");
     const types = new Set(["ds"]);
     tests.filter((t) => t.fait).forEach((t) => t.lignes.filter((l) => l.remplie).forEach((l) => {
       types.add(l.type);
@@ -1284,7 +1362,9 @@
     if (types.has("indice")) legende.push({ cellules: [cellule("Indice", { gras: true })].concat(["patho", "inferieur", "moyenne", "superieur"].map((k) => cellule(z.indice[k], { align: "center" }))) });
     if (types.has("rp")) legende.push({ cellules: [cellule("Rang percentile (RP)", { gras: true })].concat(["patho", "inferieur", "moyenne", "superieur"].map((k) => cellule(z.rp[k], { align: "center" }))) });
 
-    const ref = r.cle ? "Normes BHK : " + (r.ref === "classe" ? "classe de " + r.cle : r.cle + " ans") + ", " + r.sexeTexte + "." : "";
+    const ref = !r.cle ? "" : r.version === "ado"
+      ? "Normes BHK ado : vitesse en " + r.cle + ", qualité " + r.referenceQualite + "."
+      : "Normes BHK : " + (r.ref === "classe" ? "classe de " + r.cle : r.cle + " ans") + ", " + r.sexeTexte + ".";
     const intro = "Les scores sont exprimés en déviation standard (DS) : ils représentent l'écart entre le résultat obtenu et la moyenne attendue." +
       (reg.inverserQualite && r.complet ? " Pour la qualité du BHK, un DS négatif signale une écriture plus dégradée que la moyenne." : "");
     return [
@@ -1300,7 +1380,7 @@
   return {
     SCORE_MAX, NB_LIGNES, SCORE_TOTAL_MAX, CLASSES, AGES, DOMAINES, CRITERES, BAREME_TAILLE, REMARQUES, MODES_COPIE,
     PRISES, GRILLE, TYPES_SCORE, TESTS, BILANS_COURANTS, AMENAGEMENTS, PRECONISATIONS, CATEGORIES_PRECO, OCCUPATIONS, DISPOSITIFS, SECTIONS, APPRECIATIONS,
-    proposerPreconisations, ecritureCommencee, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO,
+    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO,
     nombre, maj, min, age, formaterAge, formaterDS, formaterNombre, dateCourte, dateLongue, aujourdhui, quantileNormal,
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
