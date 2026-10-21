@@ -233,7 +233,7 @@ main { max-width: 860px; margin: 0 auto; padding-block: 12px 120px; padding-left
 .champ { display: block; margin: .6rem 0; min-width: 0; }
 .champ > span:first-child { display: block; font-size: .92rem; font-weight: 700; margin-bottom: .25rem; }
 .champ-court { max-width: 340px; }
-input[type="text"], input[type="date"], input[type="number"], input[type="tel"], input[type="email"], input[type="search"], select, textarea {
+input[type="text"], input[type="date"], input[type="time"], input[type="number"], input[type="tel"], input[type="email"], input[type="search"], select, textarea {
   width: 100%;
   font: inherit;
   color: var(--graphite);
@@ -839,7 +839,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .liste-aide dt { font-weight: 700; color: var(--encre-fonce); }
 .liste-aide dd { margin: 0; }
 @media (max-width: 520px) { .liste-aide > div { grid-template-columns: 1fr; gap: 2px; } }
-.fiche-aide-courte { background: var(--vert-fond); }
 
 .table-sens th[scope="row"] { text-align: left; font-weight: 400; }
 .case-seule { display: grid; place-items: center; min-height: 40px; cursor: pointer; }
@@ -858,19 +857,56 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .etape-palette:disabled { opacity: .45; cursor: default; }
 .etape-palette .picto { font-size: 1.3rem; }
 
-.resume-seances p { margin: 0 0 .4rem; }
 .rappel-prochaine { padding: 8px 10px; border-radius: var(--rayon); background: var(--ambre-fond); }
 .prevu-plan > summary { cursor: pointer; }
 .prevu-plan ul { margin: .4rem 0; padding-left: 1.2rem; }
-.seance > legend { width: auto; }
-.date-seance { font: 600 1.05rem var(--police-titre); color: var(--encre-fonce); border: 1.5px solid var(--seyes); border-radius: var(--rayon); padding: 4px 8px; background: var(--papier); }
 .cases-puces { display: flex; flex-wrap: wrap; gap: 6px; }
 .cases-puces span { min-height: 42px; padding: 6px 12px; border-radius: 999px; }
 .cases-puces span::before { flex-basis: 18px; height: 18px; }
 .choix-visages span { font-size: 1rem; }
-.seance-du-jour { border-color: var(--encre); box-shadow: 0 0 0 2px var(--encre-claire), var(--ombre); }
 .seance-pied { text-align: right; }
-.liste-dossiers li .bouton-second.bouton-petit { white-space: nowrap; }
 .autres-axes { margin-top: .4rem; }
 .autres-axes > summary { cursor: pointer; color: var(--gris); font-size: .92rem; }
 .autres-axes[open] > summary { margin-bottom: .4rem; }
+
+/* ---------- Séances : planning ---------- */
+.bouton-retour { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 2px; padding: 8px 14px; min-height: 44px; border: 1.5px solid var(--seyes); border-radius: 999px; background: var(--papier); color: var(--encre-fonce); font: 600 1rem var(--police); cursor: pointer; }
+.bouton-retour:hover { border-color: var(--encre); }
+.seances-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: .6rem; }
+.form-seance { margin: 0 0 .8rem; padding: 12px; border-radius: var(--rayon); background: var(--encre-claire); }
+.choix-periode { margin: .2rem 0 .4rem; }
+.choix-periode span { padding: 6px 12px; min-height: 38px; font-size: .9rem; }
+.navigation-periode { display: flex; align-items: center; gap: 8px; margin: .4rem 0; }
+.navigation-periode strong { flex: 1 1 auto; text-align: center; font-family: var(--police-titre); color: var(--encre-fonce); }
+.navigation-periode .bouton-rond { width: 40px; height: 40px; box-shadow: none; font-size: 1.3rem; }
+.plus-filtres { margin: .2rem 0 0; }
+.plus-filtres > summary { cursor: pointer; color: var(--gris); font-size: .92rem; padding: 4px 0; }
+#compte-seances { margin: .4rem 0 0; }
+
+.agenda { margin-top: 12px; }
+.jour { margin: 0 0 12px; }
+.jour-titre { display: flex; align-items: center; gap: 8px; margin: 14px 2px 6px; font: 600 1rem var(--police-titre); color: var(--encre-fonce); }
+.jour-passe .jour-titre { color: var(--gris); }
+.jour-aujourdhui .jour-titre { color: var(--encre); }
+.jour-vide { margin: 0 2px; color: var(--gris); font-size: .9rem; }
+.seance-ligne { margin: 0 0 6px; border: 1px solid var(--seyes-fin); border-left: 5px solid var(--vert); border-radius: var(--rayon); background: var(--papier); box-shadow: var(--ombre); }
+.seance-ligne.statut-prevue { border-left-color: var(--soleil); }
+.seance-ligne.statut-annulee { border-left-color: var(--seyes); opacity: .85; }
+.seance-ligne-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-right: 8px; }
+.seance-ouvrir { flex: 1 1 220px; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 10px; border: 0; background: none; color: var(--graphite); font: inherit; text-align: left; cursor: pointer; }
+.seance-heure { flex: 0 0 auto; min-width: 3.4em; font-weight: 700; color: var(--encre-fonce); font-variant-numeric: tabular-nums; }
+.seance-quoi { flex: 1 1 auto; min-width: 0; }
+.seance-quoi small { display: block; color: var(--gris); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seance-pictos { letter-spacing: 2px; }
+.seance-marque { flex: 0 0 auto; font-size: 1.4rem; }
+.statut-annulee .seance-quoi strong { text-decoration: line-through; }
+.seance-rapide { display: flex; gap: 6px; margin: 0 0 8px auto; }
+.seance-edition { padding: 4px 12px 12px; border-top: 1px solid var(--seyes-fin); }
+.seance-pied { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 14px; margin-top: .4rem; }
+.fiche-enfant-seances h2 { margin: 0; }
+.fiche-enfant-seances p { margin: .4rem 0; }
+.ce-qui-aide-court > summary { cursor: pointer; font-weight: 700; color: var(--encre-fonce); }
+.planning-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; color: var(--gris); }
+@media (max-width: 420px) { .seance-rapide { margin-left: 10px; } }
+.choix span span { display: inline; padding: 0; min-height: 0; border: 0; background: none; font-size: 1.15em; }
+.choix input:checked + span span { background: none; }

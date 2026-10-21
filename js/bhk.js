@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -522,6 +522,7 @@
     Object.assign(d, Occup.normaliser(src));
     d.precedent = normaliserPrecedent(src.precedent);
     Object.assign(d, Accueil.normaliser(src));
+    d.seances = Seances.normaliserListe(src.seances);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });

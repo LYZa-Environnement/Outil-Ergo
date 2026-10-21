@@ -81,16 +81,10 @@
     };
   }
 
-  /* ================= Journal des séances ================= */
+  /* ================= Séances (le modèle et le planning sont dans seances.js) ================= */
 
-  // Saisie en quelques touches : axes travaillés (cases), déroulement (un visage), une note et « pour la prochaine fois ».
-  const ETATS_SEANCE = [["bien", "Bien", "😀"], ["moyen", "Moyen", "😐"], ["difficile", "Difficile", "😣"]];
-  const MAX_SEANCES = 120;
-
-  function seanceVide(date) { return { date: dateIso(date), axes: {}, etat: "", fait: "", prochaine: "", aide: "", difficile: "" }; }
-
-  // Séances triées de la plus récente à la plus ancienne (sans date en dernier).
-  function seancesRecentes(d) { return (d.seances || []).slice().sort((x, y) => (y.date || "").localeCompare(x.date || "")); }
+  // Séances faites, de la plus récente à la plus ancienne (sans date en dernier).
+  function seancesRecentes(d) { return (d.seances || []).filter((s) => s.statut !== "prevue" && s.statut !== "annulee").sort((x, y) => (y.date || "").localeCompare(x.date || "")); }
 
   /* ================= Plateforme de coordination et d'orientation (PCO-TND) ================= */
 
@@ -122,7 +116,7 @@
   function etatPco(d, aujourdhui) {
     const p = d.pco || pcoVide();
     const f = FORMULES_PCO.find((x) => x[0] === p.formule) || FORMULES_PCO[0];
-    const seances = (d.seances || []).filter((s) => s.date && (!p.debut || s.date >= p.debut));
+    const seances = (d.seances || []).filter((s) => s.statut !== "prevue" && s.statut !== "annulee" && s.date && (!p.debut || s.date >= p.debut));
     const echeance = p.debut ? ajouterMois(p.debut, p.renouvele === "oui" ? 24 : 12) : "";
     const restant = echeance && aujourdhui ? joursEntre(aujourdhui, echeance) : null;
     let alerte = "";
@@ -194,16 +188,6 @@
       o.medecin = court(p.medecin, 200);
       o.renouvele = oui(p.renouvele);
       o.notes = court(p.notes, 4000);
-    }
-    if (Array.isArray(src.seances)) {
-      out.seances = src.seances.filter((s) => s && typeof s === "object").slice(0, MAX_SEANCES).map((s) => {
-        const axes = {};
-        if (s.axes && typeof s.axes === "object") Object.keys(s.axes).slice(0, 20).forEach((k) => { if (/^[a-z]{2,20}$/.test(k) && s.axes[k] === "oui") axes[k] = "oui"; });
-        return {
-          date: dateIso(s.date), axes: axes, etat: ETATS_SEANCE.some((e) => e[0] === s.etat) ? s.etat : "",
-          fait: court(s.fait), prochaine: court(s.prochaine, 1000), aide: court(s.aide), difficile: court(s.difficile),
-        };
-      });
     }
     if (src.passations && typeof src.passations === "object") {
       Object.keys(src.passations).slice(0, 30).forEach((id) => {
@@ -323,9 +307,9 @@
 
   return {
     RAISONS, COMMUNICATION, QUESTIONS, SENS, REACTIONS, ETAPES, PLANNING_DEFAUT, MAX_ETAPES,
-    ETATS_SEANCE, MAX_SEANCES, seancesRecentes, FORMULES_PCO, SOURCE_PCO, ADAPTATIONS_PASSATION,
+    seancesRecentes, FORMULES_PCO, SOURCE_PCO, ADAPTATIONS_PASSATION,
     SOURCE_HAS_TSA, SOURCE_NCAEP, REPERES_HAS_TSA, NOTE_INTEGRATION_SENSORIELLE,
-    vide, normaliser, adaptationVide, pcoVide, seanceVide, passationVide, normaliserPhoto,
+    vide, normaliser, adaptationVide, pcoVide, passationVide, normaliserPhoto,
     etatPco, ajouterMois, joursEntre, passationAdaptee, libellesPassation, phrasePassation,
     raisonTsa, libelleRaison, phraseDiagnostic, orientationPossible, phraseOrientation, lignesPco,
     reperesJournal, ceQuiAide, accueilCommence, villeCabinet, villesCabinet,

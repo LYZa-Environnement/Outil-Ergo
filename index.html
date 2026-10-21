@@ -46,6 +46,7 @@
       <button type="button" role="tab" id="g-ecrit" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">✏️</span>Écriture</button>
       <button type="button" role="tab" id="g-evaluations" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌈</span>Bilans</button>
       <button type="button" role="tab" id="g-compte-rendu" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📄</span>Compte rendu</button>
+      <button type="button" role="tab" id="g-seances" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📅</span>Séances</button>
     </nav>
     <nav class="sous-onglets" id="sous-onglets" aria-label="Parties de l'étape" hidden></nav>
   </div>
@@ -136,7 +137,7 @@
 
       <fieldset class="groupe test" id="bloc-adaptation">
         <legend><label class="case case-titre"><input type="checkbox" data-chemin="adaptation.actif" data-bascule="#corps-adaptation"><span>🤝 Adapter l'accueil et le bilan</span></label></legend>
-        <p class="note">Pour un enfant qui a besoin d'un cadre très prévisible : TSA connu ou suspecté, grande anxiété, fortes sensibilités sensorielles… Ouvre l'onglet « Accueil adapté » (questionnaire pour les parents, fiche « Ce qui aide », planning en images) et le journal des séances.</p>
+        <p class="note">Pour un enfant qui a besoin d'un cadre très prévisible : TSA connu ou suspecté, grande anxiété, fortes sensibilités sensorielles… Ajoute « Accueil adapté » à côté de « Dossier » : questionnaire pour les parents, fiche « Ce qui aide », planning en images.</p>
         <div class="test-corps" id="corps-adaptation" hidden>
           <div class="champ">
             <span id="l-raison">Raison</span>
@@ -148,7 +149,6 @@
           <label class="case" id="case-orientation" hidden><input type="checkbox" data-chemin="adaptation.phraseOrientation"><span>Ajouter au compte rendu une phrase qui conseille un avis médical (sans parler d'autisme)</span></label>
           <div class="barre-actions">
             <button type="button" class="bouton bouton-second" data-aller="accueil">Préparer l'accueil →</button>
-            <button type="button" class="bouton bouton-second" data-aller="seances">Journal des séances →</button>
           </div>
         </div>
       </fieldset>
@@ -169,8 +169,8 @@
           <label class="case"><input type="checkbox" data-chemin="pco.renouvele"><span>Parcours renouvelé pour une deuxième année (une seule fois possible)</span></label>
           <div class="etat-pco" id="etat-pco" aria-live="polite"></div>
           <label class="champ"><span>Notes sur le parcours</span><textarea data-chemin="pco.notes" rows="2" placeholder="Contrat signé avec la plateforme le…, contact de la coordinatrice…"></textarea></label>
-          <p class="note">Le compte rendu indique le cadre du parcours et ses destinataires : la famille, le médecin traitant et la plateforme. Les séances se comptent dans le journal des séances. <a href="https://handicap.gouv.fr/sites/handicap/files/2025-04/TND-fiche-technique-forfait-intervention-2025.pdf" target="_blank" rel="noopener">Règles du forfait</a></p>
-          <div class="barre-actions"><button type="button" class="bouton bouton-second" data-aller="seances">Journal des séances →</button></div>
+          <p class="note">Le compte rendu indique le cadre du parcours et ses destinataires : la famille, le médecin traitant et la plateforme. Les séances faites (onglet Séances) sont comptées pour le forfait. <a href="https://handicap.gouv.fr/sites/handicap/files/2025-04/TND-fiche-technique-forfait-intervention-2025.pdf" target="_blank" rel="noopener">Règles du forfait</a></p>
+          <div class="barre-actions"><button type="button" class="bouton bouton-second" data-seances-enfant>📅 Séances de l'enfant →</button></div>
         </div>
       </fieldset>
 
@@ -191,11 +191,18 @@
         </div>
         <p class="calcule" id="etat-precedent" aria-live="polite"></p>
       </fieldset>
+
+      <fieldset class="groupe">
+        <legend>Séances de suivi</legend>
+        <p class="calcule resume-seances-dossier"></p>
+        <button type="button" class="bouton bouton-second" data-seances-enfant>📅 Voir et noter ses séances</button>
+      </fieldset>
       <div class="suite"><button type="button" class="bouton" data-aller="anamnese">Suivant : anamnèse →</button></div>
     </section>
 
     <!-- ============ Accueil adapté ============ -->
     <section id="p-accueil" role="tabpanel" aria-label="Accueil adapté" class="panneau" hidden>
+      <button type="button" class="bouton-retour" data-aller="dossier">← Retour au dossier</button>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -280,25 +287,7 @@
           </div>
         </div>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="seances">Journal des séances →</button></div>
-    </section>
-
-    <!-- ============ Journal des séances ============ -->
-    <section id="p-seances" role="tabpanel" aria-label="Journal des séances" class="panneau" hidden>
-      <details class="aide">
-        <summary>Comment faire ?</summary>
-        <ol>
-          <li>À la fin de la séance, touchez « Séance du jour » (ou « 📅 Séance » dans Mes dossiers) : la date se met toute seule.</li>
-          <li>Cochez ce qui a été travaillé et touchez un visage. C'est tout ; la note et « pour la prochaine fois » sont facultatives.</li>
-          <li>La fois suivante, le rappel 📌 et la séance prévue au plan de suivi s'affichent ici.</li>
-          <li>Les séances apparaissent dans le plan de suivi. Pour un suivi financé par la plateforme TND, elles sont comptées pour le forfait.</li>
-        </ol>
-      </details>
-      <section class="carte resume-seances" id="resume-seances" aria-live="polite"></section>
-      <div class="etat-pco" id="etat-pco-seances" aria-live="polite" hidden></div>
-      <section class="carte fiche-aide fiche-aide-courte" id="rappel-aide" hidden aria-label="Ce qui aide"></section>
-      <div class="barre-actions"><button type="button" class="bouton" data-action="ajouter-seance">＋ Séance du jour</button></div>
-      <div id="liste-seances"></div>
+      <div class="suite"><button type="button" class="bouton bouton-second" data-aller="dossier">← Retour au dossier</button></div>
     </section>
 
     <!-- ============ Anamnèse ============ -->
@@ -649,6 +638,65 @@
     </section>
 
     <!-- ============ Réglages ============ -->
+    <!-- ============ Séances ============ -->
+    <section id="p-seances" role="tabpanel" aria-label="Séances" class="panneau" hidden>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Après une séance : touchez « ＋ Séance », vérifiez l'enfant, puis « Ajouter ». Cochez ce qui a été travaillé et touchez un visage : c'est noté.</li>
+          <li>Une séance oubliée ? Choisissez sa date dans « ＋ Séance » : elle est notée comme faite. Une date à venir est notée comme prévue.</li>
+          <li>Une séance prévue s'affiche avec « ✓ Faite » et « Absent » le jour venu : un appui suffit.</li>
+          <li>Choisissez un enfant pour voir toutes ses séances et programmer celles du plan de suivi (toutes les deux semaines par défaut).</li>
+          <li>Touchez une séance pour la compléter ou la modifier ; tout s'enregistre aussitôt.</li>
+        </ol>
+      </details>
+
+      <section class="carte seances-barre" aria-label="Planning des séances">
+        <div class="seances-actions">
+          <button type="button" class="bouton" data-action="nouvelle-seance">＋ Séance</button>
+          <button type="button" class="bouton bouton-second" data-action="programmer-seances" hidden>🗓️ Programmer le plan de suivi</button>
+        </div>
+        <form id="form-seance" class="form-seance" hidden>
+          <label class="champ"><span>Enfant</span><select id="ns-enfant"></select></label>
+          <div class="grille3">
+            <label class="champ"><span>Date</span><input type="date" id="ns-date" data-ns></label>
+            <label class="champ"><span>Heure (facultatif)</span><input type="time" id="ns-heure"></label>
+            <label class="champ" id="champ-ns-lieu" hidden><span>Lieu</span><select id="ns-lieu"></select></label>
+          </div>
+          <p class="note" id="ns-statut"></p>
+          <div class="barre-actions"><button type="submit" class="bouton">Ajouter</button><button type="button" class="bouton-lien" data-action="fermer-form-seance">Annuler</button></div>
+        </form>
+        <label class="champ"><span>Enfant</span><select id="filtre-enfant" data-filtre="enfant"></select></label>
+        <div class="choix choix-periode" role="radiogroup" aria-label="Période" id="filtre-periode">
+          <label><input type="radio" name="filtre-periode" value="semaine" data-filtre="periode"><span>Semaine</span></label>
+          <label><input type="radio" name="filtre-periode" value="mois" data-filtre="periode"><span>Mois</span></label>
+          <label><input type="radio" name="filtre-periode" value="avenir" data-filtre="periode"><span>À venir</span></label>
+          <label><input type="radio" name="filtre-periode" value="passees" data-filtre="periode"><span>Passées</span></label>
+          <label><input type="radio" name="filtre-periode" value="toutes" data-filtre="periode"><span>Toutes</span></label>
+        </div>
+        <div class="navigation-periode" id="nav-periode">
+          <button type="button" class="bouton-rond" data-periode-pas="-1" aria-label="Période précédente">‹</button>
+          <strong id="libelle-periode"></strong>
+          <button type="button" class="bouton-rond" data-periode-pas="1" aria-label="Période suivante">›</button>
+          <button type="button" class="bouton-lien" data-periode-pas="0">Aujourd'hui</button>
+        </div>
+        <details class="plus-filtres">
+          <summary>Plus de filtres<span id="plus-filtres-compte"></span></summary>
+          <div class="grille2">
+            <label class="champ"><span>Statut</span><select id="filtre-statut" data-filtre="statut"><option value="">Tous</option><option value="prevue">Prévues</option><option value="faite">Faites</option><option value="annulee">Annulées ou absences</option></select></label>
+            <label class="champ"><span>Praticienne</span><select id="filtre-auteur" data-filtre="auteur"></select></label>
+            <label class="champ"><span>Axe travaillé</span><select id="filtre-axe" data-filtre="axe"></select></label>
+            <label class="champ" id="champ-filtre-lieu" hidden><span>Lieu</span><select id="filtre-lieu" data-filtre="lieu"></select></label>
+          </div>
+        </details>
+        <p class="note" id="compte-seances" aria-live="polite"></p>
+      </section>
+
+      <section class="carte fiche-enfant-seances" id="fiche-enfant-seances" hidden aria-label="Enfant choisi"></section>
+      <div id="agenda" class="agenda"></div>
+      <div class="doc-actions planning-actions"><span>Ce planning :</span><button type="button" class="bouton bouton-second bouton-petit" data-doc="planning-seances" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="planning-seances" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="planning-seances" data-faire="word">Word</button></div>
+    </section>
+
     <section id="p-reglages" role="tabpanel" aria-label="Réglages" class="panneau" hidden>
       <p class="note">Les réglages restent dans ce navigateur. Exportez-les pour les installer sur un autre appareil.</p>
       <fieldset class="groupe">
@@ -741,6 +789,7 @@
   <script src="js/graphiques.js"></script>
   <script src="js/occupation.js"></script>
   <script src="js/accueil.js"></script>
+  <script src="js/seances.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/suivi.js"></script>
   <script src="js/docx.js"></script>

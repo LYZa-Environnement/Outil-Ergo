@@ -14,15 +14,16 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
    - importer le fichier de normes du BHK (`normes-bhk-enfant.json`, fourni à part, voir plus bas) ;
    - renseigner le cabinet et les praticiens (en-tête, pied de page et signature du compte rendu) ;
    - exporter les réglages pour les réinstaller sur un autre appareil.
-4. Remplir les cinq onglets dans l'ordre. Certains ont des sous-onglets, affichés juste en dessous. Un ✓ vert marque ce qui est rempli ; chaque partie a un encadré « Comment faire ? ».
+4. Remplir les onglets du bilan dans l'ordre. Certains ont des sous-onglets, affichés juste en dessous. Un ✓ vert marque ce qui est rempli ; chaque partie a un encadré « Comment faire ? ».
 
 | Onglet | Sous-onglets et contenu |
 | --- | --- |
-| 📁 Dossier | **Dossier** : Mes dossiers (reprise d'un dossier, bouton « 📅 Séance »), identité, âge calculé, parents, prescription, scolarité, motif, accueil adapté, plateforme TND, bilans utilisés, réévaluation. **Accueil** (si l'accueil adapté est coché) : questionnaire des parents, fiche « Ce qui aide », planning en images, « Ma visite ». **Séances** : journal des séances de suivi |
+| 📁 Dossier | **Dossier** : Mes dossiers, identité, âge calculé, parents, prescription, scolarité, motif, accueil adapté, plateforme TND, bilans utilisés, réévaluation, résumé des séances. **Accueil adapté** (si la case est cochée) : questionnaire des parents, fiche « Ce qui aide », planning en images, « Ma visite » |
 | 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
 | ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie et son analyse, résultats, observations pendant la copie, douleur (EVA) |
 | 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (synthèse et réponses détaillées), SensOT-dir, tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
 | 📄 Compte rendu | Les quatre documents (aperçu, impression, Word), diagnostic ergothérapique, objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, réglage du plan de suivi |
+| 📅 Séances | Planning de toutes les séances de suivi, pour tous les enfants : séances faites, prévues, annulées ; filtres ; programmation du plan de suivi ; impression |
 
 Le bouton 🌙 / ☀️ passe du mode jour (par défaut) au mode nuit ; le choix est gardé sur l'appareil.
 
@@ -59,9 +60,16 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
 
-### Journal des séances
+### Séances
 
-Après le bilan, chaque séance de suivi se note en quelques touches : « 📅 Séance » dans Mes dossiers (ou « Séance du jour » dans l'onglet Séances) crée la séance avec la date du jour ; on coche l'axe travaillé (ceux du plan de suivi sont proposés), on touche un visage (bien, moyen, difficile) ; une note et « pour la prochaine fois » sont facultatives. En haut du journal : le nombre de séances, le rappel 📌 noté la fois précédente et la séance prévue au plan de suivi. Les séances figurent dans le plan de suivi.
+L'onglet 📅 Séances réunit les séances de suivi de tous les enfants (chaque séance reste rangée dans le dossier de l'enfant).
+
+- **Noter une séance** : « ＋ Séance », l'enfant (celui du dossier ouvert par défaut), la date (aujourd'hui par défaut) et, si on veut, l'heure. Une date passée donne une séance faite, une date à venir une séance prévue. La séance s'ouvre : on coche ce qui a été travaillé (les axes du plan de suivi d'abord), on touche un visage (bien, moyen, difficile) ; une note et « pour la prochaine fois » sont facultatives. Tout s'enregistre aussitôt.
+- **Séance prévue** : le jour venu, elle porte deux boutons, « ✓ Faite » et « Absent ».
+- **Planning** : vue par semaine ou par mois (flèches pour avancer ou reculer, « Aujourd'hui » pour revenir), séances à venir, passées ou toutes. Filtres : enfant, statut (prévue, faite, annulée), praticienne, axe travaillé, lieu (si le cabinet a plusieurs adresses).
+- **Un enfant** : résumé (séances faites, prochaine séance, forfait de la plateforme TND, rappel 📌 noté la fois précédente, « Ce qui aide ») et « Programmer le plan de suivi », qui ajoute les séances prévues aux dates du plan (toutes les deux semaines par défaut), sans doublon et annulable.
+- Dans chaque séance, le rappel 📌 et le contenu prévu au plan de suivi pour ce rang de séance.
+- Le planning affiché s'imprime ou se télécharge en Word ; le plan de suivi reprend les séances faites et les prochaines séances prévues ; le forfait de la plateforme TND compte les séances faites.
 
 ### Accueil adapté
 
@@ -176,7 +184,8 @@ index.html        page
 css/style.css     mise en forme (thème nature, mode jour et mode nuit)
 js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
-js/accueil.js     accueil adapté, journal des séances, plateforme TND, passations adaptées
+js/accueil.js     accueil adapté, plateforme TND, passations adaptées
+js/seances.js     séances : modèle, périodes, filtres, regroupement par jour, programmation
 js/suivi.js       plan de suivi, carnet des parents et documents d'accueil : axes de travail, exercices, calendrier, GAS
 js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document

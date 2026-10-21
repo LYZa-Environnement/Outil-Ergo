@@ -5,9 +5,9 @@
  * Les exercices sont des pistes générales à adapter à chaque enfant.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"), require("./accueil.js"));
-  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso, racine.Accueil);
-})(typeof self !== "undefined" ? self : this, function (B, O, S, A) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"), require("./accueil.js"), require("./seances.js"));
+  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso, racine.Accueil, racine.Seances);
+})(typeof self !== "undefined" ? self : this, function (B, O, S, A, SE) {
   "use strict";
 
   function texte(v) { return typeof v === "string" ? v : v === null || v === undefined ? "" : String(v); }
@@ -440,11 +440,14 @@
       txt(def.maison.map((m) => "– " + m[0] + " : " + m[1] + " (" + m[2] + ").").join("\n"));
     });
 
-    const journal = d.seances.filter((x) => x.date || x.fait || x.etat || Object.keys(x.axes).length).sort((x, y) => (x.date || "").localeCompare(y.date || ""));
-    if (journal.length) {
+    const journal = d.seances.filter((x) => x.statut !== "prevue" && (x.date || x.fait || x.etat || Object.keys(x.axes).length)).sort(SE.ordre);
+    const aVenir = d.seances.filter((x) => x.statut === "prevue" && x.date >= B.aujourdhui()).sort(SE.ordre);
+    if (journal.length || aVenir.length) {
       h(2, "Journal des séances");
-      txt(journal.length + " séance" + (journal.length > 1 ? "s" : "") + " notée" + (journal.length > 1 ? "s" : "") + ".");
-      const etat = (k) => { const e = A.ETATS_SEANCE.find((x) => x[0] === k); return e ? e[2] + " " + e[1] : ""; };
+      const faites = journal.filter((x) => x.statut === "faite").length, annulees = journal.length - faites;
+      txt(faites + " séance" + (faites > 1 ? "s" : "") + " faite" + (faites > 1 ? "s" : "") + (annulees ? ", " + annulees + " annulée" + (annulees > 1 ? "s" : "") + " ou absence" + (annulees > 1 ? "s" : "") : "") + "." +
+        (aVenir.length ? " Prochaines séances prévues : " + aVenir.slice(0, 8).map((x) => B.dateCourte(x.date) + (x.heure ? " à " + x.heure.replace(":", " h ") : "")).join(", ") + (aVenir.length > 8 ? "…" : "") + "." : ""));
+      const etat = (x) => { if (x.statut === "annulee") return "✗ Annulée ou absent"; const e = SE.ETATS.find((y) => y[0] === x.etat); return e ? e[2] + " " + e[1] : "Faite"; };
       const contenu = (x) => {
         const l = [];
         const axes = AXES.filter((ax) => x.axes[ax.id] === "oui").map((ax) => ax.titre);
@@ -454,9 +457,9 @@
         return l.length ? l : [{ t: "–" }];
       };
       const adapte = d.adaptation.actif === "oui";
-      blocs.push({ type: "tableau", largeurs: adapte ? [0.13, 0.12, 0.35, 0.2, 0.2] : [0.15, 0.15, 0.7], petit: true, lignes: [
+      if (journal.length) blocs.push({ type: "tableau", largeurs: adapte ? [0.13, 0.12, 0.35, 0.2, 0.2] : [0.15, 0.15, 0.7], petit: true, lignes: [
         { entete: true, cellules: ["Date", "Séance", "Travaillé, notes"].concat(adapte ? ["A aidé", "Difficile"] : []).map((t) => c(t, { gras: true, fond: "entete" })) },
-      ].concat(journal.map((x) => ({ cellules: [c(B.dateCourte(x.date) || "–"), c(etat(x.etat) || "–"), c(contenu(x))].concat(adapte ? [c(x.aide || "–"), c(x.difficile || "–")] : []) }))) });
+      ].concat(journal.map((x) => ({ cellules: [c(B.dateCourte(x.date) || "–"), c(etat(x)), c(contenu(x))].concat(adapte ? [c(x.aide || "–"), c(x.difficile || "–")] : []) }))) });
     }
     if (d.pco.actif === "oui" && texte(d.pco.notes).trim()) { h(3, "Notes sur le parcours de la plateforme"); txt(d.pco.notes); }
 

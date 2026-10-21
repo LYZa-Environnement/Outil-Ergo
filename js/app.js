@@ -106,7 +106,7 @@
       } catch (e) {
         if (e && e.code === "declined") annoncer("Téléchargement annulé");
         else if (e && e.code === "rate_limited") annoncer("Un téléchargement est déjà en attente de confirmation.");
-        else annoncer("Le téléchargement n'est pas disponible ici" + (e && e.message ? " : " + e.message : "."));
+        else annoncer("Le téléchargement n'a pas abouti ici. Sur téléphone, ouvrez l'outil dans le navigateur (Safari, Chrome) ou sur un ordinateur.");
         return false;
       }
     }
@@ -486,77 +486,399 @@
     </details>`;
   }
 
-  // Journal des séances : une carte par séance, à remplir en quelques touches.
-  function construireSeances() {
-    const ad = dossier.adaptation && dossier.adaptation.actif === "oui";
-    const l = dossier.seances || [];
-    sigSeances = (ad ? "1" : "0") + ":" + l.length + ":" + axesJournal().map((a) => a.id).join(",");
-    const axes = axesJournal();
-    $("#liste-seances").innerHTML = l.length ? l.map((s, i) => {
-      const coches = Object.keys(s.axes || {}).filter((k) => s.axes[k] === "oui");
-      const liste = axes.concat(U.AXES.filter((a) => coches.indexOf(a.id) >= 0 && !axes.some((b) => b.id === a.id)));
-      const caseAxe = (a) => `<label><input type="checkbox" data-chemin="seances.${i}.axes.${a.id}"${coches.indexOf(a.id) >= 0 ? " checked" : ""}><span>${U.PICTOS_AXES[a.id] || ""} ${esc(a.titre.split(/ et | : |, | dans /)[0])}</span></label>`;
-      return `<fieldset class="groupe seance">
-      <legend><input type="date" class="date-seance" data-chemin="seances.${i}.date" value="${esc(s.date)}" aria-label="Date de la séance"></legend>
-      <div class="champ"><span>Travaillé</span><div class="cases cases-puces">${liste.map(caseAxe).join("")}</div>
-        <details class="autres-axes"><summary>Autres axes</summary><div class="cases cases-puces">${U.AXES.filter((a) => !liste.some((b) => b.id === a.id)).map(caseAxe).join("")}</div></details></div>
-      <div class="champ"><span id="l-etat-${i}">Comment ça s'est passé ?</span><div class="choix choix-visages" role="radiogroup" aria-labelledby="l-etat-${i}">${A.ETATS_SEANCE.map((x) => `<label><input type="radio" name="seance-etat-${i}" value="${x[0]}" data-chemin="seances.${i}.etat"${s.etat === x[0] ? " checked" : ""}><span><span aria-hidden="true">${x[2]}</span> ${esc(x[1])}</span></label>`).join("")}</div></div>
-      <label class="champ"><span>Note (facultatif)</span><input type="text" data-chemin="seances.${i}.fait" value="${esc(s.fait)}" placeholder="grands tracés au tableau, a bien accroché"></label>
-      <label class="champ"><span>Pour la prochaine fois</span><input type="text" data-chemin="seances.${i}.prochaine" value="${esc(s.prochaine)}" placeholder="reprendre les boucles ; apporter son cahier"></label>
-      ${ad ? `<div class="grille2">
-        <label class="champ"><span>Ce qui a aidé</span><input type="text" data-chemin="seances.${i}.aide" value="${esc(s.aide)}" placeholder="minuteur visuel ; parler de dinosaures"></label>
-        <label class="champ"><span>Ce qui a été difficile</span><input type="text" data-chemin="seances.${i}.difficile" value="${esc(s.difficile)}" placeholder="attendre son tour ; bruit du couloir"></label>
-      </div>` : ""}
-      <div class="seance-pied"><button type="button" class="bouton-lien" data-suppr-seance="${i}">Retirer cette séance</button></div>
-    </fieldset>`;
-    }).join("") : `<p class="note vide">Aucune séance notée pour l'instant.</p>`;
+  /* ---------- Séances : planning de toutes les séances de tous les enfants ---------- */
+
+  const SE = window.Seances;
+  const CLE_FILTRES = "outil-ergo:filtres-seances";
+  let filtres = Object.assign({ enfant: "", periode: "semaine", decalage: 0, statut: "", auteur: "", axe: "", lieu: "" }, lireStockage(CLE_FILTRES) || {});
+  filtres.decalage = 0;
+  let agenda = { lignes: [], dossiers: {}, enfants: [], entrees: {} };
+  let agendaVue = null;
+  let seanceOuverte = "";
+  const ecritures = {};
+
+  function sauverFiltres() { ecrireStockage(CLE_FILTRES, Object.assign({}, filtres, { decalage: 0 })); }
+  function nomEnfant(x) { const p = String(x.prenom || "").trim(), n = String(x.nom || "").trim(); return [p, n ? n.charAt(0).toUpperCase() + "." : ""].filter(Boolean).join(" ") || "Sans nom"; }
+  function nomCompletEnfant(x) { return [String(x.prenom || "").trim(), String(x.nom || "").trim().toUpperCase()].filter(Boolean).join(" ") || "Sans nom"; }
+  function titreCourtAxe(a) { return a.titre.split(/ et | : |, | dans /)[0]; }
+  function heureTexte(h) { return h ? h.replace(":", " h ") : ""; }
+  function axesDuPlan(d) {
+    try { return U.planning(d, reglages).axes.map((a) => U.AXES.find((x) => x.id === a.id)).filter(Boolean); } catch (e) { return []; }
   }
 
-  // Axes proposés comme cases : ceux du plan de suivi.
-  function axesJournal() {
-    try { return U.planning(dossier, reglages).axes.map((a) => U.AXES.find((x) => x.id === a.id)).filter(Boolean); } catch (e) { return []; }
+  // Rassemble les séances rangées dans chaque dossier (le dossier ouvert est pris en mémoire).
+  async function chargerAgenda() {
+    let l = [];
+    try { l = await Base.tous(); } catch (e) { l = []; }
+    agenda = { lignes: [], dossiers: {}, enfants: [], entrees: {} };
+    const ajouter = (id, d, infos, entree) => {
+      d.seances = SE.normaliserListe(d.seances);
+      agenda.dossiers[id] = { d: d, infos: infos, courant: d === dossier };
+      if (entree) agenda.entrees[id] = entree;
+      agenda.enfants.push({ id: id, nom: nomEnfant(infos), complet: nomCompletEnfant(infos), groupe: infos.groupe || "" });
+    };
+    l.forEach((x) => { if (x && x.id && x.dossier && x.id !== dossier.id) ajouter(x.id, x.dossier, x, x); });
+    if (String(dossier.prenom || "").trim() || String(dossier.nom || "").trim()) { assurerId(); ajouter(dossier.id, dossier, dossier, null); }
+    agenda.enfants.sort((a, b) => a.complet.localeCompare(b.complet, "fr"));
+    reconstruireLignes();
+  }
+  function reconstruireLignes() {
+    agenda.lignes = [];
+    Object.keys(agenda.dossiers).forEach((id) => {
+      const e = agenda.dossiers[id];
+      e.d.seances.forEach((s) => agenda.lignes.push({ dossierId: id, enfant: nomEnfant(e.infos), s: s }));
+    });
   }
 
-  // En haut du journal : nombre de séances, ce qui était prévu « pour la prochaine fois », séance du plan de suivi.
-  function majResumeSeances() {
-    const d = B.normaliserDossier(dossier);
-    const recentes = A.seancesRecentes(d).filter((x) => x.date);
+  async function rendreAgenda() {
+    await chargerAgenda();
+    rendreFiltres();
+    rendreVue();
+  }
+
+  function rendreFiltres() {
+    if (filtres.enfant && !agenda.dossiers[filtres.enfant]) filtres.enfant = "";
+    const opts = agenda.enfants.map((e) => `<option value="${esc(e.id)}">${esc(e.complet)}${e.groupe ? " · " + esc(e.groupe) : ""}</option>`).join("");
+    $("#filtre-enfant").innerHTML = `<option value="">Tous les enfants (${agenda.enfants.length})</option>` + opts;
+    $("#filtre-enfant").value = filtres.enfant;
+    $("#ns-enfant").innerHTML = agenda.enfants.length ? opts : `<option value="">Aucun dossier : commencez par l'onglet Dossier</option>`;
+    $$("#filtre-periode input").forEach((r) => { r.checked = r.value === filtres.periode; });
+    $("#filtre-statut").value = filtres.statut;
+    const auteurs = Array.from(new Set(agenda.lignes.map((x) => x.s.auteur).filter(Boolean))).sort();
+    $("#filtre-auteur").innerHTML = `<option value="">Toutes</option>` + auteurs.map((a) => `<option value="${esc(a)}">${esc(a)}</option>`).join("");
+    $("#filtre-auteur").value = auteurs.indexOf(filtres.auteur) >= 0 ? filtres.auteur : "";
+    $("#filtre-axe").innerHTML = `<option value="">Tous</option>` + U.AXES.map((a) => `<option value="${a.id}">${U.PICTOS_AXES[a.id] || ""} ${esc(titreCourtAxe(a))}</option>`).join("");
+    $("#filtre-axe").value = filtres.axe;
+    const villes = A.villesCabinet(reglages.cabinet.adresse);
+    $("#champ-filtre-lieu").hidden = villes.length < 2;
+    $("#filtre-lieu").innerHTML = `<option value="">Tous</option>` + villes.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    $("#filtre-lieu").value = villes.indexOf(filtres.lieu) >= 0 ? filtres.lieu : "";
+    $("#champ-ns-lieu").hidden = villes.length < 2;
+    $("#ns-lieu").innerHTML = `<option value="">–</option>` + villes.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    const actifs = ["statut", "auteur", "axe", "lieu"].filter((k) => filtres[k]).length;
+    $("#plus-filtres-compte").textContent = actifs ? " (" + actifs + ")" : "";
+  }
+
+  function vueCourante() { return SE.filtrer(agenda.lignes, filtres, B.aujourdhui()); }
+
+  function rendreVue() {
     const auj = B.aujourdhui();
-    const aujourdhui = recentes.find((x) => x.date === auj);
-    const avant = recentes.filter((x) => x.date < auj);
-    const h = [];
-    h.push(`<p><strong>${recentes.length}</strong> séance${recentes.length > 1 ? "s" : ""} notée${recentes.length > 1 ? "s" : ""}${avant.length ? ` · dernière le ${esc(B.dateCourte(avant[0].date))}` : ""}</p>`);
-    const rappel = avant.find((x) => x.prochaine.trim());
-    if (rappel) h.push(`<p class="rappel-prochaine"><span aria-hidden="true">📌</span> Noté le ${esc(B.dateCourte(rappel.date))} pour la fois suivante : <strong>${esc(rappel.prochaine.trim())}</strong></p>`);
-    let plan = null;
-    try { plan = U.planning(dossier, reglages); } catch (e) { plan = null; }
-    const n = recentes.length + (aujourdhui ? 0 : 1);
-    const prevue = plan && plan.seances[n - 1];
-    if (prevue) h.push(`<details class="prevu-plan"><summary>Prévu au plan de suivi pour ${aujourdhui ? "aujourd'hui" : "la prochaine séance"} (n° ${n}, ${esc(prevue.phase.toLowerCase())}) : <strong>${esc(prevue.titre)}</strong></summary>
-      <ul>${prevue.contenu.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${prevue.maison.length ? `<p>À la maison : ${esc(prevue.maison.map((m) => m[0]).join(", "))}</p>` : ""}</details>`);
-    $("#resume-seances").innerHTML = h.join("");
-    const b = $("[data-action='ajouter-seance']");
-    b.textContent = aujourdhui ? "Séance d'aujourd'hui notée ✓" : "＋ Séance du jour";
-    b.classList.toggle("bouton-second", !!aujourdhui);
+    const res = vueCourante();
+    agendaVue = res;
+    $("#nav-periode").hidden = !res.periode.navigable;
+    $("#libelle-periode").textContent = res.periode.libelle;
+    const faites = res.lignes.filter((x) => x.s.statut === "faite").length, prevues = res.lignes.filter((x) => x.s.statut === "prevue").length;
+    const pl = (n, mot) => n + " " + mot + (n > 1 ? "s" : "");
+    $("#compte-seances").textContent = res.lignes.length ? pl(res.lignes.length, "séance") + " : " + pl(faites, "faite") + ", " + pl(prevues, "prévue") : "";
+    rendreFicheEnfant();
+    const jours = SE.grouperParJour(res, auj);
+    $("#agenda").innerHTML = res.lignes.length || res.periode.type === "semaine" ? jours.map((j) => `<section class="jour${j.aujourdhui ? " jour-aujourdhui" : ""}${j.passe ? " jour-passe" : ""}">
+        <h3 class="jour-titre">${esc(j.libelle)}${j.aujourdhui ? ` <span class="badge">Aujourd'hui</span>` : ""}</h3>
+        ${j.lignes.length ? j.lignes.map(htmlLigneSeance).join("") : `<p class="jour-vide">Pas de séance</p>`}
+      </section>`).join("")
+      : `<p class="vide">Aucune séance${filtres.enfant ? " pour cet enfant" : ""} sur cette période. Touchez « ＋ Séance » pour en ajouter une, passée ou à venir.</p>`;
+    $("[data-action='programmer-seances']").hidden = !filtres.enfant;
+    if (seanceOuverte && $(`[data-seance="${seanceOuverte}"]`)) ouvrirEditeur(seanceOuverte, false); else seanceOuverte = "";
   }
 
-  // Ouvre (ou crée) la séance du jour.
-  function seanceDuJour() {
-    if (!Array.isArray(dossier.seances)) dossier.seances = [];
-    const auj = B.aujourdhui();
-    let i = dossier.seances.findIndex((x) => x.date === auj);
-    if (i < 0) {
-      if (dossier.seances.length >= A.MAX_SEANCES) { annoncer(A.MAX_SEANCES + " séances au plus."); return; }
-      dossier.seances.unshift(A.seanceVide(auj));
-      i = 0;
-      construireSeances(); nonEnregistre = true; majTout();
-      annoncer("Séance du jour ajoutée");
+  function htmlTeteSeance(x) {
+    const s = x.s, cle = x.dossierId + "|" + s.id;
+    const statut = SE.STATUTS.find((t) => t[0] === s.statut);
+    const etat = SE.ETATS.find((e) => e[0] === s.etat);
+    const pictos = U.AXES.filter((a) => s.axes[a.id] === "oui").map((a) => U.PICTOS_AXES[a.id] || "").join(" ");
+    const marque = s.statut === "faite" ? (etat ? etat[2] : "✓") : statut[2];
+    const rapide = s.statut === "prevue" && s.date && s.date <= B.aujourdhui();
+    return `<div class="seance-ligne-tete">
+        <button type="button" class="seance-ouvrir" data-ouvrir-seance="${esc(cle)}" aria-expanded="${seanceOuverte === cle}">
+          <span class="seance-heure">${esc(heureTexte(s.heure))}</span>
+          <span class="seance-quoi"><strong>${esc(x.enfant)}</strong>${pictos ? ` <span class="seance-pictos" aria-hidden="true">${pictos}</span>` : ""}${s.fait ? `<small>${esc(s.fait)}</small>` : ""}</span>
+          <span class="seance-marque" aria-hidden="true">${marque}</span><span class="lecteur">${esc(statut[1])}</span>
+        </button>
+        ${rapide ? `<span class="seance-rapide"><button type="button" class="bouton bouton-petit" data-statut-rapide="faite" data-cle="${esc(cle)}">✓ Faite</button><button type="button" class="bouton bouton-second bouton-petit" data-statut-rapide="annulee" data-cle="${esc(cle)}">Absent</button></span>` : ""}
+      </div>`;
+  }
+  function htmlLigneSeance(x) {
+    return `<article class="seance-ligne statut-${x.s.statut}" data-seance="${esc(x.dossierId + "|" + x.s.id)}">${htmlTeteSeance(x)}<div class="seance-edition" hidden></div></article>`;
+  }
+
+  function trouverSeance(cle) {
+    const [id, sid] = String(cle).split("|");
+    const e = agenda.dossiers[id];
+    const s = e && e.d.seances.find((x) => x.id === sid);
+    return s ? { id: id, e: e, s: s } : null;
+  }
+
+  function htmlEditeur(cle) {
+    const t = trouverSeance(cle);
+    if (!t) return "";
+    const e = t.e, s = t.s;
+    const ad = e.d.adaptation && e.d.adaptation.actif === "oui";
+    const plan = axesDuPlan(e.d);
+    const coches = Object.keys(s.axes).filter((k) => s.axes[k] === "oui");
+    const liste = plan.concat(U.AXES.filter((a) => coches.indexOf(a.id) >= 0 && !plan.some((b) => b.id === a.id)));
+    const autres = U.AXES.filter((a) => !liste.some((b) => b.id === a.id));
+    const caseAxe = (a) => `<label><input type="checkbox" data-ed="axes.${a.id}"${s.axes[a.id] === "oui" ? " checked" : ""}><span>${U.PICTOS_AXES[a.id] || ""} ${esc(titreCourtAxe(a))}</span></label>`;
+    const avant = e.d.seances.filter((x) => x.id !== s.id && x.date && s.date && x.date < s.date);
+    const rappel = SE.resumeEnfant(avant, s.date || B.aujourdhui()).rappel;
+    const rang = SE.rang(e.d.seances, s);
+    let prevu = null;
+    try { prevu = U.planning(e.d, reglages).seances[rang - 1] || null; } catch (err) { prevu = null; }
+    const villes = A.villesCabinet(reglages.cabinet.adresse);
+    return `${rappel ? `<p class="rappel-prochaine"><span aria-hidden="true">📌</span> Noté le ${esc(B.dateCourte(rappel.date))} pour la fois suivante : <strong>${esc(rappel.prochaine)}</strong></p>` : ""}
+      ${prevu && s.statut !== "annulee" ? `<details class="prevu-plan"><summary>Plan de suivi, séance n° ${rang} (${esc(prevu.phase.toLowerCase())}) : <strong>${esc(prevu.titre)}</strong></summary><ul>${prevu.contenu.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${prevu.maison.length ? `<p>À la maison : ${esc(prevu.maison.map((m) => m[0]).join(", "))}</p>` : ""}</details>` : ""}
+      <div class="champ"><span>Statut</span><div class="choix" role="radiogroup" aria-label="Statut">${SE.STATUTS.map((x) => `<label><input type="radio" name="ed-statut" value="${x[0]}" data-ed="statut"${s.statut === x[0] ? " checked" : ""}><span>${esc(x[1])}</span></label>`).join("")}</div></div>
+      <div class="si-faite"${s.statut === "faite" ? "" : " hidden"}>
+        <div class="champ"><span>Travaillé</span><div class="cases cases-puces">${liste.map(caseAxe).join("")}</div>
+          ${autres.length ? `<details class="autres-axes"><summary>Autres axes</summary><div class="cases cases-puces">${autres.map(caseAxe).join("")}</div></details>` : ""}</div>
+        <div class="champ"><span>Comment ça s'est passé ?</span><div class="choix choix-visages" role="radiogroup" aria-label="Comment ça s'est passé ?">${SE.ETATS.map((x) => `<label><input type="radio" name="ed-etat" value="${x[0]}" data-ed="etat"${s.etat === x[0] ? " checked" : ""}><span><span aria-hidden="true">${x[2]}</span> ${esc(x[1])}</span></label>`).join("")}</div></div>
+        <label class="champ"><span>Pour la prochaine fois</span><input type="text" data-ed="prochaine" value="${esc(s.prochaine)}" placeholder="reprendre les boucles ; apporter son cahier"></label>
+        ${ad ? `<div class="grille2">
+          <label class="champ"><span>Ce qui a aidé</span><input type="text" data-ed="aide" value="${esc(s.aide)}" placeholder="minuteur visuel ; parler de dinosaures"></label>
+          <label class="champ"><span>Ce qui a été difficile</span><input type="text" data-ed="difficile" value="${esc(s.difficile)}" placeholder="attendre son tour ; bruit du couloir"></label>
+        </div>` : ""}
+      </div>
+      <label class="champ"><span>Note (facultatif)</span><input type="text" data-ed="fait" value="${esc(s.fait)}" placeholder="${s.statut === "annulee" ? "malade, rendez-vous reporté…" : "grands tracés au tableau, a bien accroché"}"></label>
+      <div class="grille3">
+        <label class="champ"><span>Date</span><input type="date" data-ed="date" value="${esc(s.date)}"></label>
+        <label class="champ"><span>Heure</span><input type="time" data-ed="heure" value="${esc(s.heure)}"></label>
+        ${villes.length > 1 ? `<label class="champ"><span>Lieu</span><select data-ed="lieu"><option value="">–</option>${villes.map((v) => `<option${v === s.lieu ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></label>` : ""}
+      </div>
+      <div class="seance-pied">
+        <button type="button" class="bouton-lien" data-ouvrir-dossier-seance="${esc(t.id)}">Ouvrir le dossier</button>
+        <button type="button" class="bouton-lien" data-retirer-seance="${esc(cle)}">Retirer la séance</button>
+        <button type="button" class="bouton bouton-petit" data-ouvrir-seance="${esc(cle)}">Fermer</button>
+      </div>`;
+  }
+
+  function ouvrirEditeur(cle, basculer) {
+    const art = $(`[data-seance="${cle}"]`);
+    if (!art) return;
+    const zone = $(".seance-edition", art);
+    if (basculer && seanceOuverte === cle && !zone.hidden) {
+      zone.hidden = true; zone.innerHTML = ""; seanceOuverte = "";
+      $(".seance-ouvrir", art).setAttribute("aria-expanded", "false");
+      return;
     }
-    afficherOnglet("seances");
-    const carte = $$("#liste-seances .seance")[i];
-    if (carte) { carte.classList.add("seance-du-jour"); carte.scrollIntoView({ block: "start" }); }
+    $$("#agenda .seance-edition").forEach((z) => { if (z !== zone) { z.hidden = true; z.innerHTML = ""; } });
+    $$("#agenda .seance-ouvrir").forEach((b) => b.setAttribute("aria-expanded", String(b.closest("[data-seance]") === art)));
+    seanceOuverte = cle;
+    zone.innerHTML = htmlEditeur(cle);
+    zone.hidden = false;
   }
-  let sigSeances = "";
+
+  function majTeteSeance(cle) {
+    const art = $(`[data-seance="${cle}"]`), t = trouverSeance(cle);
+    if (!art || !t) return;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = htmlTeteSeance({ dossierId: t.id, enfant: nomEnfant(t.e.infos), s: t.s });
+    $(".seance-ligne-tete", art).replaceWith(tmp.firstElementChild);
+    art.className = "seance-ligne statut-" + t.s.statut;
+  }
+
+  // Écrit les séances d'un dossier : en mémoire pour le dossier ouvert, dans Mes dossiers pour les autres.
+  function ecrireEntree(id) {
+    const x = agenda.entrees[id];
+    if (!x) return Promise.resolve();
+    x.modifieLe = new Date().toISOString();
+    return Base.mettre(JSON.parse(JSON.stringify(x))).then(() => { dernierEnregistrement = new Date(); majIndicateur(); }).catch(() => majIndicateur(true));
+  }
+  function enregistrerSeancesDe(id) {
+    const e = agenda.dossiers[id];
+    if (!e) return;
+    if (e.d === dossier) {
+      nonEnregistre = true;
+      sauverBrouillon();
+      clearTimeout(ecritures.courant);
+      ecritures.courant = setTimeout(() => { delete ecritures.courant; majTout(); }, 500);
+    } else if (agenda.entrees[id]) {
+      clearTimeout(ecritures[id]);
+      ecritures[id] = setTimeout(() => { delete ecritures[id]; ecrireEntree(id); }, 300);
+    } else {
+      // Dossier ouvert entre-temps : on relit l'entrée enregistrée.
+      Base.lire(id).then((x) => { if (x && x.dossier) { x.dossier.seances = e.d.seances; agenda.entrees[id] = x; ecrireEntree(id); } });
+    }
+  }
+  function viderEcritures() {
+    return Promise.all(Object.keys(ecritures).filter((k) => k !== "courant").map((id) => { clearTimeout(ecritures[id]); delete ecritures[id]; return ecrireEntree(id); }));
+  }
+
+  function modifierSeance(cle, f) {
+    const t = trouverSeance(cle);
+    if (!t) return null;
+    f(t.s);
+    enregistrerSeancesDe(t.id);
+    return t;
+  }
+
+  function surSaisieSeance(e) {
+    const el = e.target;
+    const art = el.closest("[data-seance]");
+    if (!art) return;
+    if ((el.type === "radio" || el.type === "checkbox" || el.type === "date" || el.type === "time" || el.tagName === "SELECT") && e.type !== "change") return;
+    if (el.type === "radio" && !el.checked) return;
+    const cle = art.dataset.seance, champ = el.dataset.ed;
+    const v = el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value;
+    modifierSeance(cle, (s) => {
+      if (champ.indexOf("axes.") === 0) { const k = champ.slice(5); if (v) s.axes[k] = "oui"; else delete s.axes[k]; }
+      else if (champ === "heure") s.heure = SE.heureValide(v);
+      else s[champ] = v;
+    });
+    if (champ === "statut") $(".si-faite", art).hidden = v !== "faite";
+    if (champ === "date") { reconstruireLignes(); rendreVue(); return; }
+    majTeteSeance(cle);
+  }
+
+  function statutRapide(cle, statut) {
+    const t = modifierSeance(cle, (s) => { s.statut = statut; });
+    if (!t) return;
+    majTeteSeance(cle);
+    if (statut === "faite") { ouvrirEditeur(cle, false); annoncer("Séance notée comme faite"); }
+    else annoncer("Absence notée");
+  }
+
+  function retirerSeance(cle) {
+    const t = trouverSeance(cle);
+    if (!t) return;
+    const i = t.e.d.seances.indexOf(t.s);
+    t.e.d.seances.splice(i, 1);
+    enregistrerSeancesDe(t.id);
+    seanceOuverte = "";
+    reconstruireLignes(); rendreVue();
+    proposerAnnulation("Séance retirée.", () => {
+      t.e.d.seances.splice(i, 0, t.s);
+      enregistrerSeancesDe(t.id);
+      reconstruireLignes(); rendreVue();
+    });
+  }
+
+  function ouvrirFormSeance() {
+    const f = $("#form-seance");
+    f.hidden = false;
+    const defaut = filtres.enfant || (agenda.dossiers[dossier.id] ? dossier.id : "") || (agenda.enfants[0] ? agenda.enfants[0].id : "");
+    $("#ns-enfant").value = defaut;
+    $("#ns-date").value = B.aujourdhui();
+    $("#ns-heure").value = "";
+    majFormSeance();
+    $("#ns-enfant").focus();
+  }
+  function majFormSeance() {
+    const d = $("#ns-date").value || B.aujourdhui();
+    $("#ns-statut").textContent = d > B.aujourdhui() ? "Séance à venir : elle sera notée comme prévue." : d < B.aujourdhui() ? "Séance passée : elle sera notée comme faite." : "Séance d'aujourd'hui : elle sera notée comme faite.";
+  }
+  function ajouterSeanceDepuisForm() {
+    const id = $("#ns-enfant").value;
+    const e = agenda.dossiers[id];
+    if (!e) { annoncer("Choisissez l'enfant (son dossier doit avoir un prénom)."); return; }
+    if (e.d.seances.length >= SE.MAX) { annoncer(SE.MAX + " séances au plus par enfant."); return; }
+    const auj = B.aujourdhui();
+    const date = $("#ns-date").value || auj;
+    const s = SE.seanceVide(date, { statut: date > auj ? "prevue" : "faite", heure: SE.heureValide($("#ns-heure").value), auteur: profilActif() || "", lieu: $("#ns-lieu").value || "" });
+    e.d.seances.push(s);
+    enregistrerSeancesDe(id);
+    reconstruireLignes();
+    $("#form-seance").hidden = true;
+    if (filtres.enfant && filtres.enfant !== id) filtres.enfant = id;
+    if (!SE.filtrer([{ dossierId: id, enfant: "", s: s }], filtres, auj).lignes.length) {
+      Object.assign(filtres, { periode: "semaine", decalage: SE.decalagePour("semaine", date, auj), statut: "", axe: "", auteur: "", lieu: "" });
+    }
+    seanceOuverte = id + "|" + s.id;
+    sauverFiltres(); rendreFiltres(); rendreVue();
+    const art = $(`[data-seance="${seanceOuverte}"]`);
+    if (art) art.scrollIntoView({ block: "center" });
+    annoncer(s.statut === "prevue" ? "Séance prévue ajoutée" : "Séance ajoutée");
+  }
+
+  async function programmerPlan() {
+    const id = filtres.enfant, e = agenda.dossiers[id];
+    if (!e) return;
+    let plan;
+    try { plan = U.planning(e.d, reglages); } catch (err) { annoncer("Le plan de suivi n'a pas pu être calculé."); return; }
+    const avecHeure = e.d.seances.filter((s) => s.heure).sort(SE.ordre).pop();
+    const auj = B.aujourdhui();
+    const nouvelles = SE.planifier(e.d.seances, plan.seances.map((x) => x.date), { aujourdhui: auj, heure: avecHeure ? avecHeure.heure : "", auteur: profilActif() || "" });
+    if (!nouvelles.length) { annoncer(plan.seances.some((x) => x.date >= auj) ? "Les séances du plan de suivi sont déjà dans le planning." : "Le plan de suivi ne prévoit plus de séance à venir : changez la date de début dans l'onglet Compte rendu."); return; }
+    const freq = (U.FREQUENCES.find((f) => f[0] === plan.parametres.frequence) || [0, ""])[1].toLowerCase();
+    const prenom = nomEnfant(e.infos);
+    const ok = await demander(`Ajouter ${nouvelles.length} séance${nouvelles.length > 1 ? "s" : ""} prévue${nouvelles.length > 1 ? "s" : ""} pour ${prenom}, ${freq}, du ${B.dateCourte(nouvelles[0].date)} au ${B.dateCourte(nouvelles[nouvelles.length - 1].date)} ? Chaque date et heure reste modifiable.`, "Programmer");
+    if (!ok) return;
+    nouvelles.forEach((s) => e.d.seances.push(s));
+    enregistrerSeancesDe(id);
+    reconstruireLignes();
+    Object.assign(filtres, { periode: "avenir", decalage: 0 });
+    sauverFiltres(); rendreFiltres(); rendreVue();
+    proposerAnnulation(nouvelles.length + " séances programmées.", () => {
+      nouvelles.forEach((s) => { const i = e.d.seances.indexOf(s); if (i >= 0) e.d.seances.splice(i, 1); });
+      enregistrerSeancesDe(id); reconstruireLignes(); rendreVue();
+    });
+  }
+
+  // Résumé de l'enfant choisi dans le filtre.
+  function rendreFicheEnfant() {
+    const zone = $("#fiche-enfant-seances");
+    const e = filtres.enfant && agenda.dossiers[filtres.enfant];
+    if (!e) { zone.hidden = true; zone.innerHTML = ""; return; }
+    const auj = B.aujourdhui();
+    const d = B.normaliserDossier(e.d);
+    const r = SE.resumeEnfant(d.seances, auj);
+    const h = [`<div class="carte-tete"><h2>${esc(nomCompletEnfant(e.infos))}</h2><button type="button" class="bouton bouton-second bouton-petit" data-ouvrir-dossier-seance="${esc(filtres.enfant)}">Ouvrir le dossier</button></div>`];
+    h.push(`<p><strong>${r.faites}</strong> séance${r.faites > 1 ? "s" : ""} faite${r.faites > 1 ? "s" : ""}${r.annulees ? ", " + r.annulees + " absence" + (r.annulees > 1 ? "s" : "") : ""} · ${r.prochaine ? "prochaine : " + esc(SE.libelleJour(r.prochaine.date).toLowerCase()) + (r.prochaine.heure ? " à " + esc(heureTexte(r.prochaine.heure)) : "") : "aucune séance prévue"}</p>`);
+    if (d.pco.actif === "oui") h.push(`<div class="etat-pco">${htmlEtatPco(A.etatPco(d, auj))}</div>`);
+    if (r.rappel) h.push(`<p class="rappel-prochaine"><span aria-hidden="true">📌</span> Noté le ${esc(B.dateCourte(r.rappel.date))} pour la fois suivante : <strong>${esc(r.rappel.prochaine)}</strong></p>`);
+    if (d.adaptation.actif === "oui") {
+      const paires = A.ceQuiAide(d);
+      if (paires.length) h.push(`<details class="ce-qui-aide-court"><summary><span aria-hidden="true">💡</span> Ce qui aide ${esc(String(d.prenom || "").trim())}</summary><dl class="liste-aide">${paires.map((x) => `<div><dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd></div>`).join("")}</dl></details>`);
+    }
+    zone.hidden = false;
+    zone.innerHTML = h.join("");
+  }
+
+  function surFiltre(el) {
+    const k = el.dataset.filtre;
+    if (k === "periode") { if (!el.checked) return; filtres.periode = el.value; filtres.decalage = 0; }
+    else filtres[k] = el.value;
+    seanceOuverte = "";
+    sauverFiltres();
+    rendreFiltres();
+    rendreVue();
+  }
+
+  // Ouvre l'onglet Séances sur l'enfant du dossier en cours.
+  function voirSeancesDuDossier() {
+    if (!String(dossier.prenom || "").trim() && !String(dossier.nom || "").trim()) { annoncer("Écrivez d'abord le prénom de l'enfant."); return; }
+    assurerId();
+    Object.assign(filtres, { enfant: dossier.id, periode: "toutes", decalage: 0, statut: "", axe: "", auteur: "", lieu: "" });
+    sauverFiltres();
+    afficherOnglet("seances");
+  }
+
+  // Planning imprimable : la vue affichée, avec ses filtres.
+  function modelePlanningSeances() {
+    const auj = B.aujourdhui();
+    const res = agendaVue || vueCourante();
+    const e = filtres.enfant && agenda.dossiers[filtres.enfant];
+    const c = (t, o) => B.cellule(t, o);
+    const precisions = [res.periode.libelle, e ? nomCompletEnfant(e.infos) : "tous les enfants"];
+    const st = SE.STATUTS.find((x) => x[0] === filtres.statut);
+    if (st) precisions.push("séances " + st[1].toLowerCase() + "s");
+    if (filtres.auteur) precisions.push(filtres.auteur);
+    if (filtres.lieu) precisions.push(filtres.lieu);
+    const ax = U.AXES.find((a) => a.id === filtres.axe);
+    if (ax) precisions.push(ax.titre.toLowerCase());
+    const blocs = [{ type: "titre", texte: "Planning des séances" }, { type: "p", runs: [{ t: precisions.join(" · "), i: true }] }];
+    const jours = SE.grouperParJour(res, auj).filter((j) => j.lignes.length);
+    if (!jours.length) blocs.push({ type: "p", runs: [{ t: "Aucune séance sur cette période." }] });
+    else {
+      const lignes = [{ entete: true, cellules: ["Jour", "Heure", "Enfant", "Statut", "Travaillé, notes"].map((t) => c(t, { gras: true, fond: "entete" })) }];
+      jours.forEach((j) => j.lignes.forEach((x, k) => {
+        const s = x.s, etat = SE.ETATS.find((y) => y[0] === s.etat), statut = SE.STATUTS.find((y) => y[0] === s.statut);
+        const axes = U.AXES.filter((a) => s.axes[a.id] === "oui").map((a) => titreCourtAxe(a));
+        const det = [axes.join(", "), s.fait, s.prochaine ? "Prochaine fois : " + s.prochaine : ""].filter(Boolean).join("\n");
+        lignes.push({ cellules: [c(k ? "" : j.libelle, { gras: true }), c(heureTexte(s.heure)), c(nomCompletEnfant(agenda.dossiers[x.dossierId].infos)), c(s.statut === "faite" && etat ? etat[2] + " " + etat[1] : statut[1]), c(det || "")] });
+      }));
+      blocs.push({ type: "tableau", largeurs: [0.2, 0.1, 0.22, 0.16, 0.32], petit: true, entetes: true, lignes: lignes });
+    }
+    return Object.assign({ titre: "Planning des séances", blocs: blocs }, B.papier(reglages));
+  }
 
   function dureeTexte(j) {
     if (j < 31) return j + " jour" + (j > 1 ? "s" : "");
@@ -584,10 +906,7 @@
     const prenom = String(d.prenom || "").trim();
     $("#prenom-fiche").textContent = prenom;
     const liste = paires.length ? `<dl class="liste-aide">${paires.map((x) => `<div><dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd></div>`).join("")}</dl>` : "";
-    $("#fiche-aide").innerHTML = liste || `<p class="note">Elle se remplit avec les réponses des parents (ci-dessous) et le journal des séances.</p>`;
-    const rappel = $("#rappel-aide");
-    rappel.hidden = ad.actif !== "oui" || !paires.length;
-    rappel.innerHTML = paires.length ? `<h2>Ce qui aide ${esc(prenom)}</h2>` + liste : "";
+    $("#fiche-aide").innerHTML = liste || `<p class="note">Elle se remplit avec les réponses des parents (ci-dessous) et ce qui est noté dans les séances.</p>`;
 
     // Planning en images
     $("#planning-etapes").innerHTML = ad.planning.map((id, i) => {
@@ -611,9 +930,6 @@
     // Plateforme TND
     const html = d.pco.actif === "oui" ? htmlEtatPco(A.etatPco(d, B.aujourdhui())) : "";
     $("#etat-pco").innerHTML = html;
-    const zs = $("#etat-pco-seances");
-    zs.hidden = !html;
-    zs.innerHTML = html;
 
     // Passations adaptées : résumé dans chaque encadré
     $$("[data-passation-bloc]").forEach((el) => {
@@ -622,9 +938,9 @@
       el.classList.toggle("adaptee", l.length > 0);
     });
 
-    // Journal : reconstruit quand l'accueil adapté est coché ou décoché
-    if (sigSeances !== (ad.actif === "oui" ? "1" : "0") + ":" + (dossier.seances || []).length + ":" + axesJournal().map((a) => a.id).join(",")) construireSeances();
-    majResumeSeances();
+    // Nombre de séances dans le dossier
+    const r = SE.resumeEnfant(d.seances, B.aujourdhui());
+    $$(".resume-seances-dossier").forEach((z) => { z.textContent = d.seances.length ? r.faites + " séance" + (r.faites > 1 ? "s" : "") + " faite" + (r.faites > 1 ? "s" : "") + (r.prochaine ? ", prochaine le " + B.dateCourte(r.prochaine.date) : "") + "." : "Aucune séance notée pour l'instant."; });
   }
 
   function modifierPlanning(f) {
@@ -949,7 +1265,6 @@
       if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
     });
     construireTests();
-    construireSeances();
     majPhoto();
   }
 
@@ -994,6 +1309,9 @@
     if (el.closest("#p-reglages")) { surSaisieReglages(e); return; }
 
     if (el.id === "filtre-dossiers") { filtreDossiers = el.value; afficherMesDossiers(); return; }
+    if (el.dataset.ed !== undefined) { surSaisieSeance(e); return; }
+    if (el.dataset.filtre !== undefined) { if (e.type === "change") surFiltre(el); return; }
+    if (el.dataset.ns !== undefined) { majFormSeance(); return; }
     if (el.dataset.axe) {
       if (e.type !== "change") return;
       const ex = new Set(dossier.suivi.exclus || []);
@@ -1369,6 +1687,7 @@
     "ce-qui-aide": { titre: "Ce qui aide", prefixe: "Ce_qui_aide", modele: () => U.modeleCeQuiAide(dossier, reglages) },
     "planning-images": { titre: "Planning en images", prefixe: "Planning_seance", modele: () => U.modelePlanningImages(dossier, reglages) },
     visite: { titre: "Ma visite chez l'ergothérapeute", prefixe: "Ma_visite", modele: () => U.modeleVisite(dossier, reglages) },
+    "planning-seances": { titre: "Planning des séances", prefixe: "Planning_seances", modele: () => modelePlanningSeances() },
   };
   let docApercu = "compte-rendu";
 
@@ -1540,7 +1859,6 @@
               <small>${[x.groupe, x.passation ? "bilan du " + B.dateCourte(x.passation) : "", x.auteur ? "par " + x.auteur : ""].filter(Boolean).map(esc).join(" · ")}</small>
               <small>Modifié ${esc(quand(x.modifieLe))}${nbSeances(x) ? " · " + nbSeances(x) + " séance" + (nbSeances(x) > 1 ? "s" : "") : ""}</small></span>
             ${actuel ? `<span class="badge">En cours</span>` : `<button type="button" class="bouton bouton-petit" data-ouvrir-dossier="${esc(x.id)}">Ouvrir</button>`}
-            <button type="button" class="bouton bouton-second bouton-petit" data-seance-dossier="${esc(x.id)}" title="Noter la séance d'aujourd'hui">📅 Séance</button>
             <button type="button" class="bouton-icone" data-suppr-dossier="${esc(x.id)}" aria-label="Supprimer le dossier de ${esc(nom)}" title="Supprimer">🗑</button>
           </li>`;
         }).join("")}</ul>`;
@@ -1548,9 +1866,10 @@
     majRappelSauvegarde();
   }
 
-  function nbSeances(x) { return x && x.dossier && Array.isArray(x.dossier.seances) ? x.dossier.seances.length : 0; }
+  function nbSeances(x) { return x && x.dossier && Array.isArray(x.dossier.seances) ? x.dossier.seances.filter((s) => s && s.statut !== "prevue" && s.statut !== "annulee").length : 0; }
 
   async function ouvrirDeMesDossiers(id) {
+    await viderEcritures();
     const x = await Base.lire(id);
     if (!x || !x.dossier) { annoncer("Ce dossier est introuvable."); return; }
     enregistrerDansMesDossiers();
@@ -1891,6 +2210,7 @@
     });
     remplirFormulaire();
     majTout();
+    if ($("#p-seances") && !$("#p-seances").hidden) rendreAgenda();
   }
 
   function ouvrir(obj) {
@@ -1948,22 +2268,21 @@
 
   /* ================= Onglets ================= */
 
-  // Cinq étapes ; chacune peut regrouper plusieurs pages (sous-onglets). Les réglages s'ouvrent depuis l'en-tête.
+  // Six onglets ; chacun peut regrouper plusieurs pages (sous-onglets). Les réglages s'ouvrent depuis l'en-tête.
   const GROUPES_ONGLETS = [
-    { id: "dossier", panneaux: [["dossier", "📁 Dossier"], ["accueil", "🤝 Accueil"], ["seances", "📅 Séances"]] },
+    { id: "dossier", panneaux: [["dossier", "📁 Dossier"], ["accueil", "🤝 Accueil adapté"]] },
     { id: "entretien", panneaux: [["anamnese", "💬 Anamnèse"], ["occupations", "🌱 Autonomie et priorités"]] },
     { id: "ecrit", panneaux: [["ecriture", "✏️ Observation"], ["bhk", "📝 BHK"]] },
     { id: "evaluations", panneaux: [["sensoriel", "🌈 Sensoriel"], ["bilans", "🧩 Moteur et autres"]] },
     { id: "compte-rendu", panneaux: [["compte-rendu", "Compte rendu"]] },
+    { id: "seances", panneaux: [["seances", "Séances"]] },
   ];
   const dernierPanneau = {};
   function groupeDe(nom) { return GROUPES_ONGLETS.find((g) => g.panneaux.some((p) => p[0] === nom)); }
 
-  // L'accueil adapté n'apparaît que pour les dossiers qui en ont besoin ; le journal des séances, pour tous.
+  // L'accueil adapté n'apparaît que pour les dossiers qui en ont besoin.
   function panneauVisible(nom) {
-    const ad = !!dossier.adaptation && dossier.adaptation.actif === "oui";
-    if (nom === "accueil") return ad;
-    if (nom === "seances") return true;
+    if (nom === "accueil") return !!dossier.adaptation && dossier.adaptation.actif === "oui";
     return true;
   }
 
@@ -1988,8 +2307,12 @@
     if (sig !== sigSousOnglets) rendreSousOnglets(nom);
   }
 
-  function afficherOnglet(nom) {
+  function afficherOnglet(nom, opts) {
     if (!panneauVisible(nom)) nom = "dossier";
+    // Historique : le geste « retour » du téléphone ramène à l'onglet précédent.
+    if (!(opts && opts.historique === false)) {
+      try { if (!history.state || history.state.onglet !== nom) history.pushState({ onglet: nom }, ""); } catch (e) { /* page partagée : sans historique */ }
+    }
     const g = groupeDe(nom);
     if (g) dernierPanneau[g.id] = nom;
     $$(".onglets [role=tab]").forEach((t) => {
@@ -2004,6 +2327,7 @@
     window.scrollTo(0, 0);
     if (nom === "compte-rendu") { $$("[data-section]").forEach(ajuster); majGalerie(); }
     if (nom === "dossier") afficherMesDossiers();
+    if (nom === "seances") rendreAgenda();
   }
 
   function initOnglets() {
@@ -2028,27 +2352,36 @@
     if (el.dataset.aller) return afficherOnglet(el.dataset.aller);
     if (el.dataset.faire) {
       const id = el.dataset.docApercu !== undefined ? docApercu : el.dataset.doc;
-      if (el.dataset.faire === "apercu") return apercuDoc(id);
-      if (el.dataset.faire === "imprimer") return imprimerDoc(id);
-      if (el.dataset.faire === "word") return wordDoc(id);
+      try {
+        if (el.dataset.faire === "apercu") return apercuDoc(id);
+        if (el.dataset.faire === "imprimer") return imprimerDoc(id);
+        if (el.dataset.faire === "word") return wordDoc(id);
+      } catch (err) {
+        annoncer("Le document n'a pas pu être préparé : " + (err && err.message ? err.message : "erreur inconnue") + ".");
+        return;
+      }
     }
     if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
     if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
     if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });
     if (el.dataset.etapeBas) return modifierPlanning((l) => { const i = +el.dataset.etapeBas; if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); });
     if (el.dataset.etapeSuppr) return modifierPlanning((l) => { l.splice(+el.dataset.etapeSuppr, 1); });
-    if (el.dataset.supprSeance) {
-      const avant = instantane();
-      dossier.seances.splice(+el.dataset.supprSeance, 1);
-      construireSeances(); nonEnregistre = true; majTout();
-      proposerAnnulation("Séance retirée.", () => { restaurerInstantane(avant)(); construireSeances(); majTout(); });
-      return;
-    }
     if (el.dataset.ouvrirDossier) return ouvrirDeMesDossiers(el.dataset.ouvrirDossier);
-    if (el.dataset.seanceDossier) {
-      const id = el.dataset.seanceDossier;
-      return (id === dossier.id ? Promise.resolve() : ouvrirDeMesDossiers(id)).then(seanceDuJour);
+    if (el.dataset.ouvrirSeance) return ouvrirEditeur(el.dataset.ouvrirSeance, true);
+    if (el.dataset.statutRapide) return statutRapide(el.dataset.cle, el.dataset.statutRapide);
+    if (el.dataset.retirerSeance) return retirerSeance(el.dataset.retirerSeance);
+    if (el.dataset.ouvrirDossierSeance) {
+      const id = el.dataset.ouvrirDossierSeance;
+      if (id === dossier.id) return afficherOnglet("dossier");
+      return ouvrirDeMesDossiers(id);
     }
+    if (el.dataset.periodePas !== undefined) {
+      const pas = +el.dataset.periodePas;
+      filtres.decalage = pas ? filtres.decalage + pas : 0;
+      seanceOuverte = "";
+      return rendreVue();
+    }
+    if (el.dataset.seancesEnfant !== undefined) return voirSeancesDuDossier();
     if (el.dataset.supprDossier) return supprimerDeMesDossiers(el.dataset.supprDossier);
     if (el.dataset.annuler !== undefined) {
       const f = annulation;
@@ -2184,7 +2517,9 @@
       }
       case "copie-securite": return telechargerCopie();
       case "planning-defaut": return modifierPlanning((l) => { l.splice(0, l.length, ...A.PLANNING_DEFAUT); });
-      case "ajouter-seance": return seanceDuJour();
+      case "nouvelle-seance": return ouvrirFormSeance();
+      case "fermer-form-seance": $("#form-seance").hidden = true; return;
+      case "programmer-seances": return programmerPlan();
       case "retirer-photo-cabinet":
         demander("Retirer la photo du cabinet de cet appareil ?", "Retirer").then((ok) => {
           if (!ok) return;
@@ -2311,6 +2646,14 @@
     window.addEventListener("pagehide", toutDeSuite);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") toutDeSuite(); });
 
+    try { history.replaceState({ onglet: "dossier" }, ""); } catch (e) { /* rien */ }
+    window.addEventListener("popstate", (e) => {
+      if (!$("#apercu").hidden) { fermerApercu(); return; }
+      if (e.state && e.state.onglet) afficherOnglet(e.state.onglet, { historique: false });
+    });
+    document.addEventListener("submit", (e) => {
+      if (e.target && e.target.id === "form-seance") { e.preventDefault(); ajouterSeanceDepuisForm(); }
+    });
     document.addEventListener("input", surSaisie);
     document.addEventListener("change", (e) => { if (!surFichier(e)) surSaisie(e); });
     document.addEventListener("click", (e) => { surClicRadio(e); surClic(e); });

@@ -609,7 +609,7 @@ test("journal des séances : saisie rapide, rappel et plan de suivi", () => {
   d.seances[0].axes = { graphisme: "oui" };
   const plan = JSON.stringify(U.modeleSuivi(d, reg));
   assert.match(plan, /Journal des séances/);
-  assert.match(plan, /2 séances notées/);
+  assert.match(plan, /2 séances faites/);
   assert.match(plan, /Geste graphique et lisibilité/);
   assert.match(plan, /Prochaine fois : reprendre les boucles/);
   assert.match(plan, /😀 Bien/);
@@ -637,4 +637,81 @@ test("documents d'accueil : questionnaire, ce qui aide, planning en images, ma v
   assert.match(JSON.stringify(U.modeleLivret(d, reg)), /😀/);
   ["modeleQuestionnaire", "modeleCeQuiAide", "modelePlanningImages", "modeleVisite", "modeleLivret"].forEach((f) => assert.equal(D.construire(U[f](d, reg))[0], 0x50));
   assert.equal(Acc.villeCabinet("12 av. X\n14000 CAEN CEDEX 4"), "CAEN");
+});
+
+
+/* ---------- Séances : planning ---------- */
+
+const SE = require("../js/seances.js");
+
+test("séances : normalisation, séances anciennes sans statut, identifiants stables", () => {
+  const l = SE.normaliserListe([{ date: "2026-10-01", etat: "bien" }, { id: "abc12", date: "2026-11-05", statut: "prevue", heure: "14:30" }, { date: "x", heure: "25:00", statut: "?" }, null]);
+  assert.equal(l.length, 3);
+  assert.equal(l[0].statut, "faite");
+  assert.equal(l[0].id, "x0-2026-10-01");
+  assert.equal(SE.normaliserListe([{ date: "2026-10-01" }])[0].id, l[0].id);
+  assert.deepEqual([l[1].id, l[1].statut, l[1].heure], ["abc12", "prevue", "14:30"]);
+  assert.deepEqual([l[2].date, l[2].heure, l[2].statut], ["", "", "faite"]);
+  const v = SE.seanceVide("2026-12-01", { statut: "prevue" });
+  assert.match(v.id, /^s[a-z0-9]+$/);
+  assert.equal(SE.normaliserSeance(v, 0).id, v.id);
+});
+
+test("séances : périodes semaine et mois, navigation", () => {
+  let p = SE.periode("semaine", 0, "2026-10-21");
+  assert.deepEqual([p.debut, p.fin, p.libelle], ["2026-10-19", "2026-10-25", "Semaine du 19 au 25 octobre"]);
+  p = SE.periode("semaine", 2, "2026-10-21");
+  assert.deepEqual([p.debut, p.fin, p.libelle], ["2026-11-02", "2026-11-08", "Semaine du 2 au 8 novembre"]);
+  p = SE.periode("semaine", 1, "2026-10-21");
+  assert.equal(p.libelle, "Semaine du 26 octobre au 1er novembre");
+  p = SE.periode("mois", -10, "2026-10-21");
+  assert.deepEqual([p.debut, p.fin, p.libelle], ["2025-12-01", "2025-12-31", "Décembre 2025"]);
+  assert.equal(SE.decalagePour("semaine", "2026-11-04", "2026-10-21"), 2);
+  assert.equal(SE.decalagePour("mois", "2027-01-15", "2026-10-21"), 3);
+  assert.equal(SE.libelleJour("2026-10-21"), "Mercredi 21 octobre");
+});
+
+test("séances : filtres par enfant, période, statut, praticienne, axe, et regroupement par jour", () => {
+  const ligne = (dossierId, enfant, s) => ({ dossierId, enfant, s: SE.normaliserSeance(s, 0) });
+  const lignes = [
+    ligne("d1", "Léa M.", { id: "a1", date: "2026-10-19", heure: "16:00", statut: "faite", auteur: "Camille", axes: { graphisme: "oui" } }),
+    ligne("d2", "Tom B.", { id: "b1", date: "2026-10-19", heure: "09:30", statut: "faite", auteur: "Sacha" }),
+    ligne("d1", "Léa M.", { id: "a2", date: "2026-10-23", statut: "prevue", auteur: "Camille" }),
+    ligne("d2", "Tom B.", { id: "b2", date: "2026-11-02", statut: "annulee" }),
+    ligne("d1", "Léa M.", { id: "a3", date: "2026-09-01", statut: "faite" }),
+  ];
+  const f = (o) => Object.assign({ enfant: "", periode: "semaine", decalage: 0, statut: "", auteur: "", axe: "", lieu: "" }, o);
+  let r = SE.filtrer(lignes, f({}), "2026-10-21");
+  assert.deepEqual(r.lignes.map((x) => x.s.id), ["b1", "a1", "a2"]);
+  const jours = SE.grouperParJour(r, "2026-10-21");
+  assert.equal(jours.length, 6);
+  assert.deepEqual(jours.map((j) => j.lignes.length), [2, 0, 0, 0, 1, 0]);
+  assert.ok(jours[2].aujourdhui && jours[0].passe);
+  assert.deepEqual(SE.filtrer(lignes, f({ enfant: "d1", periode: "toutes" }), "2026-10-21").lignes.map((x) => x.s.id), ["a3", "a1", "a2"]);
+  assert.deepEqual(SE.filtrer(lignes, f({ periode: "passees" }), "2026-10-21").lignes.map((x) => x.s.id), ["a1", "b1", "a3"]);
+  assert.deepEqual(SE.filtrer(lignes, f({ periode: "avenir" }), "2026-10-21").lignes.map((x) => x.s.id), ["a2", "b2"]);
+  assert.deepEqual(SE.filtrer(lignes, f({ periode: "toutes", statut: "annulee" }), "2026-10-21").lignes.map((x) => x.s.id), ["b2"]);
+  assert.deepEqual(SE.filtrer(lignes, f({ periode: "toutes", auteur: "Sacha" }), "2026-10-21").lignes.map((x) => x.s.id), ["b1"]);
+  assert.deepEqual(SE.filtrer(lignes, f({ periode: "toutes", axe: "graphisme" }), "2026-10-21").lignes.map((x) => x.s.id), ["a1"]);
+});
+
+test("séances : résumé de l'enfant, rang dans le plan, programmation sans doublon", () => {
+  const l = SE.normaliserListe([
+    { id: "s1", date: "2026-10-01", statut: "faite", prochaine: "boucles" },
+    { id: "s2", date: "2026-10-08", statut: "annulee" },
+    { id: "s3", date: "2026-10-15", statut: "faite", prochaine: "" },
+    { id: "s4", date: "2026-10-29", statut: "prevue", heure: "10:00" },
+  ]);
+  const r = SE.resumeEnfant(l, "2026-10-21");
+  assert.deepEqual([r.faites, r.prevues, r.annulees, r.prochaine.id, r.rappel.id], [2, 1, 1, "s4", "s1"]);
+  assert.equal(SE.rang(l, l[2]), 2);
+  assert.equal(SE.rang(l, l[3]), 3);
+  const nouvelles = SE.planifier(l, ["2026-10-15", "2026-10-29", "2026-11-12", "2026-11-26"], { aujourdhui: "2026-10-21", heure: "10:00", auteur: "Camille" });
+  assert.deepEqual(nouvelles.map((s) => [s.date, s.statut, s.heure, s.auteur]), [["2026-11-12", "prevue", "10:00", "Camille"], ["2026-11-26", "prevue", "10:00", "Camille"]]);
+  // Le forfait de la plateforme ne compte que les séances faites.
+  const d = B.normaliserDossier(Object.assign(dossierTest(), { pco: { actif: "oui", debut: "2026-01-10" }, seances: l }));
+  assert.equal(Acc.etatPco(d, "2026-10-21").faites, 2);
+  // Le plan de suivi liste les séances faites et annonce les séances prévues.
+  const plan = JSON.stringify(U.modeleSuivi(Object.assign(dossierTest(), { seances: [{ date: "2026-10-01", statut: "faite" }, { date: "2099-01-05", statut: "prevue", heure: "10:00" }] }), reglagesTest()));
+  assert.match(plan, /1 séance faite\. Prochaines séances prévues : 05\/01\/2099 à 10 h 00\./);
 });
