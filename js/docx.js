@@ -129,7 +129,7 @@
     if (o.keepNext) pr += "<w:keepNext/>";
     if (o.puce) pr += '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>';
     if (o.bordureBas) pr += '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="8EA3C2"/></w:pBdr>';
-    if (o.espace) pr += '<w:spacing w:before="' + (o.espace[0] || 0) + '" w:after="' + (o.espace[1] || 0) + '"/>';
+    if (o.espace || o.interligne) pr += '<w:spacing w:before="' + ((o.espace && o.espace[0]) || 0) + '" w:after="' + ((o.espace && o.espace[1]) || 0) + '"' + (o.interligne ? ' w:line="' + o.interligne + '" w:lineRule="auto"' : "") + "/>";
     if (o.align) pr += '<w:jc w:val="' + { center: "center", right: "right", left: "left" }[o.align] + '"/>';
     return "<w:p>" + (pr ? "<w:pPr>" + pr + "</w:pPr>" : "") + runs.map((r) => run(r, o.base)).join("") + "</w:p>";
   }
@@ -226,7 +226,10 @@
           xml += para([{ t: b.texte }], { style: "Titre" + Math.min(4, Math.max(2, b.niveau)) });
           break;
         case "p":
-          xml += para(b.runs, { base: b.petit ? { taille: 18 } : null });
+          xml += para(b.runs, { base: b.petit ? { taille: 18 } : null, interligne: b.grand ? 420 : 0, espace: b.grand ? [0, 120] : null });
+          break;
+        case "saut":
+          xml += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
           break;
         case "puces":
           b.items.forEach((runs) => { xml += para(runs, { puce: true }); });

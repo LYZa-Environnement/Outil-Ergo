@@ -826,8 +826,39 @@ test("EViC guidé : ordre des épreuves, relevés de la passation, observation e
   const v = Cl.fonctionsVues(n);
   assert.deepEqual(v.vues, ["majuscule", "accents", "ponctuation", "effacer"]);
   const txt = B.rediger(d, reg).clavier;
-  assert.match(txt, /Copie : 1,6 mots par minute au clavier ; minute par minute : 3, 3, 2, 1, 0 mots, vitesse en baisse en fin d'épreuve ; 4 corrections ; 3 arrêts de plus de 3 secondes \(le plus long : 12 s\)\./);
+  assert.match(txt, /Copie : 1,6 mot par minute au clavier ; minute par minute : 3, 3, 2, 1, 0 mots, vitesse en baisse en fin d'épreuve ; 4 corrections ; 3 arrêts de plus de 3 secondes \(le plus long : 12 s\)\./);
   assert.match(txt, /mot tapé correctement 2 fois sur 3/);
   assert.match(txt, /utilise les deux mains ; cherche souvent les touches ; se fatigue en fin d'épreuve ; en copie, revient au modèle lettre par lettre ; reste concentrée/);
   assert.match(txt, /À la fin des épreuves, Léa dit avoir trouvé les épreuves difficiles et préférer écrire au clavier\./);
+});
+
+test("EViC : textes de l'outil, consignes, copie exacte et feuille de passation", () => {
+  assert.ok(Cl.compterMots(Cl.TEXTES.copie.texte) >= 150, "assez de texte pour 5 minutes");
+  assert.ok(Cl.compterMots(Cl.texteDictee()) >= 120);
+  assert.equal(Cl.motEffectif({ mot: " " }), "maison");
+  assert.match(Cl.consigneEnfant("copie", { texte: "outil" }), /« La cabane du jardin » de ta feuille/);
+  assert.match(Cl.consigneEnfant("copie", { texte: "outil", ecran: "oui" }), /en haut de l'écran/);
+  assert.match(Cl.consigneEnfant("copie", { texte: "bhk", ecran: "oui" }), /le texte de ta feuille/);
+  assert.match(Cl.consigneAdulte("dictee", { texte: "outil" }), /Le marché du samedi/);
+  assert.match(Cl.consigneAdulte("dictee", { texte: "bhk" }), /texte du BHK sur votre exemplaire/);
+  // Mots recopiés sans erreur : l'ordre compte, majuscules et ponctuation ignorées, le texte peut être recommencé.
+  assert.equal(Cl.copieExacte("au fond du jardin de mamie il y a une vielle cabane", Cl.TEXTES.copie.texte), 11);
+  assert.equal(Cl.copieExacte("Au fond du jardin", "Au fond du jardin."), 4);
+  assert.equal(Cl.copieExacte("Au fond du jardin Au fond", "Au fond du jardin."), 6);
+  assert.equal(Cl.copieExacte("l’ouvre", "l'ouvre"), 1);
+  const e = Cl.essaiChronometre("Au fond du jardn", 300, 0, "2026-10-21", { modele: Cl.TEXTES.copie.texte });
+  assert.equal(e.motsExacts, 3);
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.clavier = { fait: "oui", texte: "outil", essais: { copie: e } };
+  assert.match(B.rediger(d, reg).clavier, /\(copie et dictée sur les textes de l'outil, à la place du texte du BHK\)/);
+  assert.match(B.rediger(d, reg).clavier, /3 mots sur 4 recopiés sans erreur/);
+  const m = U.modeleEvic(d, reg);
+  assert.ok(m.blocs.some((b) => b.type === "saut"));
+  assert.ok(JSON.stringify(m).indexOf("Le samedi matin,") >= 0);
+  assert.ok(JSON.stringify(m).indexOf("La cabane du jardin") >= 0);
+  d.clavier.texte = "bhk";
+  const m2 = U.modeleEvic(d, reg);
+  assert.ok(!m2.blocs.some((b) => b.type === "saut"), "pas de texte à recopier avec le BHK");
+  assert.ok(D.construire(m).length > 1000);
 });

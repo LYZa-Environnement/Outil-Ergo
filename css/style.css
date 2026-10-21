@@ -1098,9 +1098,15 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .evic-choix legend { margin-bottom: 4px; font-weight: 700; }
 .evic-preparer summary { cursor: pointer; font-weight: 700; color: var(--encre-fonce); }
 .evic-preparer ul { margin: .4rem 0 0; padding-left: 1.2rem; font-weight: 400; }
-.carte-passation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 0 0 14px; padding: 14px 16px; border: 1.5px solid var(--vert); border-radius: var(--rayon-carte); background: var(--vert-fond); }
-.carte-passation-texte { display: grid; gap: 2px; flex: 1 1 260px; }
-.carte-passation-texte .note:empty { display: none; }
+.carte-passation { margin: 0 0 14px; padding: 14px 16px; border: 1.5px solid var(--vert); border-radius: var(--rayon-carte); background: var(--vert-fond); }
+.carte-passation h3 { margin: 0 0 .3rem; }
+.carte-passation #etat-passation-evic:empty, #info-textes-evic:empty { display: none; }
+.etapes-evic { margin: .6rem 0 0; padding-left: 1.4rem; display: grid; gap: 12px; }
+.etapes-evic > li { padding-left: 4px; }
+.etapes-evic > li::marker { font-weight: 700; color: var(--encre-fonce); }
+.etapes-evic .choix, .etapes-evic .doc-actions { margin: 6px 0; }
+.etapes-evic .champ { margin: 6px 0 0; }
+.etapes-evic .bouton { margin-top: 6px; }
 .bandeau-passation { margin: 0 0 10px; padding: 10px 12px; border-radius: var(--rayon); background: var(--vert-fond); font-weight: 600; }
 .details-epreuve:empty { display: none; }
 .details-epreuve .note { margin: .3rem 0; }
@@ -1134,3 +1140,21 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .infos-enregistrement li > span:first-child { font-size: 1.3rem; }
 .etat-donnees { padding: 10px 12px; border-radius: var(--rayon); background: var(--vert-fond); font-weight: 400 !important; }
 .carte-donnees p { margin: .2rem 0 .6rem; }
+
+/* Documents : paragraphe en grand (texte à recopier) et saut de page */
+.doc p.grand, .doc p.grand span { line-height: 1.9 !important; }
+.doc .saut-page { height: 0; margin: 20pt 0; border-top: 1px dashed #b9c2cf; break-after: page; }
+@media print { .doc .saut-page { margin: 0; border: 0; } }
+
+/* EViC : texte de copie à l'écran, comptage des mots */
+.evic-modele { max-height: 32vh; overflow-y: auto; padding: 12px 14px; border: 1.5px dashed var(--seyes); border-radius: var(--rayon); background: var(--papier); text-align: left; font-size: 1.25rem; line-height: 1.7; }
+.evic-carte .evic-modele { max-height: 50vh; margin-top: .6rem; }
+.evic-modele p { margin: 0; }
+.evic-modele .evic-modele-titre { margin-bottom: .3rem; font-weight: 700; text-align: center; }
+.resume-evic { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--rayon); background: var(--vert-fond); font-weight: 400 !important; }
+.boite-compter { width: min(640px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; text-align: left; }
+.boite-compter .profil-titre { text-align: center; }
+.mots-a-toucher { line-height: 2.2; }
+.mot-a-toucher { min-height: 36px; padding: 2px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--graphite); font: 1.05rem var(--police); cursor: pointer; }
+.mot-a-toucher:hover { border-color: var(--seyes); }
+.mot-a-toucher.choisi { background: var(--vert-fond); border-color: var(--vert); }

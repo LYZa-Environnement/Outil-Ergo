@@ -554,25 +554,44 @@
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
-          <li>Touchez « Faire passer l'EViC » : choisissez les épreuves, le mot à répéter et le matériel.</li>
-          <li>Passez la main à l'enfant : l'outil lui donne chaque consigne en grand, chronomètre, et s'arrête seul avec un petit signal sonore. L'enfant ne voit pas ses résultats.</li>
-          <li>Pendant ce temps, vous observez. Pour faire une pause, terminer, recommencer ou passer une épreuve : maintenez appuyé le bouton « Adulte », en haut à droite (ou touche Échap).</li>
-          <li>À la fin, l'enfant répond à deux petites questions et vous rend l'appareil : les résultats sont là, complétez votre observation.</li>
+          <li>Suivez les 5 étapes de l'encadré vert : textes, feuille à imprimer, installation, passation, puis observation.</li>
+          <li>Pendant la passation, l'outil donne chaque consigne en grand, chronomètre et s'arrête seul avec un petit signal sonore. L'enfant ne voit pas ses résultats.</li>
+          <li>Pour faire une pause, terminer, recommencer ou passer une épreuve : appui long sur le bouton « Adulte », en haut à droite (ou touche Échap).</li>
           <li>Épreuve faite ailleurs ? Écrivez directement le nombre de mots.</li>
         </ol>
       </details>
       <div class="ajout"><strong>EViC</strong> : protocole gratuit créé par des ergothérapeutes (Lefèvere et Galbiati, 2007). Au clavier : copie (5 min), répétition d'un mot (3 min), dictée (5 min) ; à la main : copie du BHK et répétition (5 min). Les vitesses sont en mots par minute. Ses repères par classe sont indicatifs (petits effectifs) : l'outil compare surtout l'enfant à lui-même. <a href="http://www.geppe.free.fr/IMG/pdf/2007_02_-_LEFEVERE_GWENAELLE_-_EViC_consignes_et_feuille_passation.pdf" target="_blank" rel="noopener">Consignes et feuille de passation</a></div>
-      <div class="carte-passation">
-        <div class="carte-passation-texte"><strong>⌨️ Passation guidée</strong><span>L'enfant passe les épreuves seul sur l'appareil ; vous observez, puis vous complétez.</span><span class="note" id="etat-passation-evic"></span></div>
-        <button type="button" class="bouton" data-action="preparer-evic"><span aria-hidden="true">▶️</span> Faire passer l'EViC</button>
-      </div>
+      <section class="carte-passation" aria-labelledby="titre-passation-evic">
+        <h3 id="titre-passation-evic">⌨️ Faire passer l'EViC, pas à pas</h3>
+        <p class="note">Cinq épreuves, environ 30 minutes : à la main (copie 5 min, répétition d'un mot 5 min), puis au clavier (copie 5 min, répétition 3 min, dictée 5 min). L'enfant passe les épreuves seul sur l'appareil ; vous lisez les consignes et vous observez.</p>
+        <ol class="etapes-evic">
+          <li><strong>Choisissez les textes</strong>
+            <div class="choix" role="radiogroup" aria-label="Textes de copie et de dictée">
+              <label><input type="radio" name="clavier-texte" value="outil" data-chemin="clavier.texte"><span>Textes de l'outil (prêts à imprimer)</span></label>
+              <label><input type="radio" name="clavier-texte" value="bhk" data-chemin="clavier.texte"><span>Texte du BHK (votre exemplaire)</span></label>
+            </div>
+            <p class="note" id="info-textes-evic"></p>
+            <label class="champ champ-court"><span>Mot à répéter</span><input type="text" data-chemin="clavier.mot" placeholder="maison" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40"></label>
+          </li>
+          <li><strong>Imprimez la feuille de passation</strong> : déroulé et consignes, dictée à lire, grille d'observation et, avec les textes de l'outil, le texte à recopier en gros caractères.
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="evic" data-faire="apercu">Voir</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="evic" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="evic" data-faire="word">Word</button></div>
+            <label class="case"><input type="checkbox" data-chemin="clavier.ecran"><span>Pas d'imprimante : afficher le texte à recopier à l'écran (la dictée peut se lire sur votre téléphone, avec « Voir »)</span></label>
+          </li>
+          <li><strong>Installez l'enfant</strong> devant le matériel qu'il utiliserait en classe, avec une feuille lignée et son crayon. Sur tablette, désactivez la correction automatique et la prédiction (Réglages › Général › Clavier) ; allumez le son.</li>
+          <li><strong>Passez la main à l'enfant</strong> : chaque épreuve commence par un écran de consigne, à lire avec lui.
+            <div><button type="button" class="bouton" data-action="preparer-evic"><span aria-hidden="true">▶️</span> Commencer la passation</button></div>
+          </li>
+          <li><strong>Après</strong> : comptez les mots écrits à la main et complétez votre observation, plus bas. Le reste est calculé.</li>
+        </ol>
+        <p class="note" id="etat-passation-evic"></p>
+      </section>
       <fieldset class="groupe test" id="bloc-clavier">
         <legend><label class="case case-titre"><input type="checkbox" data-chemin="clavier.fait" data-bascule="#corps-clavier"><span>⌨️ EViC : vitesse de frappe au clavier</span></label></legend>
         <div class="test-corps" id="corps-clavier" hidden>
           <p class="bandeau-passation" id="bandeau-passation" role="status" hidden></p>
           <h3>Au clavier</h3>
           <div id="epreuves-clavier"></div>
-          <h3>À la main</h3>
+          <h3 id="titre-main-clavier">À la main</h3>
           <div class="grille2" id="manuscrit-clavier"></div>
           <p class="calcule" id="resultats-clavier" aria-live="polite"></p>
           <h3 id="titre-obs-clavier">Observation de la frappe</h3>
@@ -903,6 +922,7 @@
     <div class="evic-temps" id="evic-temps" aria-hidden="true" hidden><span></span></div>
     <div class="evic-ecran" id="evic-ecran" aria-live="polite"></div>
     <div class="evic-frappe" id="evic-frappe" hidden>
+      <div id="evic-modele"></div>
       <p class="evic-rappel" id="evic-rappel"></p>
       <textarea id="zone-frappe" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Zone de frappe" placeholder="Tape ici…"></textarea>
     </div>

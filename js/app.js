@@ -489,8 +489,8 @@
           <label class="champ champ-court"><span>Mots tapés en ${e.duree / 60} min</span><input type="text" inputmode="numeric" data-chemin="clavier.essais.${e.id}.mots" placeholder="ex. 25"></label>
         </div>
       </div>`).join("");
-    $("#manuscrit-clavier").innerHTML = `<label class="champ"><span>Copie du BHK à la main : mots écrits en 5 min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.copie" placeholder="ex. 60"><small class="note">Comptez les mots sur la copie du BHK.</small></label>
-      <label class="champ"><span>Répétition du mot à la main : mots écrits en 5 min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.repetition" placeholder="ex. 60"><small class="note"><button type="button" class="bouton-lien" data-preparer-evic="main-repetition">▶️ Chronométrer avec l'enfant</button></small></label>`;
+    $("#manuscrit-clavier").innerHTML = `<div class="champ"><label for="manuscrit-copie">Copie à la main : mots écrits en 5 min</label><input type="text" id="manuscrit-copie" inputmode="numeric" data-chemin="clavier.manuscrit.copie" placeholder="ex. 60"><small class="note" id="aide-manuscrit-copie"></small></div>
+      <div class="champ"><label for="manuscrit-repetition">Répétition du mot à la main : mots écrits en 5 min</label><input type="text" id="manuscrit-repetition" inputmode="numeric" data-chemin="clavier.manuscrit.repetition" placeholder="ex. 60"><small class="note"><button type="button" class="bouton-lien" data-preparer-evic="main-repetition">▶️ Chronométrer avec l'enfant</button></small></div>`;
     $("#materiel-clavier").innerHTML = pastilles("clavier-materiel", "clavier.materiel", C.MATERIELS);
     $("#doigte-clavier").innerHTML = pastilles("clavier-doigte", "clavier.doigte", C.DOIGTES.map((x) => [x[0], maj1(x[1])]));
     $("#mains-clavier").innerHTML = pastilles("clavier-o-mains", "clavier.obs.mains", C.OBSERVATIONS[0].valeurs.map((v) => [v[0], v[2]]));
@@ -525,7 +525,7 @@
       const o = $("#res-clavier-" + x.id);
       if (!o) return;
       o.className = "resultat-epreuve" + (x.ratio === null ? "" : x.ratio >= 1 ? " niveau-moyenne" : " niveau-inferieur");
-      o.innerHTML = x.mpm === null ? "" : `<strong>${esc(C.fmt(x.mpm))} mots par minute</strong>` +
+      o.innerHTML = x.mpm === null ? "" : `<strong>${esc(C.fmt(x.mpm))} ${x.mpm < 2 ? "mot" : "mots"} par minute</strong>` +
         (x.ratio !== null ? ` · ${Math.round(x.ratio * 100)} % de la vitesse à la main` : "") +
         (x.outil ? ` · passée dans l'outil` : "");
       const s = d.clavier.essais[x.id];
@@ -540,41 +540,43 @@
     const pasVu = ["majuscule", "accents", "ponctuation"].filter((k) => vu.vues.indexOf(k) < 0);
     $("#fonctions-vues").textContent = !vu.motsTexte ? "" : (vu.vues.length ? "Vu pendant la passation : " + vu.vues.map((k) => noms[k] + " (" + vu.comptes[k] + ")").join(", ") + ". " : "") +
       (pasVu.length && vu.motsTexte >= 10 ? "Pas utilisé en copie ni en dictée : " + pasVu.map((k) => noms[k]).join(", ") + " (à vérifier)." : "");
+    $("#info-textes-evic").textContent = d.clavier.texte === "bhk"
+      ? "Copie et dictée sur le texte du BHK, comme dans le protocole d'origine. La copie du BHK faite pendant le bilan peut servir de copie à la main."
+      : "Copie : « " + C.TEXTES.copie.titre + " » (" + C.compterMots(C.TEXTES.copie.texte) + " mots). Dictée : « " + C.TEXTES.dictee.titre + " », lue par petits groupes de mots. Textes écrits pour l'outil, de vocabulaire simple, avec majuscules, accents et ponctuation.";
+    $("#aide-manuscrit-copie").innerHTML = d.clavier.texte === "bhk" ? "Comptez les mots sur la copie du BHK (5 minutes)."
+      : `Copie du texte « ${esc(C.TEXTES.copie.titre)} ». <button type="button" class="bouton-lien" data-action="compter-copie">Compter en touchant le dernier mot écrit</button> · <button type="button" class="bouton-lien" data-preparer-evic="main-copie">▶️ Chronométrer</button>`;
     const faites = C.EPREUVES.filter((e) => d.clavier.essais[e.id] && d.clavier.essais[e.id].outil).map((e) => e.nom.toLowerCase());
     $("#etat-passation-evic").textContent = d.clavier.passation ? "Dernière passation : " + B.dateCourte(d.clavier.passation) + (faites.length ? " (" + faites.join(", ") + ")" : "") + "." : "";
   }
 
   /* Préparation par l'ergothérapeute */
+  function reglagesEvic() {
+    const k = C.normaliser(dossier.clavier);
+    return { mot: C.motEffectif(k), texte: k.texte, ecran: k.ecran };
+  }
   async function preparerEvic(seule) {
     if (evic) return;
     const c = C.normaliser(dossier.clavier);
-    const deja = (id) => id === "main-repetition" ? c.manuscrit.repetition !== "" : !!c.essais[id];
-    const cochees = seule ? [seule] : C.ORDRE.slice();
+    const o = reglagesEvic();
+    const deja = (id) => id === "main-copie" ? c.manuscrit.copie !== "" : id === "main-repetition" ? c.manuscrit.repetition !== "" : !!c.essais[id];
+    const cochees = seule ? [seule] : C.ORDRE.filter((id) => !(id === "main-copie" && o.texte === "bhk"));
+    const noms = { "main-copie": "Copie à la main", "main-repetition": "Répétition du mot à la main", copie: "Copie au clavier", repetition: "Répétition du mot au clavier", dictee: "Dictée au clavier" };
     let choix = null;
     const v = await ouvrirDialogue({
-      titre: "Faire passer l'EViC", classe: "boite-evic",
-      html: `<p class="note">L'enfant passe les épreuves seul sur cet appareil : consignes en grand, chronomètre, arrêt automatique avec un petit signal sonore. Il ne voit pas ses résultats.</p>
+      titre: "Commencer la passation", classe: "boite-evic",
+      html: `<p class="resume-evic"><span>📄 ${o.texte === "bhk" ? "Texte du BHK (votre exemplaire)" : "Textes de l'outil" + (o.ecran === "oui" ? ", texte à recopier affiché à l'écran" : " : feuille imprimée")}</span><span>🔁 Mot à répéter : <strong>${esc(o.mot)}</strong></span></p>
         <fieldset class="champ evic-choix"><legend>Épreuves, dans l'ordre</legend>${C.ORDRE.map((id) => {
           const e = C.ENFANT[id];
-          return `<label class="case"><input type="checkbox" name="etape" value="${id}"${cochees.indexOf(id) >= 0 ? " checked" : ""}><span><span aria-hidden="true">${e.emoji}</span> ${esc(nomEtape(id))} <small class="discret">${e.duree / 60} min${deja(id) ? " · résultat déjà noté, il sera remplacé" : ""}</small></span></label>`;
+          return `<label class="case"><input type="checkbox" name="etape" value="${id}"${cochees.indexOf(id) >= 0 ? " checked" : ""}><span><span aria-hidden="true">${e.emoji}</span> ${esc(noms[id])} <small class="discret">${e.duree / 60} min${e.papier ? ", sur papier" : ""}${deja(id) ? " · déjà noté, sera remplacé" : ""}${id === "main-copie" && o.texte === "bhk" ? " · la copie du BHK peut servir" : ""}</small></span></label>`;
         }).join("")}</fieldset>
-        <label class="champ"><span>Mot à répéter (celui de votre feuille de passation)</span><input type="text" name="mot" value="${esc(c.mot)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="40"></label>
         <div class="champ"><span>Matériel</span><div class="choix">${C.MATERIELS.map((m) => `<label><input type="radio" name="materiel" value="${m[0]}"${c.materiel === m[0] ? " checked" : ""}><span>${esc(m[1])}</span></label>`).join("")}</div></div>
-        <details class="evic-preparer"><summary>À préparer avant de commencer</summary><ul>
-          <li>Le texte du BHK sur papier, à côté de l'écran (copie) ; votre exemplaire pour la dictée.</li>
-          <li>Une feuille et le crayon habituel (répétition à la main).</li>
-          <li>Sur tablette : correction automatique et prédiction désactivées (Réglages › Général › Clavier), pour garder la frappe de l'enfant telle quelle.</li>
-          <li>Le son de l'appareil allumé : un signal marque la fin de chaque épreuve.</li>
-          <li>Pour vous : maintenez appuyé le bouton « Adulte », en haut à droite (ou touche Échap), pour faire une pause, terminer, recommencer ou passer une épreuve.</li>
-        </ul></details>`,
+        <p class="note">Vérifiez : feuille de passation et feuille lignée à portée de main, correction automatique de la tablette désactivée, son allumé. Pour vous pendant les épreuves : appui long sur « Adulte » (ou touche Échap).</p>`,
       boutons: [{ valeur: "go", libelle: "Passer la main à l'enfant ▶" }, { valeur: "annuler", libelle: "Annuler" }],
       valider: (fond) => {
         const etapes = $$("input[name=etape]:checked", fond).map((x) => x.value);
-        const mot = $("input[name=mot]", fond).value.trim();
         if (!etapes.length) return "Choisissez au moins une épreuve.";
-        if (etapes.some((id) => /repetition/.test(id)) && !mot) return "Indiquez le mot à répéter.";
         const m = $("input[name=materiel]:checked", fond);
-        choix = { etapes: etapes, mot: mot, materiel: m ? m.value : "" };
+        choix = { etapes: etapes, mot: o.mot, materiel: m ? m.value : "" };
         preparerSon(); // dans le geste : autorise le signal sonore sur tablette
         return "";
       },
@@ -582,10 +584,40 @@
     if (v === "go" && choix) demarrerPassation(choix);
   }
 
+  // Aide au comptage de la copie à la main : on touche le dernier mot écrit par l'enfant.
+  async function compterCopieMain() {
+    const mots = C.TEXTES.copie.texte.split(/\s+/);
+    let tours = 0, choisi = null;
+    const total = () => choisi === null ? null : tours * C.compterMots(C.TEXTES.copie.texte) + C.compterMots(mots.slice(0, choisi + 1).join(" "));
+    const v = await ouvrirDialogue({
+      titre: "Compter les mots écrits à la main", classe: "boite-compter",
+      html: `<p class="note">Touchez le dernier mot que l'enfant a écrit sur sa feuille.</p>
+        <p class="mots-a-toucher">${mots.map((m, i) => `<button type="button" class="mot-a-toucher" data-i="${i}">${esc(m)}</button>`).join(" ")}</p>
+        <label class="case"><input type="checkbox" name="tour"><span>L'enfant a fini le texte et l'a recommencé</span></label>
+        <p class="apercu-programme" id="total-copie">Aucun mot choisi.</p>`,
+      boutons: [{ valeur: "ok", libelle: "Noter ce nombre" }, { valeur: "annuler", libelle: "Annuler" }],
+      clic: (e, fond) => {
+        const b = e.target.closest(".mot-a-toucher");
+        const caseTour = e.target.closest("input[name=tour]");
+        if (b) { choisi = Number(b.dataset.i); $$(".mot-a-toucher", fond).forEach((x) => x.classList.toggle("choisi", Number(x.dataset.i) <= choisi)); }
+        if (caseTour) tours = caseTour.checked ? 1 : 0;
+        if (b || caseTour) $("#total-copie", fond).textContent = total() === null ? "Aucun mot choisi." : total() + " mots écrits en 5 minutes";
+      },
+      valider: () => total() === null ? "Touchez le dernier mot écrit." : "",
+    });
+    if (v !== "ok") return;
+    if (!dossier.clavier.manuscrit || typeof dossier.clavier.manuscrit !== "object") dossier.clavier.manuscrit = {};
+    dossier.clavier.manuscrit.copie = String(total());
+    $("#manuscrit-copie").value = dossier.clavier.manuscrit.copie;
+    nonEnregistre = true; majTout();
+    annoncer(total() + " mots notés pour la copie à la main");
+  }
+
   function demarrerPassation(choix) {
     if (!dossier.clavier || typeof dossier.clavier !== "object") dossier.clavier = C.vide();
     const k = dossier.clavier;
-    k.fait = "oui"; k.mot = choix.mot; k.passation = B.aujourdhui();
+    k.fait = "oui"; k.passation = B.aujourdhui();
+    if (!k.texte) k.texte = "outil";
     if (choix.materiel) k.materiel = choix.materiel;
     if (!k.essais || typeof k.essais !== "object") k.essais = {};
     nonEnregistre = true; sauverBrouillon();
@@ -612,18 +644,25 @@
     $("#evic-temps").hidden = evic.phase !== "frappe";
     if (evic.phase !== "frappe") $("#evic-temps span").style.width = "0";
     const mot = (id || "").indexOf("repetition") >= 0 && evic.mot ? `<p class="evic-mot">${esc(evic.mot)}</p>` : "";
+    const o = reglagesEvic();
+    const modeleEcran = o.texte === "outil" && o.ecran === "oui" && (id === "copie" || id === "main-copie");
+    const htmlModeleCopie = `<div class="evic-modele"><p class="evic-modele-titre">${esc(C.TEXTES.copie.titre)}</p><p>${esc(C.TEXTES.copie.texte)}</p></div>`;
+    $("#evic-modele").innerHTML = clavier && modeleEcran ? htmlModeleCopie : "";
     let h = "";
     if (evic.phase === "intro") {
       h = `<p class="evic-num">Épreuve ${evic.i + 1} sur ${evic.etapes.length}</p>
         <p class="evic-emoji" aria-hidden="true">${e.emoji}</p>
         <h2 id="titre-evic">${esc(e.titre)}</h2>${mot}
-        <p class="evic-consigne">${esc(C.consigneEnfant(id, evic.mot))}</p>
+        <p class="evic-consigne">${esc(C.consigneEnfant(id, o))}</p>
         <p class="evic-depart">${esc(e.depart)}</p>
         <button type="button" class="bouton evic-grand" data-evic="pret">C'est parti !</button>
-        <p class="evic-adulte-note">Pour l'adulte : ${esc(e.adulte)} Durée : ${e.duree / 60} minutes.</p>`;
+        <p class="evic-adulte-note"><strong>Pour l'adulte, à lire à l'enfant :</strong> la consigne ci-dessus. ${esc(C.consigneAdulte(id, o))} ${esc(C.ENCOURAGER)} Durée : ${e.duree / 60} minutes.</p>`;
     } else if (evic.phase === "frappe") {
-      if (e.papier) h = `<p class="evic-emoji" aria-hidden="true">✍️</p><h2 id="titre-evic">Écris sur ta feuille</h2>${mot}<p class="evic-consigne">Le plus de fois possible, jusqu'au signal.</p>`;
-      $("#evic-rappel").innerHTML = id === "repetition" ? `Tape <strong>${esc(evic.mot)}</strong> puis un espace, encore et encore.` : id === "dictee" ? "Tape ce que tu entends." : "Recopie le texte de ta feuille.";
+      if (e.papier) h = id === "main-copie"
+        ? `<p class="evic-emoji" aria-hidden="true">📝</p><h2 id="titre-evic">Recopie le texte sur ta feuille</h2>${modeleEcran ? htmlModeleCopie : `<p class="evic-consigne">Écris comme d'habitude, jusqu'au signal.</p>`}`
+        : `<p class="evic-emoji" aria-hidden="true">✍️</p><h2 id="titre-evic">Écris sur ta feuille</h2>${mot}<p class="evic-consigne">Le plus de fois possible, jusqu'au signal.</p>`;
+      $("#evic-rappel").innerHTML = id === "repetition" ? `Tape <strong>${esc(evic.mot)}</strong> puis un espace, encore et encore.` : id === "dictee" ? "Tape ce que tu entends, morceau par morceau."
+        : modeleEcran ? "Recopie le texte ci-dessus. Au bout, recommence au début." : "Recopie le texte de ta feuille. Au bout, recommence au début.";
     } else if (evic.phase === "fin-epreuve") {
       const suivante = evic.etapes[evic.i + 1];
       h = `<p class="evic-emoji" aria-hidden="true">🎉</p><h2 id="titre-evic">Bravo !</h2>
@@ -687,7 +726,8 @@
       if (fin > C.SEUIL_PAUSE) { t.pauses++; t.pauseMax = Math.max(t.pauseMax, fin); }
       while (t.instantanes.length < Math.floor(d / 60)) t.instantanes.push(C.compterMots(z.value));
       dossier.clavier.essais[id] = C.essaiChronometre(z.value, d, t.corrections, B.aujourdhui(),
-        { instantanes: t.instantanes, pauses: t.pauses, pauseMax: t.pauseMax, interruptions: t.interruptions, mot: id === "repetition" ? evic.mot : "" });
+        { instantanes: t.instantanes, pauses: t.pauses, pauseMax: t.pauseMax, interruptions: t.interruptions, mot: id === "repetition" ? evic.mot : "",
+          modele: id === "copie" && reglagesEvic().texte === "outil" ? C.TEXTES.copie.texte : "" });
     }
     if (t.lance && evic.faites.indexOf(id) < 0) evic.faites.push(id);
     nonEnregistre = true; sauverBrouillon();
@@ -796,7 +836,7 @@
   function quitterPassation() {
     if (!evic) return;
     if (evic.t) clearInterval(evic.t.minuteur);
-    const papier = evic.faites.indexOf("main-repetition") >= 0;
+    const papier = evic.faites.some((x) => x.indexOf("main-") === 0);
     evic = null;
     finAppui();
     $("#evic-menu").hidden = true;
@@ -817,7 +857,7 @@
     $("#bandeau-passation").innerHTML = papier && !(k.manuscrit && String(k.manuscrit.repetition || "").trim())
       ? "✅ Passation terminée. Notez d'abord les <strong>mots écrits à la main</strong>, puis complétez votre observation."
       : "✅ Passation terminée. Complétez votre observation ci-dessous.";
-    const cible = papier ? $('[data-chemin="clavier.manuscrit.repetition"]') : $("#titre-obs-clavier");
+    const cible = papier ? $("#titre-main-clavier") : $("#titre-obs-clavier");
     setTimeout(() => { if (cible) cible.scrollIntoView({ block: "center" }); }, 60);
     annoncer("Passation enregistrée");
     if (verrouActif()) verrouiller();
@@ -2065,7 +2105,8 @@
     m.blocs.forEach((b) => {
       if (b.type === "titre") h += `<h1>${esc(b.texte)}</h1>`;
       else if (b.type === "h") h += `<h${b.niveau}>${esc(b.texte)}</h${b.niveau}>`;
-      else if (b.type === "p") h += `<p${b.petit ? ' class="petit"' : ""}>${htmlRuns(b.runs)}</p>`;
+      else if (b.type === "p") h += `<p${b.petit ? ' class="petit"' : b.grand ? ' class="grand"' : ""}>${htmlRuns(b.runs)}</p>`;
+      else if (b.type === "saut") h += `<div class="saut-page" aria-hidden="true"></div>`;
       else if (b.type === "puces") h += `<ul>${b.items.map((it) => `<li>${htmlRuns(it)}</li>`).join("")}</ul>`;
       else if (b.type === "signature") h += `<p class="doc-signature">${esc(b.texte)}</p>`;
       else if (b.type === "graphique") {
@@ -2172,6 +2213,7 @@
     "planning-images": { titre: "Planning en images", prefixe: "Planning_seance", modele: () => U.modelePlanningImages(dossier, reglages) },
     visite: { titre: "Ma visite chez l'ergothérapeute", prefixe: "Ma_visite", modele: () => U.modeleVisite(dossier, reglages) },
     "planning-seances": { titre: "Planning des séances", prefixe: "Planning_seances", modele: () => modelePlanningSeances() },
+    evic: { titre: "Feuille de passation EViC", prefixe: "EViC_passation", modele: () => U.modeleEvic(dossier, reglages) },
   };
   let docApercu = "compte-rendu";
 
@@ -2185,7 +2227,7 @@
   // Styles du document pour la page à imprimer (version partagée, où l'impression directe n'est pas permise).
   const CSS_IMPRESSION = `@page{size:A4;margin:16mm 14mm}body{margin:0;background:#fff}.doc{font:11pt/1.4 Calibri,Arial,sans-serif;color:#222;max-width:180mm;margin:0 auto}
 .doc h1{font-size:16pt;text-align:center;text-transform:uppercase;color:#1f3a5f;margin:12pt 0 16pt}.doc h2{font-size:13pt;color:#1f3a5f;border-bottom:1px solid #8ea3c2;padding-bottom:2pt;margin:16pt 0 6pt;break-after:avoid}
-.doc h3{font-size:11.5pt;color:#2e5c8a;margin:12pt 0 4pt;break-after:avoid}.doc p{margin:0 0 4pt}.doc p.petit{font-size:9pt}.doc ul{margin:0 0 6pt;padding-left:18pt}.doc mark{background:#fff36b}
+.doc h3{font-size:11.5pt;color:#2e5c8a;margin:12pt 0 4pt;break-after:avoid}.doc p{margin:0 0 4pt}.doc p.petit{font-size:9pt}.doc p.grand,.doc p.grand span{line-height:1.9!important}.doc .saut-page{break-after:page}.doc ul{margin:0 0 6pt;padding-left:18pt}.doc mark{background:#fff36b}
 .doc-entete{display:flex;gap:12px;justify-content:space-around;text-align:center;font-size:8pt;border-bottom:1px solid #8ea3c2;padding-bottom:6pt;margin-bottom:8pt}
 .doc-pied{text-align:center;font-size:8pt;color:#4a5568;border-top:1px solid #8ea3c2;padding-top:6pt;margin-top:18pt}.doc-signature{text-align:right;font-weight:700;margin-top:18pt}
 .doc-table{width:100%;border-collapse:collapse;margin:4pt 0 8pt;font-size:10pt;table-layout:fixed}.doc-table.petit{font-size:9pt}.doc-table tr{break-inside:avoid}
@@ -3448,6 +3490,7 @@
       case "choisir-enfant": return ouvrirChoixEnfant();
       case "infos-enregistrement": return ouvrirInfosEnregistrement();
       case "preparer-evic": return preparerEvic();
+      case "compter-copie": return compterCopieMain();
       case "nouveau-bilan": return nouveau();
       case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
       case "voir-planning": return afficherOnglet("seances");

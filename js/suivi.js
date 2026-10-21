@@ -294,7 +294,7 @@
       const res = C.resultats(d.clavier).faites;
       if (res.length) {
         l.push("Frappe au clavier (EViC) :");
-        res.forEach((x) => l.push("– " + x.nom + " : " + C.fmt(x.mpm) + " mots par minute" + (x.ratio !== null ? " (" + Math.round(x.ratio * 100) + " % de la vitesse à la main)" : "") +
+        res.forEach((x) => l.push("– " + x.nom + " : " + C.fmt(x.mpm) + (x.mpm < 2 ? " mot" : " mots") + " par minute" + (x.ratio !== null ? " (" + Math.round(x.ratio * 100) + " % de la vitesse à la main)" : "") +
           (x.corrections !== null ? ", " + x.corrections + " correction" + (x.corrections > 1 ? "s" : "") : "") + (x.outil ? ", chronométré dans l'outil" : "")));
         l.push("");
       }
@@ -686,8 +686,63 @@
     return Object.assign({ titre: "Ma visite" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
   }
 
+  // Feuille de passation de l'EViC : déroulé, dictée à lire, grille d'observation (adulte) et texte à recopier (enfant).
+  function modeleEvic(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const k = d.clavier;
+    const o = { mot: C.motEffectif(k), texte: k.texte, ecran: k.ecran };
+    const outil = k.texte !== "bhk";
+    const c = (t, opt) => B.cellule(t, opt);
+    const nom = [texte(d.prenom).trim(), texte(d.nom).trim().toUpperCase()].filter(Boolean).join(" ");
+    const noms = { "main-copie": "Copie à la main", "main-repetition": "Répétition du mot à la main", copie: "Copie au clavier", repetition: "Répétition du mot au clavier", dictee: "Dictée au clavier" };
+    const blocs = [
+      { type: "titre", texte: "EViC – feuille de passation" },
+      { type: "p", runs: [{ t: "Enfant : ", b: true }, { t: nom || "……………………………" }, { t: "   Classe : ", b: true }, { t: d.groupe || "………" }, { t: "   Date : ", b: true }, { t: "……………" }] },
+      { type: "p", runs: [{ t: "Matériel : ", b: true }, { t: C.MATERIELS.map((m) => CASE + " " + m[1].toLowerCase()).join("   ") }] },
+      { type: "h", niveau: 2, texte: "Déroulé (environ 30 minutes)" },
+      { type: "p", runs: [{ t: "Dans l'outil : Écriture › Clavier › « Commencer la passation ». L'enfant passe les épreuves seul sur l'appareil ; le chronomètre démarre à la première lettre (au toucher de « C'est parti ! » pour les épreuves sur papier) et s'arrête seul avec un signal sonore. Pour faire une pause : appui long sur « Adulte », en haut à droite, ou touche Échap. " + C.ENCOURAGER }] },
+      { type: "tableau", largeurs: [0.05, 0.2, 0.08, 0.5, 0.17], lignes: [
+        { entete: true, cellules: [c("", { fond: "entete" }), c("Épreuve", { gras: true, fond: "entete" }), c("Durée", { gras: true, fond: "entete", align: "center" }), c("Ce que l'enfant entend, ce que vous faites", { gras: true, fond: "entete" }), c("Mots écrits", { gras: true, fond: "entete", align: "center" })] },
+      ].concat(C.ORDRE.map((id, i) => ({ cellules: [
+        c(String(i + 1), { align: "center" }), c(noms[id], { gras: true }), c(C.ENFANT[id].duree / 60 + " min", { align: "center" }),
+        { runs: [{ t: "À dire : ", b: true }, { t: C.consigneEnfant(id, o), i: true }, { t: "\n" + C.consigneAdulte(id, o) }] },
+        c(C.ENFANT[id].papier ? "………" : "compté par l'outil", { align: "center" }),
+      ] }))) },
+      { type: "h", niveau: 2, texte: outil ? "Dictée à lire : « " + C.TEXTES.dictee.titre + " »" : "Dictée" },
+    ];
+    if (outil) {
+      blocs.push({ type: "p", petit: true, runs: [{ t: "Lisez un groupe à voix claire ; attendez que l'enfant ait fini de le taper pour lire le suivant ; répétez une fois s'il le demande. Ne dictez pas la ponctuation. Au bout du texte, reprenez au début." }] });
+      const g = C.TEXTES.dictee.groupes, moitie = Math.ceil(g.length / 2);
+      blocs.push({ type: "tableau", largeurs: [0.06, 0.44, 0.06, 0.44], lignes: g.slice(0, moitie).map((x, i) => ({ cellules: [
+        c(String(i + 1), { align: "center" }), { runs: [{ t: x, taille: 24 }] },
+        c(g[moitie + i] ? String(moitie + i + 1) : "", { align: "center" }), { runs: [{ t: g[moitie + i] || "", taille: 24 }] },
+      ] })) });
+    } else {
+      blocs.push({ type: "p", runs: [{ t: "Dictez le texte du BHK sur votre exemplaire, par groupes de 3 à 5 mots, avec les mêmes règles : un groupe à la fois, répété une fois si besoin, sans dicter la ponctuation." }] });
+    }
+    blocs.push({ type: "p", runs: [{ t: "Mot à répéter : ", b: true }, { t: o.mot, taille: 26, b: true }] });
+    blocs.push({ type: "h", niveau: 2, texte: "Observation pendant les épreuves" });
+    const ligneObs = (titre, valeurs) => ({ cellules: [c(titre, { gras: true }), c(valeurs.map((v) => CASE + " " + v).join("   "))] });
+    blocs.push({ type: "tableau", petit: true, largeurs: [0.26, 0.74], lignes: [
+      ligneObs("Doigts", C.DOIGTES.map((x) => x[1])),
+      ligneObs("Mains", C.OBSERVATIONS[0].valeurs.map((v) => v[2].toLowerCase())),
+      ligneObs("Regard", C.REGARDS.map((x) => x[1])),
+    ].concat(C.OBSERVATIONS.slice(1).map((ob) => ligneObs(ob.titre, ob.valeurs.map((v) => v[2].toLowerCase()))))
+      .concat([ligneObs("Attitude", C.ATTITUDES.map((a) => a[2].toLowerCase())), ligneObs("Fonctions utilisées", C.FONCTIONS.slice(0, 4).map((f) => f[2].toLowerCase()))])
+      .concat([{ cellules: [c("Notes", { gras: true }), c("\n\n\n")] }]) });
+    blocs.push({ type: "p", petit: true, runs: [{ t: C.SOURCE.texte + " Textes de copie et de dictée écrits pour l'outil, libres de droits." }] });
+    if (outil) {
+      blocs.push({ type: "saut" });
+      blocs.push({ type: "p", petit: true, runs: [{ t: "EViC – texte à recopier" }] });
+      blocs.push({ type: "titre", texte: C.TEXTES.copie.titre });
+      blocs.push({ type: "p", grand: true, runs: [{ t: C.TEXTES.copie.texte, taille: 32 }] });
+    }
+    return Object.assign({ titre: "EViC – feuille de passation" + (nom ? " – " + nom : ""), blocs: blocs }, B.papier(reg));
+  }
+
   return {
     AXES, FREQUENCES, DUREES, suiviVide, normaliserSuivi, axesProposes, parametres, planning, analyse, modeleSuivi, modeleLivret, ajouterJours,
-    PICTOS_AXES, modeleQuestionnaire, modeleCeQuiAide, modelePlanningImages, modeleVisite, passationsAdaptees,
+    PICTOS_AXES, modeleQuestionnaire, modeleCeQuiAide, modelePlanningImages, modeleVisite, passationsAdaptees, modeleEvic,
   };
 });
