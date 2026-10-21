@@ -677,7 +677,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .doc-signature { text-align: right; font-weight: 700; margin-top: 18pt; }
 .doc-table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 10pt; table-layout: fixed; }
 .doc-table.petit { font-size: 9pt; }
-.doc-table th, .doc-table td { border: 1px solid #a6b4c8; padding: 2pt 4pt; vertical-align: middle; text-align: left; overflow-wrap: anywhere; }
+.doc-table th, .doc-table td { border: 1px solid #a6b4c8; padding: 2pt 4pt; vertical-align: middle; text-align: left; overflow-wrap: anywhere; white-space: pre-line; }
 .doc-table .a-center { text-align: center; }
 .doc-table .gras { font-weight: 700; }
 .doc-table .fond-entete { background: #dce3f0; }
@@ -818,3 +818,59 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
   .doc-table tr { break-inside: avoid; }
 }
 @media (max-width: 640px) { .paysage .pousse { display: none; } }
+
+/* ---------- Accueil adapté, plateforme TND, journal des séances ---------- */
+.choix-colonne { flex-direction: column; align-items: flex-start; }
+.confidentiel { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--rayon); background: var(--bleu-fond); font-size: .92rem; }
+.etat-pco { margin: .6rem 0; padding: 10px 12px; border-radius: var(--rayon); background: var(--encre-claire); }
+.etat-pco p { margin: 0 0 .3rem; }
+.etat-pco progress { width: 100%; height: 10px; accent-color: var(--encre); }
+.alerte-pco { padding: 8px 10px; border-radius: var(--rayon); background: var(--ambre-fond); color: var(--ambre); font-weight: 700; }
+
+.passation { margin: .8rem 0 0; padding: 8px 12px; border: 1.5px dashed var(--seyes); border-radius: var(--rayon); }
+.passation > summary { cursor: pointer; font-weight: 700; color: var(--encre-fonce); }
+.passation.adaptee { border-style: solid; border-color: var(--ambre); background: var(--ambre-fond); }
+.passation-resume { font-weight: 400; color: var(--ambre); }
+.passation[open] > summary { margin-bottom: .5rem; }
+
+.fiche-aide h2 { margin: 0 0 .4rem; }
+.liste-aide { display: grid; gap: 6px; margin: 0; }
+.liste-aide > div { display: grid; grid-template-columns: minmax(120px, 34%) 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--seyes-fin); }
+.liste-aide dt { font-weight: 700; color: var(--encre-fonce); }
+.liste-aide dd { margin: 0; }
+@media (max-width: 520px) { .liste-aide > div { grid-template-columns: 1fr; gap: 2px; } }
+.fiche-aide-courte { background: var(--vert-fond); }
+
+.table-sens th[scope="row"] { text-align: left; font-weight: 400; }
+.case-seule { display: grid; place-items: center; min-height: 40px; cursor: pointer; }
+.case-seule input { width: 22px; height: 22px; accent-color: var(--encre); }
+
+.planning-etapes { list-style: none; margin: .4rem 0 .8rem; padding: 0; display: grid; gap: 6px; }
+.planning-etapes .etape { display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 12px; border: 1.5px solid var(--seyes-fin); border-radius: var(--rayon); background: var(--papier); }
+.etape .picto { font-size: 1.9rem; line-height: 1; }
+.etape-texte { flex: 1 1 auto; font-weight: 700; }
+.etape-actions { display: flex; gap: 4px; }
+.etape-actions .bouton-rond { width: 38px; height: 38px; font-size: 1rem; box-shadow: none; }
+.etape-actions .bouton-rond:disabled { opacity: .35; cursor: default; }
+.palette { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 .6rem; }
+.etape-palette { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; min-height: 44px; border: 1.5px solid var(--seyes); border-radius: 999px; background: var(--papier); color: var(--graphite); font: inherit; cursor: pointer; }
+.etape-palette:hover { border-color: var(--encre); }
+.etape-palette:disabled { opacity: .45; cursor: default; }
+.etape-palette .picto { font-size: 1.3rem; }
+
+.resume-seances p { margin: 0 0 .4rem; }
+.rappel-prochaine { padding: 8px 10px; border-radius: var(--rayon); background: var(--ambre-fond); }
+.prevu-plan > summary { cursor: pointer; }
+.prevu-plan ul { margin: .4rem 0; padding-left: 1.2rem; }
+.seance > legend { width: auto; }
+.date-seance { font: 600 1.05rem var(--police-titre); color: var(--encre-fonce); border: 1.5px solid var(--seyes); border-radius: var(--rayon); padding: 4px 8px; background: var(--papier); }
+.cases-puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.cases-puces span { min-height: 42px; padding: 6px 12px; border-radius: 999px; }
+.cases-puces span::before { flex-basis: 18px; height: 18px; }
+.choix-visages span { font-size: 1rem; }
+.seance-du-jour { border-color: var(--encre); box-shadow: 0 0 0 2px var(--encre-claire), var(--ombre); }
+.seance-pied { text-align: right; }
+.liste-dossiers li .bouton-second.bouton-petit { white-space: nowrap; }
+.autres-axes { margin-top: .4rem; }
+.autres-axes > summary { cursor: pointer; color: var(--gris); font-size: .92rem; }
+.autres-axes[open] > summary { margin-bottom: .4rem; }

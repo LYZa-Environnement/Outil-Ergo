@@ -459,6 +459,182 @@
         ${champZone("Observations", "tdc.notes")}`);
   }
 
+  /* ---------- Accueil adapté, journal des séances, plateforme TND ---------- */
+
+  const A = window.Accueil;
+
+  function construireAccueil() {
+    const radiosChemin = (nom, chemin, valeurs) => valeurs.map((v) => `<label><input type="radio" name="${nom}" value="${esc(v[0])}" data-chemin="${chemin}"><span>${esc(v[1])}</span></label>`).join("");
+    $("#raisons-adaptation").innerHTML = radiosChemin("adaptation-raison", "adaptation.raison", A.RAISONS);
+    $("#formules-pco").innerHTML = radiosChemin("pco-formule", "pco.formule", A.FORMULES_PCO);
+    $("#choix-communication").innerHTML = radiosChemin("accueil-communication", "adaptation.reponses.communication", A.COMMUNICATION);
+    $("#questions-accueil").innerHTML = A.QUESTIONS.map((q) => `<label class="champ"><span>${esc(q.titre)}</span><textarea data-chemin="adaptation.reponses.${q.id}" rows="2"${q.exemple ? ` placeholder="${esc(q.exemple)}"` : ""}></textarea></label>`).join("");
+    $("#table-sens").innerHTML = `<thead><tr><th scope="col">Sensations</th>${A.REACTIONS.map((r) => `<th scope="col">${esc(r[1])}</th>`).join("")}</tr></thead><tbody>` +
+      A.SENS.map((x) => `<tr><th scope="row">${esc(x[1])}</th>${A.REACTIONS.map((r) => `<td><label class="case-seule"><input type="radio" name="sens-${x[0]}" value="${r[0]}" data-chemin="adaptation.sensibilites.${x[0]}" aria-label="${esc(x[1])} : ${esc(r[1])}"></label></td>`).join("")}</tr>`).join("") + "</tbody>";
+    $("#palette-etapes").innerHTML = A.ETAPES.map((e) => `<button type="button" class="etape-palette" data-etape-ajout="${e.id}"><span class="picto" aria-hidden="true">${e.picto}</span>${esc(e.texte)}</button>`).join("");
+    $("#passation-bhk").innerHTML = htmlPassation("bhk");
+  }
+
+  function htmlPassation(id) {
+    const p = (dossier.passations || {})[id] || {};
+    const l = A.libellesPassation(p);
+    return `<details class="passation${l.length ? " adaptee" : ""}" data-passation-bloc="${id}"${l.length ? " open" : ""}>
+      <summary>Passation adaptée ? <span class="passation-resume">${esc(l.join(", "))}</span></summary>
+      <div class="cases">${A.ADAPTATIONS_PASSATION.map((a) => `<label><input type="checkbox" data-chemin="passations.${id}.${a[0]}"${p[a[0]] === "oui" ? " checked" : ""}><span>${esc(B.maj(a[1]))}</span></label>`).join("")}</div>
+      <label class="champ"><span>Autre adaptation</span><input type="text" data-chemin="passations.${id}.autre" value="${esc(p.autre || "")}" placeholder="consigne relue, crayon adapté…"></label>
+      <p class="note">Ce qui est coché apparaît dans le compte rendu, avec un rappel : les normes ont été établies en passation standard.</p>
+    </details>`;
+  }
+
+  // Journal des séances : une carte par séance, à remplir en quelques touches.
+  function construireSeances() {
+    const ad = dossier.adaptation && dossier.adaptation.actif === "oui";
+    const l = dossier.seances || [];
+    sigSeances = (ad ? "1" : "0") + ":" + l.length + ":" + axesJournal().map((a) => a.id).join(",");
+    const axes = axesJournal();
+    $("#liste-seances").innerHTML = l.length ? l.map((s, i) => {
+      const coches = Object.keys(s.axes || {}).filter((k) => s.axes[k] === "oui");
+      const liste = axes.concat(U.AXES.filter((a) => coches.indexOf(a.id) >= 0 && !axes.some((b) => b.id === a.id)));
+      const caseAxe = (a) => `<label><input type="checkbox" data-chemin="seances.${i}.axes.${a.id}"${coches.indexOf(a.id) >= 0 ? " checked" : ""}><span>${U.PICTOS_AXES[a.id] || ""} ${esc(a.titre.split(/ et | : |, | dans /)[0])}</span></label>`;
+      return `<fieldset class="groupe seance">
+      <legend><input type="date" class="date-seance" data-chemin="seances.${i}.date" value="${esc(s.date)}" aria-label="Date de la séance"></legend>
+      <div class="champ"><span>Travaillé</span><div class="cases cases-puces">${liste.map(caseAxe).join("")}</div>
+        <details class="autres-axes"><summary>Autres axes</summary><div class="cases cases-puces">${U.AXES.filter((a) => !liste.some((b) => b.id === a.id)).map(caseAxe).join("")}</div></details></div>
+      <div class="champ"><span id="l-etat-${i}">Comment ça s'est passé ?</span><div class="choix choix-visages" role="radiogroup" aria-labelledby="l-etat-${i}">${A.ETATS_SEANCE.map((x) => `<label><input type="radio" name="seance-etat-${i}" value="${x[0]}" data-chemin="seances.${i}.etat"${s.etat === x[0] ? " checked" : ""}><span><span aria-hidden="true">${x[2]}</span> ${esc(x[1])}</span></label>`).join("")}</div></div>
+      <label class="champ"><span>Note (facultatif)</span><input type="text" data-chemin="seances.${i}.fait" value="${esc(s.fait)}" placeholder="grands tracés au tableau, a bien accroché"></label>
+      <label class="champ"><span>Pour la prochaine fois</span><input type="text" data-chemin="seances.${i}.prochaine" value="${esc(s.prochaine)}" placeholder="reprendre les boucles ; apporter son cahier"></label>
+      ${ad ? `<div class="grille2">
+        <label class="champ"><span>Ce qui a aidé</span><input type="text" data-chemin="seances.${i}.aide" value="${esc(s.aide)}" placeholder="minuteur visuel ; parler de dinosaures"></label>
+        <label class="champ"><span>Ce qui a été difficile</span><input type="text" data-chemin="seances.${i}.difficile" value="${esc(s.difficile)}" placeholder="attendre son tour ; bruit du couloir"></label>
+      </div>` : ""}
+      <div class="seance-pied"><button type="button" class="bouton-lien" data-suppr-seance="${i}">Retirer cette séance</button></div>
+    </fieldset>`;
+    }).join("") : `<p class="note vide">Aucune séance notée pour l'instant.</p>`;
+  }
+
+  // Axes proposés comme cases : ceux du plan de suivi.
+  function axesJournal() {
+    try { return U.planning(dossier, reglages).axes.map((a) => U.AXES.find((x) => x.id === a.id)).filter(Boolean); } catch (e) { return []; }
+  }
+
+  // En haut du journal : nombre de séances, ce qui était prévu « pour la prochaine fois », séance du plan de suivi.
+  function majResumeSeances() {
+    const d = B.normaliserDossier(dossier);
+    const recentes = A.seancesRecentes(d).filter((x) => x.date);
+    const auj = B.aujourdhui();
+    const aujourdhui = recentes.find((x) => x.date === auj);
+    const avant = recentes.filter((x) => x.date < auj);
+    const h = [];
+    h.push(`<p><strong>${recentes.length}</strong> séance${recentes.length > 1 ? "s" : ""} notée${recentes.length > 1 ? "s" : ""}${avant.length ? ` · dernière le ${esc(B.dateCourte(avant[0].date))}` : ""}</p>`);
+    const rappel = avant.find((x) => x.prochaine.trim());
+    if (rappel) h.push(`<p class="rappel-prochaine"><span aria-hidden="true">📌</span> Noté le ${esc(B.dateCourte(rappel.date))} pour la fois suivante : <strong>${esc(rappel.prochaine.trim())}</strong></p>`);
+    let plan = null;
+    try { plan = U.planning(dossier, reglages); } catch (e) { plan = null; }
+    const n = recentes.length + (aujourdhui ? 0 : 1);
+    const prevue = plan && plan.seances[n - 1];
+    if (prevue) h.push(`<details class="prevu-plan"><summary>Prévu au plan de suivi pour ${aujourdhui ? "aujourd'hui" : "la prochaine séance"} (n° ${n}, ${esc(prevue.phase.toLowerCase())}) : <strong>${esc(prevue.titre)}</strong></summary>
+      <ul>${prevue.contenu.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${prevue.maison.length ? `<p>À la maison : ${esc(prevue.maison.map((m) => m[0]).join(", "))}</p>` : ""}</details>`);
+    $("#resume-seances").innerHTML = h.join("");
+    const b = $("[data-action='ajouter-seance']");
+    b.textContent = aujourdhui ? "Séance d'aujourd'hui notée ✓" : "＋ Séance du jour";
+    b.classList.toggle("bouton-second", !!aujourdhui);
+  }
+
+  // Ouvre (ou crée) la séance du jour.
+  function seanceDuJour() {
+    if (!Array.isArray(dossier.seances)) dossier.seances = [];
+    const auj = B.aujourdhui();
+    let i = dossier.seances.findIndex((x) => x.date === auj);
+    if (i < 0) {
+      if (dossier.seances.length >= A.MAX_SEANCES) { annoncer(A.MAX_SEANCES + " séances au plus."); return; }
+      dossier.seances.unshift(A.seanceVide(auj));
+      i = 0;
+      construireSeances(); nonEnregistre = true; majTout();
+      annoncer("Séance du jour ajoutée");
+    }
+    afficherOnglet("seances");
+    const carte = $$("#liste-seances .seance")[i];
+    if (carte) { carte.classList.add("seance-du-jour"); carte.scrollIntoView({ block: "start" }); }
+  }
+  let sigSeances = "";
+
+  function dureeTexte(j) {
+    if (j < 31) return j + " jour" + (j > 1 ? "s" : "");
+    return Math.round(j / 30.4) + " mois";
+  }
+
+  function htmlEtatPco(e) {
+    const m = [`<strong>${e.faites}</strong> séance${e.faites > 1 ? "s" : ""} notée${e.faites > 1 ? "s" : ""}` + (e.prevues ? ` sur environ ${e.prevues}` : "")];
+    if (e.echeance) m.push(`fin du forfait le <strong>${esc(B.dateCourte(e.echeance))}</strong>` + (e.joursRestants !== null && e.joursRestants >= 0 ? ` (dans ${dureeTexte(e.joursRestants)})` : ""));
+    else m.push("renseignez la date de début du parcours");
+    return `<p><span aria-hidden="true">🧭</span> Plateforme TND : ${m.join(" · ")}</p>` +
+      (e.prevues ? `<progress max="${e.prevues}" value="${Math.min(e.faites, e.prevues)}" aria-label="Séances faites"></progress>` : "") +
+      (e.alerte ? `<p class="alerte-pco">${esc(e.alerte)}</p>` : "");
+  }
+
+  function majAccueil() {
+    const d = B.normaliserDossier(dossier);
+    const ad = d.adaptation;
+    $("#champ-raison-autre").hidden = ad.raison !== "autre";
+    $("#case-mention").hidden = ad.raison !== "tsa";
+    $("#case-orientation").hidden = !ad.raison || !A.orientationPossible(d);
+
+    // Fiche « Ce qui aide »
+    const paires = A.ceQuiAide(d);
+    const prenom = String(d.prenom || "").trim();
+    $("#prenom-fiche").textContent = prenom;
+    const liste = paires.length ? `<dl class="liste-aide">${paires.map((x) => `<div><dt>${esc(x[0])}</dt><dd>${esc(x[1])}</dd></div>`).join("")}</dl>` : "";
+    $("#fiche-aide").innerHTML = liste || `<p class="note">Elle se remplit avec les réponses des parents (ci-dessous) et le journal des séances.</p>`;
+    const rappel = $("#rappel-aide");
+    rappel.hidden = ad.actif !== "oui" || !paires.length;
+    rappel.innerHTML = paires.length ? `<h2>Ce qui aide ${esc(prenom)}</h2>` + liste : "";
+
+    // Planning en images
+    $("#planning-etapes").innerHTML = ad.planning.map((id, i) => {
+      const e = A.ETAPES.find((x) => x.id === id);
+      return `<li class="etape"><span class="picto" aria-hidden="true">${e.picto}</span><span class="etape-texte">${esc(e.texte)}</span>
+        <span class="etape-actions"><button type="button" class="bouton-rond" data-etape-haut="${i}" aria-label="Avancer : ${esc(e.texte)}"${i === 0 ? " disabled" : ""}>↑</button><button type="button" class="bouton-rond" data-etape-bas="${i}" aria-label="Reculer : ${esc(e.texte)}"${i === ad.planning.length - 1 ? " disabled" : ""}>↓</button><button type="button" class="bouton-rond" data-etape-suppr="${i}" aria-label="Retirer : ${esc(e.texte)}">✕</button></span></li>`;
+    }).join("") || `<li class="note">Aucune étape : touchez une image ci-dessous.</li>`;
+    $$("[data-etape-ajout]").forEach((b) => { b.disabled = ad.planning.length >= A.MAX_ETAPES; });
+
+    // Lieu du rendez-vous : villes du cabinet proposées, la première par défaut
+    const villes = A.villesCabinet(reglages.cabinet.adresse);
+    $("#lieu-visite").placeholder = villes[0] || "Coutances";
+    $("#villes-cabinet").innerHTML = villes.map((v) => `<option value="${esc(v)}">`).join("");
+
+    // Photo du cabinet
+    const img = $("#apercu-photo-cabinet"), ph = reglages.photoCabinet;
+    img.hidden = !ph;
+    if (ph) { if (img.getAttribute("src") !== ph.donnees) img.src = ph.donnees; } else img.removeAttribute("src");
+    $("[data-action='retirer-photo-cabinet']").hidden = !ph;
+
+    // Plateforme TND
+    const html = d.pco.actif === "oui" ? htmlEtatPco(A.etatPco(d, B.aujourdhui())) : "";
+    $("#etat-pco").innerHTML = html;
+    const zs = $("#etat-pco-seances");
+    zs.hidden = !html;
+    zs.innerHTML = html;
+
+    // Passations adaptées : résumé dans chaque encadré
+    $$("[data-passation-bloc]").forEach((el) => {
+      const l = A.libellesPassation(d.passations[el.dataset.passationBloc]);
+      $(".passation-resume", el).textContent = l.join(", ");
+      el.classList.toggle("adaptee", l.length > 0);
+    });
+
+    // Journal : reconstruit quand l'accueil adapté est coché ou décoché
+    if (sigSeances !== (ad.actif === "oui" ? "1" : "0") + ":" + (dossier.seances || []).length + ":" + axesJournal().map((a) => a.id).join(",")) construireSeances();
+    majResumeSeances();
+  }
+
+  function modifierPlanning(f) {
+    const avant = dossier.adaptation.planning.slice();
+    f(dossier.adaptation.planning);
+    if (avant.join() === dossier.adaptation.planning.join()) return;
+    nonEnregistre = true;
+    majTout();
+  }
+
   function majTdc() {
     const t = B.reperesTdc(dossier, reglages);
     $("#tdc-criteres").innerHTML = t.criteres.map((c) => `<li class="tdc-${c.etat === "?" ? "inconnu" : c.etat}"><span class="tdc-badge">${esc(B.ETATS_TDC[c.etat])}</span>
@@ -604,6 +780,7 @@
         </div>`).join("")}
         <button type="button" class="bouton bouton-second" data-ajouter-epreuve="${t.id}">Ajouter une épreuve</button>
         <label class="champ"><span>Observations générales</span><textarea data-test="${t.id}" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation(t.id)}
       </div>
     </fieldset>`;
   }
@@ -772,6 +949,7 @@
       if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
     });
     construireTests();
+    construireSeances();
     majPhoto();
   }
 
@@ -1029,7 +1207,9 @@
     majOccupation();
     majTdc();
     majSuivi();
+    majAccueil();
     majEtapes();
+    majSousOnglets();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
     items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
 
@@ -1066,6 +1246,7 @@
   function htmlRuns(runs) {
     return runs.map((r) => {
       let h = esc(r.t);
+      if (r.taille) h = `<span style="font-size:${r.taille / 2}pt;line-height:1.15">${h}</span>`;
       if (r.surligne) h = `<mark>${h}</mark>`;
       if (r.i) h = `<em>${h}</em>`;
       if (r.b) h = `<strong>${h}</strong>`;
@@ -1184,6 +1365,10 @@
     ecole: { titre: "Synthèse pour l'école", prefixe: "Synthese_ecole", modele: () => modeleEcole() },
     suivi: { titre: "Plan de suivi", prefixe: "Plan_suivi", modele: () => U.modeleSuivi(dossier, reglages) },
     livret: { titre: "Carnet d'activités pour les parents", prefixe: "Carnet_activites", modele: () => U.modeleLivret(dossier, reglages) },
+    questionnaire: { titre: "Questionnaire pour les parents", prefixe: "Questionnaire_accueil", modele: () => U.modeleQuestionnaire(dossier, reglages) },
+    "ce-qui-aide": { titre: "Ce qui aide", prefixe: "Ce_qui_aide", modele: () => U.modeleCeQuiAide(dossier, reglages) },
+    "planning-images": { titre: "Planning en images", prefixe: "Planning_seance", modele: () => U.modelePlanningImages(dossier, reglages) },
+    visite: { titre: "Ma visite chez l'ergothérapeute", prefixe: "Ma_visite", modele: () => U.modeleVisite(dossier, reglages) },
   };
   let docApercu = "compte-rendu";
 
@@ -1353,14 +1538,17 @@
             <span class="dossier-avatar" aria-hidden="true">${esc((x.prenom || "?").trim().charAt(0).toUpperCase() || "?")}</span>
             <span class="dossier-infos"><strong>${esc(nom)}</strong>
               <small>${[x.groupe, x.passation ? "bilan du " + B.dateCourte(x.passation) : "", x.auteur ? "par " + x.auteur : ""].filter(Boolean).map(esc).join(" · ")}</small>
-              <small>Modifié ${esc(quand(x.modifieLe))}</small></span>
+              <small>Modifié ${esc(quand(x.modifieLe))}${nbSeances(x) ? " · " + nbSeances(x) + " séance" + (nbSeances(x) > 1 ? "s" : "") : ""}</small></span>
             ${actuel ? `<span class="badge">En cours</span>` : `<button type="button" class="bouton bouton-petit" data-ouvrir-dossier="${esc(x.id)}">Ouvrir</button>`}
+            <button type="button" class="bouton bouton-second bouton-petit" data-seance-dossier="${esc(x.id)}" title="Noter la séance d'aujourd'hui">📅 Séance</button>
             <button type="button" class="bouton-icone" data-suppr-dossier="${esc(x.id)}" aria-label="Supprimer le dossier de ${esc(nom)}" title="Supprimer">🗑</button>
           </li>`;
         }).join("")}</ul>`;
     });
     majRappelSauvegarde();
   }
+
+  function nbSeances(x) { return x && x.dossier && Array.isArray(x.dossier.seances) ? x.dossier.seances.length : 0; }
 
   async function ouvrirDeMesDossiers(id) {
     const x = await Base.lire(id);
@@ -1676,6 +1864,8 @@
       sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui") || d.cartes.sensoriel.fait === "oui",
       bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui" || d.tdc.fait === "oui",
       "compte-rendu": d.amenagements.length > 0,
+      accueil: A.accueilCommence(d),
+      seances: d.seances.length > 0,
     };
     etatEtapes = etat;
     Object.keys(etat).forEach((k) => { const b = $("#t-" + k); if (b) b.classList.toggle("rempli", etat[k]); });
@@ -1760,7 +1950,7 @@
 
   // Cinq étapes ; chacune peut regrouper plusieurs pages (sous-onglets). Les réglages s'ouvrent depuis l'en-tête.
   const GROUPES_ONGLETS = [
-    { id: "dossier", panneaux: [["dossier", "Dossier"]] },
+    { id: "dossier", panneaux: [["dossier", "📁 Dossier"], ["accueil", "🤝 Accueil"], ["seances", "📅 Séances"]] },
     { id: "entretien", panneaux: [["anamnese", "💬 Anamnèse"], ["occupations", "🌱 Autonomie et priorités"]] },
     { id: "ecrit", panneaux: [["ecriture", "✏️ Observation"], ["bhk", "📝 BHK"]] },
     { id: "evaluations", panneaux: [["sensoriel", "🌈 Sensoriel"], ["bilans", "🧩 Moteur et autres"]] },
@@ -1769,7 +1959,37 @@
   const dernierPanneau = {};
   function groupeDe(nom) { return GROUPES_ONGLETS.find((g) => g.panneaux.some((p) => p[0] === nom)); }
 
+  // L'accueil adapté n'apparaît que pour les dossiers qui en ont besoin ; le journal des séances, pour tous.
+  function panneauVisible(nom) {
+    const ad = !!dossier.adaptation && dossier.adaptation.actif === "oui";
+    if (nom === "accueil") return ad;
+    if (nom === "seances") return true;
+    return true;
+  }
+
+  let sigSousOnglets = "";
+  function rendreSousOnglets(nom) {
+    const g = groupeDe(nom);
+    const visibles = g ? g.panneaux.filter((p) => panneauVisible(p[0])) : [];
+    const sous = $("#sous-onglets");
+    sigSousOnglets = nom + "|" + visibles.map((p) => p[0]).join(",");
+    if (visibles.length > 1) {
+      sous.hidden = false;
+      sous.innerHTML = visibles.map((p) => `<button type="button" id="t-${p[0]}" class="${etatEtapes[p[0]] ? "rempli" : ""}" data-aller="${p[0]}" aria-current="${p[0] === nom ? "page" : "false"}">${esc(p[1])}</button>`).join("");
+    } else { sous.hidden = true; sous.innerHTML = ""; }
+  }
+
+  function majSousOnglets() {
+    const actif = $$("[role=tabpanel]").find((p) => !p.hidden);
+    const nom = actif ? actif.id.slice(2) : "dossier";
+    if (!panneauVisible(nom)) { afficherOnglet("dossier"); return; }
+    const g = groupeDe(nom);
+    const sig = nom + "|" + (g ? g.panneaux.filter((p) => panneauVisible(p[0])).map((p) => p[0]).join(",") : "");
+    if (sig !== sigSousOnglets) rendreSousOnglets(nom);
+  }
+
   function afficherOnglet(nom) {
+    if (!panneauVisible(nom)) nom = "dossier";
     const g = groupeDe(nom);
     if (g) dernierPanneau[g.id] = nom;
     $$(".onglets [role=tab]").forEach((t) => {
@@ -1778,11 +1998,7 @@
       t.tabIndex = actif || (!g && t.id === "g-dossier") ? 0 : -1;
       if (actif) t.scrollIntoView({ block: "nearest", inline: "nearest" });
     });
-    const sous = $("#sous-onglets");
-    if (g && g.panneaux.length > 1) {
-      sous.hidden = false;
-      sous.innerHTML = g.panneaux.map((p) => `<button type="button" id="t-${p[0]}" class="${etatEtapes[p[0]] ? "rempli" : ""}" data-aller="${p[0]}" aria-current="${p[0] === nom ? "page" : "false"}">${esc(p[1])}</button>`).join("");
-    } else { sous.hidden = true; sous.innerHTML = ""; }
+    rendreSousOnglets(nom);
     $("#bouton-reglages").setAttribute("aria-pressed", String(nom === "reglages"));
     $$("[role=tabpanel]").forEach((p) => { p.hidden = p.id !== "p-" + nom; });
     window.scrollTo(0, 0);
@@ -1817,7 +2033,22 @@
       if (el.dataset.faire === "word") return wordDoc(id);
     }
     if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
+    if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
+    if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });
+    if (el.dataset.etapeBas) return modifierPlanning((l) => { const i = +el.dataset.etapeBas; if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); });
+    if (el.dataset.etapeSuppr) return modifierPlanning((l) => { l.splice(+el.dataset.etapeSuppr, 1); });
+    if (el.dataset.supprSeance) {
+      const avant = instantane();
+      dossier.seances.splice(+el.dataset.supprSeance, 1);
+      construireSeances(); nonEnregistre = true; majTout();
+      proposerAnnulation("Séance retirée.", () => { restaurerInstantane(avant)(); construireSeances(); majTout(); });
+      return;
+    }
     if (el.dataset.ouvrirDossier) return ouvrirDeMesDossiers(el.dataset.ouvrirDossier);
+    if (el.dataset.seanceDossier) {
+      const id = el.dataset.seanceDossier;
+      return (id === dossier.id ? Promise.resolve() : ouvrirDeMesDossiers(id)).then(seanceDuJour);
+    }
     if (el.dataset.supprDossier) return supprimerDeMesDossiers(el.dataset.supprDossier);
     if (el.dataset.annuler !== undefined) {
       const f = annulation;
@@ -1952,6 +2183,15 @@
         return;
       }
       case "copie-securite": return telechargerCopie();
+      case "planning-defaut": return modifierPlanning((l) => { l.splice(0, l.length, ...A.PLANNING_DEFAUT); });
+      case "ajouter-seance": return seanceDuJour();
+      case "retirer-photo-cabinet":
+        demander("Retirer la photo du cabinet de cet appareil ?", "Retirer").then((ok) => {
+          if (!ok) return;
+          reglages.photoCabinet = null;
+          sauverReglages(); majTout();
+        });
+        return;
       case "profil": return ouvrirChoixProfil(false);
       case "word-suivi": return wordDoc("suivi");
       case "apercu-suivi": return apercuDoc("suivi");
@@ -1996,6 +2236,14 @@
       lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {
       lireFichier(e.target).then(chargerPrecedent).catch((err) => annoncer(err.message));
+    } else if (action === "photo-cabinet") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return true;
+      chargerPhoto(f, 1000).then((ph) => {
+        reglages.photoCabinet = { donnees: ph.donnees, l: ph.l, h: ph.h };
+        sauverReglages(); majTout();
+        annoncer("Photo du cabinet enregistrée sur cet appareil");
+      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "photo-carte") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
@@ -2035,6 +2283,7 @@
     construireManip();
     construireOccupation();
     construireDcdq();
+    construireAccueil();
     initOnglets();
     remplirReglages();
     construireAuto();

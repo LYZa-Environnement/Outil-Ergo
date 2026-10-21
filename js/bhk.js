@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -415,6 +415,7 @@
       autoQuestions: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
+      photoCabinet: null,
       normes: normesVides(),
     };
   }
@@ -443,6 +444,7 @@
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
+    out.photoCabinet = Accueil.normaliserPhoto(r.photoCabinet);
     if (r.normes) out.normes = normaliserNormes(r.normes);
     return out;
   }
@@ -495,6 +497,7 @@
     d.precedent = null;
     d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
     d.tdc = { fait: "", debut: "", exclusion: "", notes: "" };
+    Object.assign(d, Accueil.vide());
     return d;
   }
 
@@ -518,6 +521,7 @@
     d.senso = Senso.normaliser(src.senso);
     Object.assign(d, Occup.normaliser(src));
     d.precedent = normaliserPrecedent(src.precedent);
+    Object.assign(d, Accueil.normaliser(src));
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -1334,6 +1338,8 @@
       const eva = nombre(d.douleurEva);
       if (eva !== null) puces.push("Douleur après l'épreuve : EVA " + formaterNombre(eva) + "/10" + (d.douleurDetail.trim() ? " (" + d.douleurDetail.trim().replace(/\.$/, "") + ")" : "") + ".");
 
+      const passation = Accueil.phrasePassation(d.passations.bhk);
+      if (passation && puces.length) puces.push(passation);
       const l = [];
       if (puces.length) l.push("On observe sur l'épreuve du " + r.nomTest + " que :", ...puces.map((p) => "– " + p));
       if (d.bhkNotes.trim()) l.push("", point(maj(d.bhkNotes.trim())));
@@ -1355,6 +1361,8 @@
       lignes.forEach((x) => l.push("– " + (x.remplie ? phraseLigne(x) : point(x.epreuve + " : " + x.commentaire))));
       if (t.notes) l.push(point(maj(t.notes)));
       if (l.length === 1) l.push("[Résultats à compléter.]");
+      const passation = Accueil.phrasePassation(d.passations[t.id]);
+      if (passation) l.push(passation);
       return l.join("\n");
     };
     {
@@ -1430,6 +1438,8 @@
       const l = [];
       const ag = r.age ? formaterAge(r.age) : "";
       let p = a.sujet + " est " + a.un + " enfant" + (ag ? " de " + ag : "") + (TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? ", scolarisé" + a.e + " en " + d.groupe : "") + ".";
+      const diagnostic = Accueil.phraseDiagnostic(d);
+      if (diagnostic) p += " " + diagnostic;
       if (d.conclusionContexte.trim()) p += " " + point(maj(d.conclusionContexte.trim()));
       l.push(p, "", "Synthèse des constats :");
       const liste = (titre, items) => {
@@ -1492,6 +1502,8 @@
       });
       if (d.reevaluation.trim()) l.push("", "Une réévaluation est proposée dans " + d.reevaluation.trim() + ".");
       lignesDe(d.precoLibre).forEach((x) => l.push(point(maj(x))));
+      const orientation = Accueil.phraseOrientation(d, a.sujetMin);
+      if (orientation) { if (l.length) l.push(""); l.push(orientation); }
       out.preconisations = l.length ? l.join("\n") : "[Préconisations à compléter : cochez celles que l'outil propose d'après le bilan.]";
     }
 
@@ -1629,7 +1641,7 @@
     blocs.push({ type: "h", niveau: 2, texte: "Informations sur l'enfant" });
     blocs.push({ type: "tableau", largeurs: [0.34, 0.66], lignes: []
       .concat(lignesInfo("Administratif", [["Nom, prénom", nomComplet], ["Date de naissance", dateCourte(d.naissance)], ["Âge au bilan", r.age ? formaterAge(r.age) : ""], ["Parents", d.parents], ["Adresse", d.adresse]]))
-      .concat(lignesInfo("Prescription et suivi", [["Date du bilan", dateCourte(d.passation)], ["Médecin prescripteur", d.prescripteur]]))
+      .concat(lignesInfo("Prescription et suivi", [["Date du bilan", dateCourte(d.passation)], ["Médecin prescripteur", d.prescripteur]].concat(Accueil.lignesPco(d))))
       .concat(lignesInfo("Scolarité", [["Établissement scolaire, classe", scol]])) });
 
     const emis = {};

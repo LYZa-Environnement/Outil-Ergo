@@ -5,9 +5,9 @@
  * Les exercices sont des pistes générales à adapter à chaque enfant.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"));
-  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso);
-})(typeof self !== "undefined" ? self : this, function (B, O, S) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"), require("./accueil.js"));
+  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso, racine.Accueil);
+})(typeof self !== "undefined" ? self : this, function (B, O, S, A) {
   "use strict";
 
   function texte(v) { return typeof v === "string" ? v : v === null || v === undefined ? "" : String(v); }
@@ -354,8 +354,10 @@
         ["Enfant", nomComplet + (r.age ? ", " + B.formaterAge(r.age) : "") + (B.TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? ", " + d.groupe : "")],
         ["Bilan du", B.dateCourte(d.passation)],
         ["Séances", p.nombre + " séances de " + p.duree + " minutes, " + FREQUENCES.find((f) => f[0] === p.frequence)[1].toLowerCase() + ", à partir du " + B.dateCourte(p.debut)],
-      ].map((x) => ({ cellules: [c(x[0], { gras: true }), c(x[1])] })) },
+      ].concat(lignePco(d)).map((x) => ({ cellules: [c(x[0], { gras: true }), c(x[1])] })) },
     ];
+    const pco = d.pco.actif === "oui" ? A.etatPco(d, B.aujourdhui()) : null;
+    if (pco && pco.alerte) blocs.push({ type: "p", runs: [{ t: pco.alerte, b: true }] });
     const h = (niveau, t) => blocs.push({ type: "h", niveau: niveau, texte: t });
     const txt = (t) => blocs.push.apply(blocs, B.texteVersBlocs(t));
 
@@ -365,6 +367,21 @@
     const g = B.donneesGraphiques(d, reg);
     ["profil-ds", "bhk-criteres"].forEach((id) => { if (g[id]) blocs.push({ type: "graphique", id: id, donnees: g[id], alt: B.TITRES_GRAPHIQUES[id], largeurCm: B.LARGEURS_GRAPHIQUES[id] }); });
     if (d.senso.eso.fait === "oui" && S.aDesDonnees(d.senso, "eso-items")) blocs.push({ type: "graphique", id: "eso-items", alt: B.TITRES_GRAPHIQUES["eso-items"], largeurCm: B.LARGEURS_GRAPHIQUES["eso-items"] });
+
+    if (d.adaptation.actif === "oui") {
+      h(2, "Accueil adapté");
+      if (A.libelleRaison(d)) txt("Raison (information interne) : " + A.libelleRaison(d) + ".");
+      const paires = A.ceQuiAide(d);
+      if (paires.length) blocs.push({ type: "tableau", largeurs: [0.3, 0.7], petit: true, lignes: paires.map((x) => ({ cellules: [c(x[0], { gras: true }), c(x[1])] })) });
+      else txt("[Reporter les réponses du questionnaire des parents dans l'onglet Accueil adapté.]");
+      const etapes = etapesPlanning(d);
+      if (etapes.length) txt("Déroulé habituel de la séance : " + etapes.map((e) => e.texte.toLowerCase()).join(", ") + ".");
+    }
+    const adaptees = passationsAdaptees(d);
+    if (adaptees.length) {
+      h(3, "Passations adaptées");
+      txt(adaptees.map((x) => "– " + x[0] + " : " + x[1].join(", ") + ".").join("\n") + "\nLes résultats de ces épreuves sont à lire avec prudence au regard des normes.");
+    }
 
     h(2, "Axes de travail");
     const actifs = plan.axes.map((x) => x.id);
@@ -385,6 +402,12 @@
         (tdc ? "\nRepères du bilan : " + tdc.criteres.map((x) => "critère " + x.id + " " + B.ETATS_TDC[x.etat]).join(", ") + ". " + tdc.conclusion : "") +
         "\nSource : " + B.SOURCE_TDC.texte + " " + B.SOURCE_TDC.lien);
     }
+    if (A.raisonTsa(d)) {
+      h(3, "Ajout : recommandations de la HAS sur l'autisme");
+      txt("Ajout, à titre indicatif. Les recommandations de la HAS pour les enfants et adolescents autistes (" + A.SOURCE_HAS_TSA.court + ") retiennent notamment de :\n" +
+        A.REPERES_HAS_TSA.map((x) => "– " + x + " ;").join("\n").replace(/ ;$/, ".") + "\n" + A.NOTE_INTEGRATION_SENSORIELLE +
+        "\nSources : " + A.SOURCE_HAS_TSA.texte + " " + A.SOURCE_HAS_TSA.lien + "\n" + A.SOURCE_NCAEP.texte + " " + A.SOURCE_NCAEP.lien);
+    }
 
     h(2, "Objectifs et échelles d'atteinte (GAS)");
     txt("Pour chaque objectif, décrire avec l'enfant et sa famille ce que serait chaque niveau, puis coter à mi-parcours et à la réévaluation. Le niveau 0 correspond au résultat attendu.");
@@ -398,7 +421,8 @@
     });
 
     h(2, "Planning des séances");
-    txt("Chaque séance (" + p.duree + " minutes) : accueil et retour sur les deux semaines (5 min) ; mise en route sensori-motrice (10 min) ; travail principal (" + Math.max(10, p.duree - 25) + " min) ; activité choisie par l'enfant (5 min) ; consignes pour la maison (5 min).");
+    txt("Chaque séance (" + p.duree + " minutes) : accueil et retour sur les deux semaines (5 min) ; mise en route sensori-motrice (10 min) ; travail principal (" + Math.max(10, p.duree - 25) + " min) ; activité choisie par l'enfant (5 min) ; consignes pour la maison (5 min)." +
+      (d.adaptation.actif === "oui" ? " Afficher le planning en images, garder les mêmes étapes d'une séance à l'autre, annoncer les changements à l'avance et laisser la carte « pause » à portée de main." : ""));
     blocs.push({ type: "tableau", largeurs: [0.07, 0.13, 0.15, 0.43, 0.22], petit: true, lignes: [
       { entete: true, cellules: ["N°", "Date", "Phase", "Contenu", "À la maison"].map((t) => c(t, { gras: true, fond: "entete" })) },
     ].concat(plan.seances.map((s) => ({ cellules: [
@@ -415,6 +439,26 @@
       h(3, def.titre);
       txt(def.maison.map((m) => "– " + m[0] + " : " + m[1] + " (" + m[2] + ").").join("\n"));
     });
+
+    const journal = d.seances.filter((x) => x.date || x.fait || x.etat || Object.keys(x.axes).length).sort((x, y) => (x.date || "").localeCompare(y.date || ""));
+    if (journal.length) {
+      h(2, "Journal des séances");
+      txt(journal.length + " séance" + (journal.length > 1 ? "s" : "") + " notée" + (journal.length > 1 ? "s" : "") + ".");
+      const etat = (k) => { const e = A.ETATS_SEANCE.find((x) => x[0] === k); return e ? e[2] + " " + e[1] : ""; };
+      const contenu = (x) => {
+        const l = [];
+        const axes = AXES.filter((ax) => x.axes[ax.id] === "oui").map((ax) => ax.titre);
+        if (axes.length) l.push({ t: axes.join(", "), b: true });
+        if (x.fait) l.push({ t: (l.length ? "\n" : "") + x.fait });
+        if (x.prochaine) l.push({ t: (l.length ? "\n" : "") + "Prochaine fois : " + x.prochaine, i: true });
+        return l.length ? l : [{ t: "–" }];
+      };
+      const adapte = d.adaptation.actif === "oui";
+      blocs.push({ type: "tableau", largeurs: adapte ? [0.13, 0.12, 0.35, 0.2, 0.2] : [0.15, 0.15, 0.7], petit: true, lignes: [
+        { entete: true, cellules: ["Date", "Séance", "Travaillé, notes"].concat(adapte ? ["A aidé", "Difficile"] : []).map((t) => c(t, { gras: true, fond: "entete" })) },
+      ].concat(journal.map((x) => ({ cellules: [c(B.dateCourte(x.date) || "–"), c(etat(x.etat) || "–"), c(contenu(x))].concat(adapte ? [c(x.aide || "–"), c(x.difficile || "–")] : []) }))) });
+    }
+    if (d.pco.actif === "oui" && texte(d.pco.notes).trim()) { h(3, "Notes sur le parcours de la plateforme"); txt(d.pco.notes); }
 
     if (texte(p.s.notes).trim()) { h(2, "Notes"); txt(p.s.notes); }
     const sig = reg.praticiens[reg.signataire] || reg.praticiens[0];
@@ -440,21 +484,31 @@
     const h = (niveau, t) => blocs.push({ type: "h", niveau: niveau, texte: t });
     const txt = (t) => blocs.push.apply(blocs, B.texteVersBlocs(t));
 
+    const images = d.adaptation.actif === "oui";
     h(2, "Pour les parents");
     txt("Ces petites activités prolongent le travail des séances. Quelques minutes suffisent : c'est la régularité qui compte, pas la durée.\n" +
       "– Choisissez un moment calme, quand " + a.sujetMin + " n'est pas trop fatigué" + a.e + ".\n" +
       "– Proposez l'activité comme un jeu, et arrêtez si elle devient une source de conflit.\n" +
       "– Félicitez l'effort plus que le résultat.\n" +
+      (images ? "– Montrez l'image avant de commencer, faites l'activité toujours au même moment et cochez la case avec " + a.sujetMin + " quand c'est fini.\n" : "") +
       "– Cochez le tableau de la semaine et notez ce qui a aidé : nous en parlerons à la prochaine séance.");
 
     const activites = [];
     plan.axes.forEach((x) => {
       const def = AXES.find((y) => y.id === x.id);
-      h(2, def.parents);
+      const picto = PICTOS_AXES[def.id] || "⭐";
+      h(2, images ? picto + " " + def.parents : def.parents);
       def.maison.forEach((m) => {
-        blocs.push({ type: "p", runs: [{ t: m[0] + " : ", b: true }, { t: m[1] }] });
-        blocs.push({ type: "p", runs: [{ t: "Quand : " + m[2] + ".", i: true }], petit: true });
-        activites.push(m[0]);
+        if (images) {
+          blocs.push({ type: "tableau", largeurs: [0.16, 0.84], lignes: [{ cellules: [
+            c([{ t: picto, taille: 52 }], { align: "center" }),
+            c([{ t: m[0], b: true, taille: 24 }, { t: "\n" + m[1] }, { t: "\nQuand : " + m[2] + ".", i: true }]),
+          ] }] });
+        } else {
+          blocs.push({ type: "p", runs: [{ t: m[0] + " : ", b: true }, { t: m[1] }] });
+          blocs.push({ type: "p", runs: [{ t: "Quand : " + m[2] + ".", i: true }], petit: true });
+        }
+        activites.push(images ? picto + " " + m[0] : m[0]);
       });
     });
     if (!activites.length) txt("[Les activités apparaîtront ici quand les axes de travail seront choisis dans l'onglet Compte rendu.]");
@@ -464,8 +518,10 @@
       h(2, "Mon tableau, semaine " + semaine);
       blocs.push({ type: "tableau", largeurs: [0.37].concat(JOURS.map(() => 0.09)), lignes: [
         { entete: true, cellules: [c("Activité", { gras: true, fond: "entete" })].concat(JOURS.map((j) => c(j, { gras: true, fond: "entete", align: "center" }))) },
-      ].concat((lignes.length ? lignes : ["", "", ""]).map((t) => ({ cellules: [c(t)].concat(JOURS.map(() => c(""))) }))) });
+      ].concat((lignes.length ? lignes : ["", "", ""]).map((t) => ({ cellules: [c(t)].concat(JOURS.map(() => c(""))) })))
+        .concat(images ? [{ cellules: [c("Comment ça s'est passé ?", { gras: true })].concat(JOURS.map(() => c("😀\n😐\n😣", { align: "center" }))) }] : []) });
     });
+    if (images) txt("Entourez le visage qui correspond à la journée, avec " + a.sujetMin + ".");
 
     h(2, "Ce que nous avons remarqué");
     blocs.push({ type: "tableau", largeurs: [1], lignes: ["Ce qui a aidé :", "Ce qui a été difficile :", "Questions pour la prochaine séance :"].map((t) => ({ cellules: [c([{ t: t + "\n\n", b: true }])] })) });
@@ -478,5 +534,142 @@
     return Object.assign({ titre: "Carnet d'activités" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
   }
 
-  return { AXES, FREQUENCES, DUREES, suiviVide, normaliserSuivi, axesProposes, parametres, planning, analyse, modeleSuivi, modeleLivret, ajouterJours };
+  /* ================= Accueil adapté : documents ================= */
+
+  const PICTOS_AXES = { graphisme: "✏️", vitesse: "⏱️", clavier: "⌨️", motricite: "✂️", posture: "🪑", praxies: "🤸", visuel: "👀", regulation: "🌈", autonomie: "👕" };
+  const CASE = "☐";
+
+  function lignePco(d) {
+    if (d.pco.actif !== "oui") return [];
+    const e = A.etatPco(d, B.aujourdhui());
+    const morceaux = [e.faites + " séance" + (e.faites > 1 ? "s" : "") + " notée" + (e.faites > 1 ? "s" : "") + " dans le journal" + (e.prevues ? " sur environ " + e.prevues + " prévues" : "")];
+    if (e.echeance) morceaux.push("fin du forfait le " + B.dateCourte(e.echeance) + (e.renouvele ? " (parcours renouvelé)" : ""));
+    return [["Plateforme TND", morceaux.join(" ; ") + (texte(d.pco.plateforme).trim() ? " (" + texte(d.pco.plateforme).trim() + ")" : "")]];
+  }
+
+  function etapesPlanning(d) { return d.adaptation.planning.map((id) => A.ETAPES.find((e) => e.id === id)).filter(Boolean); }
+
+  function passationsAdaptees(d) {
+    const noms = { bhk: B.calculerBHK(d, B.reglagesParDefaut()).nomTest };
+    B.TESTS.forEach((t) => { noms[t.id] = t.court; });
+    return Object.keys(d.passations).filter((id) => noms[id] && (id === "bhk" || (d.tests[id] && d.tests[id].fait === "oui")))
+      .map((id) => [noms[id], A.libellesPassation(d.passations[id])]).filter((x) => x[1].length);
+  }
+
+  function praticienne(reg) { return reg.praticiens[reg.signataire] || reg.praticiens[0] || { nom: "" }; }
+  function prenomDe(nom) { const t = texte(nom).trim(); return t ? t.split(/\s+/)[0] : ""; }
+  function contact(reg) {
+    const sig = praticienne(reg);
+    if (!sig.nom) return [];
+    const coord = [sig.tel, sig.email].filter((x) => texte(x).trim()).join(" – ");
+    return [{ type: "p", runs: [{ t: "Votre ergothérapeute : ", b: true }, { t: sig.nom + (coord ? " (" + coord + ")" : "") }] }];
+  }
+
+  // Questionnaire vierge à remettre aux parents avant le premier rendez-vous.
+  function modeleQuestionnaire(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const c = (t, o) => B.cellule(t, o);
+    const prenom = texte(d.prenom).trim();
+    const blocs = [
+      { type: "titre", texte: "Pour bien accueillir votre enfant" },
+      { type: "p", runs: [{ t: "Ce questionnaire nous aide à préparer la rencontre avec " + (prenom || "votre enfant") + " pour qu'elle se passe au mieux. Répondez seulement à ce que vous souhaitez : il n'y a pas de bonne ou de mauvaise réponse. Vous pouvez le rapporter au premier rendez-vous ou nous le transmettre avant." }] },
+      { type: "h", niveau: 2, texte: "Comment votre enfant communique-t-il ?" },
+      { type: "tableau", largeurs: [0.08, 0.92], lignes: A.COMMUNICATION.map((x) => ({ cellules: [c(CASE, { align: "center" }), c(x[1])] })) },
+      { type: "p", runs: [{ t: "Précisions : ", b: true }, { t: "……………………………………………………………………………………" }] },
+      { type: "h", niveau: 2, texte: "Au quotidien" },
+    ];
+    A.QUESTIONS.forEach((q) => {
+      blocs.push({ type: "h", niveau: 3, texte: q.parents });
+      if (q.exemple) blocs.push({ type: "p", petit: true, runs: [{ t: "Par exemple : " + q.exemple + ".", i: true }] });
+      blocs.push({ type: "tableau", largeurs: [1], lignes: [{ cellules: [c("\n\n\n")] }] });
+    });
+    blocs.push({ type: "h", niveau: 2, texte: "Sensations" });
+    blocs.push({ type: "p", runs: [{ t: "Pour chaque ligne, cochez ce qui ressemble le plus à votre enfant." }] });
+    blocs.push({ type: "tableau", largeurs: [0.4, 0.2, 0.2, 0.2], lignes: [
+      { entete: true, cellules: [c("Sensations", { gras: true, fond: "entete" })].concat(A.REACTIONS.map((r) => c(r[1], { gras: true, fond: "entete", align: "center" }))) },
+    ].concat(A.SENS.map((x) => ({ cellules: [c(x[1])].concat(A.REACTIONS.map(() => c(CASE, { align: "center" }))) }))) });
+    blocs.push({ type: "p", runs: [{ t: "Rempli par : ……………………………………………… le ……………………" }] });
+    blocs.push.apply(blocs, contact(reg));
+    return Object.assign({ titre: "Questionnaire d'accueil" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
+  }
+
+  // Fiche « Ce qui aide » : réponses des parents et repères du journal des séances.
+  function modeleCeQuiAide(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const c = (t, o) => B.cellule(t, o);
+    const prenom = texte(d.prenom).trim();
+    const paires = A.ceQuiAide(d);
+    const blocs = [
+      { type: "titre", texte: "Ce qui aide " + (prenom || "l'enfant") },
+      { type: "p", petit: true, runs: [{ t: "Fiche à relire avant chaque séance. À partager seulement avec l'accord des parents.", i: true }] },
+    ];
+    if (paires.length) blocs.push({ type: "tableau", largeurs: [0.3, 0.7], lignes: paires.map((x) => ({ cellules: [c(x[0], { gras: true }), c(x[1])] })) });
+    else blocs.push({ type: "p", runs: [{ t: "[Reportez les réponses des parents dans l'onglet Accueil adapté.]" }] });
+    const etapes = etapesPlanning(d);
+    if (etapes.length) blocs.push({ type: "p", runs: [{ t: "Déroulé de la séance : ", b: true }, { t: etapes.map((e) => e.picto + " " + e.texte).join("  →  ") }] });
+    return Object.assign({ titre: "Ce qui aide" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
+  }
+
+  // Planning de la séance en images, avec deux cartes à découper.
+  function modelePlanningImages(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const c = (t, o) => B.cellule(t, o);
+    const prenom = texte(d.prenom).trim();
+    const etapes = etapesPlanning(d);
+    const blocs = [{ type: "titre", texte: "Ma séance" + (prenom ? " : " + prenom : "") }];
+    if (etapes.length) {
+      blocs.push({ type: "tableau", largeurs: [0.22, 0.58, 0.2], lignes: etapes.map((e) => ({ cellules: [
+        c([{ t: e.picto, taille: 64 }], { align: "center" }),
+        c([{ t: e.texte, taille: 36, b: true }]),
+        c([{ t: CASE, taille: 48 }], { align: "center" }),
+      ] })) });
+    } else blocs.push({ type: "p", runs: [{ t: "[Choisissez les étapes dans l'onglet Accueil adapté.]" }] });
+    blocs.push({ type: "p", petit: true, runs: [{ t: "Cartes à découper : l'enfant les montre quand il a besoin d'une pause ou d'aide.", i: true }] });
+    blocs.push({ type: "tableau", largeurs: [0.5, 0.5], lignes: [{ cellules: [
+      c([{ t: "⏸️", taille: 64 }, { t: "\nPause", taille: 36, b: true }], { align: "center" }),
+      c([{ t: "✋", taille: 64 }, { t: "\nJ'ai besoin d'aide", taille: 36, b: true }], { align: "center" }),
+    ] }] });
+    return Object.assign({ titre: "Planning de séance" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
+  }
+
+  // « Ma visite chez l'ergothérapeute » : courte histoire à lire avec l'enfant avant le rendez-vous.
+  function modeleVisite(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const c = (t, o) => B.cellule(t, o);
+    const prenom = texte(d.prenom).trim();
+    const ergo = prenomDe(praticienne(reg).nom) || "l'ergothérapeute";
+    const Ergo = ergo.charAt(0).toUpperCase() + ergo.slice(1);
+    const v = d.adaptation.visite;
+    const date = B.dateLongue(v.date || d.passation);
+    const ville = texte(v.lieu).trim() || A.villeCabinet(reg.cabinet.adresse);
+    const etapes = etapesPlanning(d);
+    const gros = (t) => ({ type: "p", runs: [{ t: t, taille: 30 }] });
+    const blocs = [{ type: "titre", texte: "Ma visite chez l'ergothérapeute" }];
+    if (prenom) blocs.push(gros("Je m'appelle " + prenom + "."));
+    blocs.push(gros((date ? "Le " + date + ", je" : "Bientôt, je") + " vais voir " + ergo + "." + (ergo !== "l'ergothérapeute" ? " " + ergo + " est ergothérapeute." : "")));
+    if (ville) blocs.push(gros("Son cabinet est à " + ville + "."));
+    if (reg.photoCabinet) blocs.push({ type: "photo", donnees: reg.photoCabinet.donnees, l: reg.photoCabinet.l, h: reg.photoCabinet.h, alt: "Le cabinet", largeurCm: 12 });
+    blocs.push(gros("J'y vais avec " + (texte(v.accompagnant).trim() || "mes parents") + "."));
+    blocs.push(gros("D'abord, j'attends un peu dans la salle d'attente. Je peux apporter un jouet ou un livre."));
+    blocs.push(gros(Ergo + " vient me chercher et me dit bonjour."));
+    blocs.push(gros("Dans la salle, il y a une table, des crayons et des jeux."));
+    if (etapes.length) {
+      blocs.push(gros("Voici ce que nous allons faire :"));
+      blocs.push({ type: "tableau", largeurs: [0.18, 0.82], lignes: etapes.map((e) => ({ cellules: [c([{ t: e.picto, taille: 48 }], { align: "center" }), c([{ t: e.texte, taille: 30 }])] })) });
+    }
+    blocs.push(gros("Si j'ai besoin d'une pause, je peux le dire ou montrer la carte « pause »."));
+    blocs.push(gros("Je n'ai pas besoin de tout réussir : " + ergo + " regarde comment je fais, pour m'aider ensuite."));
+    blocs.push(gros("À la fin, je dis au revoir et je rentre à la maison."));
+    blocs.push({ type: "p", petit: true, runs: [{ t: "Pour les parents : lisez cette page avec votre enfant quelques jours avant le rendez-vous, puis le jour même.", i: true }] });
+    return Object.assign({ titre: "Ma visite" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
+  }
+
+  return {
+    AXES, FREQUENCES, DUREES, suiviVide, normaliserSuivi, axesProposes, parametres, planning, analyse, modeleSuivi, modeleLivret, ajouterJours,
+    PICTOS_AXES, modeleQuestionnaire, modeleCeQuiAide, modelePlanningImages, modeleVisite, passationsAdaptees,
+  };
 });

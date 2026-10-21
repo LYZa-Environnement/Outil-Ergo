@@ -524,3 +524,117 @@ test("carnet d'activités pour les parents : activités des axes retenus et tabl
   assert.ok(tout.indexOf("séparés") < 0);
   assert.equal(D.construire(m)[0], 0x50);
 });
+
+/* ---------- Accueil adapté, plateforme TND, journal des séances, passations adaptées ---------- */
+
+const Acc = require("../js/accueil.js");
+
+function tousLesTextes(d, reg) {
+  const r = B.rediger(d, reg);
+  return Object.keys(r).map((k) => r[k]).join("\n") + JSON.stringify(B.modeleDocument(d, reg)) + JSON.stringify(B.modeleSyntheseEcole(d, reg));
+}
+
+test("accueil adapté : la raison reste interne, sauf choix explicite", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.adaptation = Object.assign(Acc.adaptationVide(), { actif: "oui", raison: "tsa-suspecte" });
+  assert.ok(!/autis|TSA/i.test(tousLesTextes(d, reg)));
+  assert.match(JSON.stringify(U.modeleSuivi(d, reg)), /Raison \(information interne\) : ","b":true\},\{"t":"TSA suspecté/);
+  assert.match(JSON.stringify(U.modeleSuivi(d, reg)), /recommandations de la HAS sur l'autisme/);
+  // Phrase d'orientation : neutre, sans parler d'autisme.
+  d.adaptation.phraseOrientation = "oui";
+  const pre = B.rediger(d, reg).preconisations;
+  assert.match(pre, /un avis médical est conseillé/);
+  assert.ok(!/autis/i.test(pre));
+  // Déjà suivie par la plateforme : pas de phrase d'orientation, mais le cadre et les destinataires.
+  d.pco = Object.assign(Acc.pcoVide(), { actif: "oui", plateforme: "PCO TND 50", medecin: "Dr Durand" });
+  assert.ok(!/avis médical/.test(B.rediger(d, reg).preconisations));
+  const cr = JSON.stringify(B.modeleDocument(d, reg));
+  assert.match(cr, /plateforme de coordination et d'orientation des troubles du neurodéveloppement \(PCO TND 50\)/);
+  assert.match(cr, /La famille, le médecin traitant \(Dr Durand\) et la plateforme/);
+  assert.ok(!/plateforme/.test(JSON.stringify(B.modeleSyntheseEcole(d, reg))));
+  // Diagnostic posé : mentionné seulement si la case est cochée.
+  d.adaptation.raison = "tsa";
+  assert.ok(!/autis/i.test(B.rediger(d, reg).conclusion));
+  d.adaptation.mentionDiagnostic = "oui";
+  assert.match(B.rediger(d, reg).conclusion, /Un diagnostic de trouble du spectre de l'autisme a été posé\./);
+  // « Autre besoin » : pas de repères HAS sur l'autisme dans le plan de suivi.
+  d.adaptation.raison = "autre";
+  assert.ok(!/HAS sur l'autisme/.test(JSON.stringify(U.modeleSuivi(d, reg))));
+});
+
+test("passation adaptée : phrase de prudence dans le BHK et les autres épreuves", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.passations = { bhk: { pauses: "oui", consignes: "oui", autre: "" }, lespargot: { plusieursFois: "oui" } };
+  d.tests.lespargot.fait = "oui";
+  d.tests.lespargot.lignes[0].valeur = "-1";
+  const r = B.rediger(d, reg);
+  assert.match(r.bhk, /Passation adaptée \(pauses, consignes montrées ou en images\) : les résultats sont à interpréter avec prudence/);
+  assert.match(r.vitesse, /Passation adaptée \(passation en plusieurs fois\)/);
+  const n = B.normaliserDossier(JSON.parse(JSON.stringify(Object.assign(d, { passations: Object.assign(d.passations, { vide: { pauses: "" } }) }))));
+  assert.deepEqual(Object.keys(n.passations).sort(), ["bhk", "lespargot"]);
+  assert.match(JSON.stringify(U.modeleSuivi(d, reg)), /Passations adaptées/);
+});
+
+test("plateforme TND : séances comptées, échéance et rappel du renouvellement", () => {
+  const d = B.normaliserDossier(Object.assign(dossierTest(), {
+    pco: { actif: "oui", debut: "2026-01-10", formule: "35" },
+    seances: [{ date: "2026-09-01" }, { date: "2026-02-01" }, { date: "2025-12-01" }, { date: "" }],
+  }));
+  let e = Acc.etatPco(d, "2026-10-21");
+  assert.equal(e.faites, 2);
+  assert.equal(e.prevues, 35);
+  assert.equal(e.echeance, "2027-01-10");
+  assert.equal(e.alerte, "");
+  e = Acc.etatPco(d, "2026-12-01");
+  assert.match(e.alerte, /demandez le renouvellement/);
+  d.pco.renouvele = "oui";
+  e = Acc.etatPco(d, "2026-12-01");
+  assert.equal(e.echeance, "2028-01-10");
+  assert.equal(Acc.etatPco(d, "2028-01-11").alerte, "Le forfait est arrivé à échéance.");
+});
+
+test("journal des séances : saisie rapide, rappel et plan de suivi", () => {
+  const reg = reglagesTest();
+  const d = dossierTest({ adaptation: Object.assign(Acc.adaptationVide(), { actif: "oui", raison: "autre" }) });
+  d.seances = [
+    { date: "2026-11-05", axes: { graphisme: "oui", pirate: "non" }, etat: "bien", fait: "grands tracés", prochaine: "reprendre les boucles", aide: "minuteur visuel", difficile: "attendre" },
+    { date: "2026-10-22", axes: {}, etat: "difficile", fait: "", prochaine: "", aide: "minuteur visuel ; parler de dinosaures", difficile: "" },
+  ];
+  const n = B.normaliserDossier(d);
+  assert.deepEqual(n.seances[0].axes, { graphisme: "oui" });
+  assert.deepEqual(Acc.reperesJournal(n, "aide"), ["minuteur visuel", "parler de dinosaures"]);
+  assert.ok(Acc.ceQuiAide(n).some((x) => x[0] === "A aidé en séance"));
+  d.seances[0].axes = { graphisme: "oui" };
+  const plan = JSON.stringify(U.modeleSuivi(d, reg));
+  assert.match(plan, /Journal des séances/);
+  assert.match(plan, /2 séances notées/);
+  assert.match(plan, /Geste graphique et lisibilité/);
+  assert.match(plan, /Prochaine fois : reprendre les boucles/);
+  assert.match(plan, /😀 Bien/);
+});
+
+test("documents d'accueil : questionnaire, ce qui aide, planning en images, ma visite, carnet imagé", () => {
+  const reg = reglagesTest();
+  reg.praticiens[0].nom = "Camille Ergo";
+  reg.cabinet.adresse = "3 rue des Pommiers\n50000 Saint-Lô";
+  const d = dossierTest({ adaptation: Object.assign(Acc.adaptationVide(), { actif: "oui", raison: "tsa", visite: { date: "2026-11-04", accompagnant: "maman" } }) });
+  d.adaptation.reponses.apaise = "la peluche Bidule";
+  d.adaptation.sensibilites = { bruits: "gene", mouvement: "recherche" };
+  const q = JSON.stringify(U.modeleQuestionnaire(d, reg));
+  assert.match(q, /Qu'est-ce qui apaise votre enfant/);
+  assert.ok(q.indexOf("Bidule") < 0);
+  const f = JSON.stringify(U.modeleCeQuiAide(d, reg));
+  assert.match(f, /la peluche Bidule/);
+  assert.match(f, /le gênent : bruits ; recherche : mouvement/);
+  assert.ok(!/TSA|autis/i.test(f));
+  assert.match(JSON.stringify(U.modelePlanningImages(d, reg)), /✏️/);
+  const v = JSON.stringify(U.modeleVisite(d, reg));
+  assert.match(v, /Le 4 novembre 2026, je vais voir Camille\. Camille est ergothérapeute\./);
+  assert.match(v, /Son cabinet est à Saint-Lô\./);
+  assert.match(v, /J'y vais avec maman\./);
+  assert.match(JSON.stringify(U.modeleLivret(d, reg)), /😀/);
+  ["modeleQuestionnaire", "modeleCeQuiAide", "modelePlanningImages", "modeleVisite", "modeleLivret"].forEach((f) => assert.equal(D.construire(U[f](d, reg))[0], 0x50));
+  assert.equal(Acc.villeCabinet("12 av. X\n14000 CAEN CEDEX 4"), "CAEN");
+});

@@ -18,7 +18,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 
 | Onglet | Sous-onglets et contenu |
 | --- | --- |
-| 📁 Dossier | Mes dossiers (reprise d'un dossier enregistré), identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés ; réévaluation (chargement du bilan précédent) |
+| 📁 Dossier | **Dossier** : Mes dossiers (reprise d'un dossier, bouton « 📅 Séance »), identité, âge calculé, parents, prescription, scolarité, motif, accueil adapté, plateforme TND, bilans utilisés, réévaluation. **Accueil** (si l'accueil adapté est coché) : questionnaire des parents, fiche « Ce qui aide », planning en images, « Ma visite ». **Séances** : journal des séances de suivi |
 | 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
 | ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie et son analyse, résultats, observations pendant la copie, douleur (EVA) |
 | 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (synthèse et réponses détaillées), SensOT-dir, tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
@@ -36,6 +36,8 @@ L'onglet Compte rendu propose quatre documents, chacun avec **Aperçu**, **Impri
 | Synthèse pour l'école | Équipe éducative (sans anamnèse ni informations familiales) |
 | Plan de suivi | Ergothérapeute seulement |
 | Carnet d'activités | Parents, à imprimer et à garder à la maison |
+
+L'onglet Accueil ajoute quatre documents : questionnaire pour les parents, « Ce qui aide », planning en images, « Ma visite ».
 
 Dans la version ouverte depuis le lien claude.ai, l'impression directe n'est pas permise : « Imprimer » télécharge alors une page prête à imprimer.
 
@@ -56,6 +58,30 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 ### Synthèse pour l'école
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
+
+### Journal des séances
+
+Après le bilan, chaque séance de suivi se note en quelques touches : « 📅 Séance » dans Mes dossiers (ou « Séance du jour » dans l'onglet Séances) crée la séance avec la date du jour ; on coche l'axe travaillé (ceux du plan de suivi sont proposés), on touche un visage (bien, moyen, difficile) ; une note et « pour la prochaine fois » sont facultatives. En haut du journal : le nombre de séances, le rappel 📌 noté la fois précédente et la séance prévue au plan de suivi. Les séances figurent dans le plan de suivi.
+
+### Accueil adapté
+
+Dans le dossier, la case « Adapter l'accueil et le bilan » sert aux enfants qui ont besoin d'un cadre très prévisible (TSA connu ou suspecté, grande anxiété, fortes sensibilités sensorielles…). Elle ouvre l'onglet Accueil :
+
+- questionnaire à remettre aux parents avant le premier rendez-vous (communication, ce qui aide à comprendre, intérêts, ce qui apaise, ce qui met en difficulté, signes de saturation, sensations) ;
+- fiche « Ce qui aide », remplie avec les réponses des parents et le journal des séances (ce qui a aidé, ce qui a été difficile) ;
+- planning de séance en images (pictogrammes de l'outil), avec cartes « pause » et « j'ai besoin d'aide » à découper ;
+- « Ma visite chez l'ergothérapeute » : courte histoire à lire avec l'enfant avant de venir, avec la photo du cabinet (gardée sur l'appareil) ;
+- carnet des parents en version imagée.
+
+La raison reste interne : elle figure dans le plan de suivi, jamais dans le compte rendu ni dans la synthèse pour l'école. L'ergothérapeute peut choisir d'ajouter au compte rendu le diagnostic de TSA posé (avec l'accord des parents) ou, pour une suspicion, une phrase neutre qui conseille un avis médical. Quand la raison est un TSA diagnostiqué ou suspecté, le plan de suivi rappelle, comme ajout à titre indicatif et avec leur source, les recommandations de la HAS (février 2026) et le statut de l'intégration sensorielle (NCAEP, 2020).
+
+### Passation adaptée
+
+Sous le BHK et sous chaque épreuve, un encadré « Passation adaptée ? » note les adaptations (pauses, consignes montrées, passation en plusieurs fois, environnement aménagé, présence d'un parent, temps supplémentaire, autre). Elles apparaissent dans le compte rendu avec un rappel : les normes ont été établies en passation standard.
+
+### Plateforme TND (PCO)
+
+Pour un enfant suivi dans le cadre d'une plateforme de coordination et d'orientation des troubles du neurodéveloppement (forfait d'intervention précoce) : nom de la plateforme, début du parcours, forfait (35 séances environ sur 12 mois, 12 séances, ou bilan seul), médecin traitant, renouvellement. Le compte rendu indique le cadre et les destinataires (famille, médecin traitant, plateforme). L'outil compte les séances du journal, affiche la fin du forfait et rappelle, deux mois avant, de demander le renouvellement (possible une fois). Règles : fiche technique du ministère, https://handicap.gouv.fr/sites/handicap/files/2025-04/TND-fiche-technique-forfait-intervention-2025.pdf.
 
 ### Carnet d'activités pour les parents
 
@@ -150,7 +176,8 @@ index.html        page
 css/style.css     mise en forme (thème nature, mode jour et mode nuit)
 js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
-js/suivi.js       plan de suivi et carnet des parents : axes de travail, exercices, calendrier, GAS
+js/accueil.js     accueil adapté, journal des séances, plateforme TND, passations adaptées
+js/suivi.js       plan de suivi, carnet des parents et documents d'accueil : axes de travail, exercices, calendrier, GAS
 js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document
 js/docx.js        génération du .docx (texte, tableaux, images)

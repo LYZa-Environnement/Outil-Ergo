@@ -134,6 +134,46 @@
         <label class="champ"><span>Orienté par</span><input type="text" data-champ="orientation" placeholder="l'enseignante, le médecin scolaire…"></label>
       </fieldset>
 
+      <fieldset class="groupe test" id="bloc-adaptation">
+        <legend><label class="case case-titre"><input type="checkbox" data-chemin="adaptation.actif" data-bascule="#corps-adaptation"><span>🤝 Adapter l'accueil et le bilan</span></label></legend>
+        <p class="note">Pour un enfant qui a besoin d'un cadre très prévisible : TSA connu ou suspecté, grande anxiété, fortes sensibilités sensorielles… Ouvre l'onglet « Accueil adapté » (questionnaire pour les parents, fiche « Ce qui aide », planning en images) et le journal des séances.</p>
+        <div class="test-corps" id="corps-adaptation" hidden>
+          <div class="champ">
+            <span id="l-raison">Raison</span>
+            <div class="choix choix-colonne" role="radiogroup" aria-labelledby="l-raison" id="raisons-adaptation"></div>
+          </div>
+          <label class="champ" id="champ-raison-autre" hidden><span>Préciser</span><input type="text" data-chemin="adaptation.raisonAutre" placeholder="grande anxiété face à la nouveauté"></label>
+          <p class="confidentiel"><span aria-hidden="true">🔒</span> Cette information reste dans le dossier et le plan de suivi. Elle n'apparaît ni dans le compte rendu ni dans la synthèse pour l'école, sauf si vous cochez la case ci-dessous.</p>
+          <label class="case" id="case-mention" hidden><input type="checkbox" data-chemin="adaptation.mentionDiagnostic"><span>Mentionner le diagnostic de TSA dans le compte rendu (avec l'accord des parents)</span></label>
+          <label class="case" id="case-orientation" hidden><input type="checkbox" data-chemin="adaptation.phraseOrientation"><span>Ajouter au compte rendu une phrase qui conseille un avis médical (sans parler d'autisme)</span></label>
+          <div class="barre-actions">
+            <button type="button" class="bouton bouton-second" data-aller="accueil">Préparer l'accueil →</button>
+            <button type="button" class="bouton bouton-second" data-aller="seances">Journal des séances →</button>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="groupe test" id="bloc-pco">
+        <legend><label class="case case-titre"><input type="checkbox" data-chemin="pco.actif" data-bascule="#corps-pco"><span>🧭 Suivi dans le cadre de la plateforme TND (PCO)</span></label></legend>
+        <p class="note">Si le bilan et les séances sont financés par la plateforme de coordination et d'orientation des troubles du neurodéveloppement (forfait d'intervention précoce, jusqu'à 12 ans).</p>
+        <div class="test-corps" id="corps-pco" hidden>
+          <div class="grille2">
+            <label class="champ"><span>Plateforme</span><input type="text" data-chemin="pco.plateforme" placeholder="PCO TND 50"></label>
+            <label class="champ"><span>Début du parcours (validation par la plateforme)</span><input type="date" data-chemin="pco.debut"></label>
+          </div>
+          <div class="champ">
+            <span id="l-formule">Forfait</span>
+            <div class="choix choix-colonne" role="radiogroup" aria-labelledby="l-formule" id="formules-pco"></div>
+          </div>
+          <label class="champ"><span>Médecin traitant (reçoit le compte rendu)</span><input type="text" data-chemin="pco.medecin" placeholder="Dr Durand"></label>
+          <label class="case"><input type="checkbox" data-chemin="pco.renouvele"><span>Parcours renouvelé pour une deuxième année (une seule fois possible)</span></label>
+          <div class="etat-pco" id="etat-pco" aria-live="polite"></div>
+          <label class="champ"><span>Notes sur le parcours</span><textarea data-chemin="pco.notes" rows="2" placeholder="Contrat signé avec la plateforme le…, contact de la coordinatrice…"></textarea></label>
+          <p class="note">Le compte rendu indique le cadre du parcours et ses destinataires : la famille, le médecin traitant et la plateforme. Les séances se comptent dans le journal des séances. <a href="https://handicap.gouv.fr/sites/handicap/files/2025-04/TND-fiche-technique-forfait-intervention-2025.pdf" target="_blank" rel="noopener">Règles du forfait</a></p>
+          <div class="barre-actions"><button type="button" class="bouton bouton-second" data-aller="seances">Journal des séances →</button></div>
+        </div>
+      </fieldset>
+
       <fieldset class="groupe">
         <legend>Bilans utilisés</legend>
         <p class="note">Le BHK, la grille d'observation et les autres bilans réalisés s'ajoutent d'eux-mêmes à la liste.</p>
@@ -152,6 +192,113 @@
         <p class="calcule" id="etat-precedent" aria-live="polite"></p>
       </fieldset>
       <div class="suite"><button type="button" class="bouton" data-aller="anamnese">Suivant : anamnèse →</button></div>
+    </section>
+
+    <!-- ============ Accueil adapté ============ -->
+    <section id="p-accueil" role="tabpanel" aria-label="Accueil adapté" class="panneau" hidden>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Avant le premier rendez-vous, imprimez le questionnaire pour les parents, ou posez-leur les questions par téléphone.</li>
+          <li>Reportez leurs réponses ci-dessous : la fiche « Ce qui aide » se remplit toute seule.</li>
+          <li>Choisissez les étapes de la séance : le planning en images et la page « Ma visite » sont prêts à envoyer aux parents, pour qu'ils les lisent avec l'enfant avant de venir.</li>
+          <li>Après chaque séance, notez en deux mots ce qui a aidé dans le journal des séances.</li>
+        </ol>
+      </details>
+
+      <section class="documents" aria-labelledby="h-docs-accueil">
+        <h2 id="h-docs-accueil">À imprimer</h2>
+        <div class="documents-grille">
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">📝</span>
+            <h3>Questionnaire pour les parents</h3>
+            <p>À remplir avant le premier rendez-vous.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="questionnaire" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="questionnaire" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="questionnaire" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">💡</span>
+            <h3>Ce qui aide</h3>
+            <p>Fiche à relire avant chaque séance.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="ce-qui-aide" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="ce-qui-aide" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="ce-qui-aide" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🗓️</span>
+            <h3>Planning en images</h3>
+            <p>Les étapes de la séance, et les cartes « pause » et « aide ».</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="planning-images" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="planning-images" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="planning-images" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🏡</span>
+            <h3>Ma visite</h3>
+            <p>Petite histoire à lire avec l'enfant avant de venir.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="visite" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="visite" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="visite" data-faire="word">Word</button></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="carte fiche-aide" aria-labelledby="h-fiche-aide">
+        <h2 id="h-fiche-aide">Ce qui aide <span id="prenom-fiche"></span></h2>
+        <div id="fiche-aide"></div>
+      </section>
+
+      <fieldset class="groupe">
+        <legend>Réponses des parents</legend>
+        <div class="champ">
+          <span id="l-communication">Communication</span>
+          <div class="choix choix-colonne" role="radiogroup" aria-labelledby="l-communication" id="choix-communication"></div>
+        </div>
+        <label class="champ"><span>Précisions sur la communication</span><input type="text" data-chemin="adaptation.reponses.communicationDetail" placeholder="comprend mieux quand on lui montre ; utilise quelques pictogrammes"></label>
+        <div id="questions-accueil"></div>
+        <div class="champ">
+          <span>Sensations</span>
+          <div class="defile"><table class="table-saisie table-sens" id="table-sens"></table></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="groupe">
+        <legend>Planning de la séance en images</legend>
+        <p class="note">Touchez une image pour l'ajouter. Les flèches changent l'ordre.</p>
+        <ol class="planning-etapes" id="planning-etapes"></ol>
+        <div class="palette" id="palette-etapes" aria-label="Étapes à ajouter"></div>
+        <button type="button" class="bouton-lien" data-action="planning-defaut">Revenir au planning de base</button>
+      </fieldset>
+
+      <fieldset class="groupe">
+        <legend>Ma visite chez l'ergothérapeute</legend>
+        <div class="grille2">
+          <label class="champ"><span>Date du rendez-vous</span><input type="date" data-chemin="adaptation.visite.date"></label>
+          <label class="champ"><span>Vient avec</span><input type="text" data-chemin="adaptation.visite.accompagnant" placeholder="maman, papa et maman…"></label>
+        </div>
+        <label class="champ"><span>Lieu du rendez-vous</span><input type="text" data-chemin="adaptation.visite.lieu" id="lieu-visite" list="villes-cabinet" autocomplete="off"><datalist id="villes-cabinet"></datalist></label>
+        <div class="champ">
+          <span>Photo du cabinet (gardée sur cet appareil, pour tous les enfants)</span>
+          <img id="apercu-photo-cabinet" class="apercu-photo" alt="Photo du cabinet" hidden>
+          <div class="barre-actions">
+            <label class="bouton bouton-second">Choisir une photo
+              <input type="file" accept="image/*" data-action="photo-cabinet" class="masque"></label>
+            <button type="button" class="bouton-lien" data-action="retirer-photo-cabinet" hidden>Retirer la photo</button>
+          </div>
+        </div>
+      </fieldset>
+      <div class="suite"><button type="button" class="bouton" data-aller="seances">Journal des séances →</button></div>
+    </section>
+
+    <!-- ============ Journal des séances ============ -->
+    <section id="p-seances" role="tabpanel" aria-label="Journal des séances" class="panneau" hidden>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>À la fin de la séance, touchez « Séance du jour » (ou « 📅 Séance » dans Mes dossiers) : la date se met toute seule.</li>
+          <li>Cochez ce qui a été travaillé et touchez un visage. C'est tout ; la note et « pour la prochaine fois » sont facultatives.</li>
+          <li>La fois suivante, le rappel 📌 et la séance prévue au plan de suivi s'affichent ici.</li>
+          <li>Les séances apparaissent dans le plan de suivi. Pour un suivi financé par la plateforme TND, elles sont comptées pour le forfait.</li>
+        </ol>
+      </details>
+      <section class="carte resume-seances" id="resume-seances" aria-live="polite"></section>
+      <div class="etat-pco" id="etat-pco-seances" aria-live="polite" hidden></div>
+      <section class="carte fiche-aide fiche-aide-courte" id="rappel-aide" hidden aria-label="Ce qui aide"></section>
+      <div class="barre-actions"><button type="button" class="bouton" data-action="ajouter-seance">＋ Séance du jour</button></div>
+      <div id="liste-seances"></div>
     </section>
 
     <!-- ============ Anamnèse ============ -->
@@ -363,6 +510,7 @@
         <label class="champ champ-court"><span>Fautes d'orthographe et corrections (5 premières lignes)</span><input type="number" inputmode="numeric" min="0" step="1" data-champ="fautes" placeholder="ex. 3"></label>
         <div class="champ"><span>Remarques non cotées</span><div class="cases" id="remarques"></div></div>
         <label class="champ"><span>Autres observations sur le BHK</span><textarea data-champ="bhkNotes" rows="2" placeholder="Se fatigue en fin d'épreuve, secoue la main"></textarea></label>
+        <div id="passation-bhk"></div>
       </fieldset>
       <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Suivant : sensoriel →</button></div>
       <div class="recap" id="recap" aria-live="polite"></div>
@@ -592,6 +740,7 @@
   <script src="js/sensoriel.js"></script>
   <script src="js/graphiques.js"></script>
   <script src="js/occupation.js"></script>
+  <script src="js/accueil.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/suivi.js"></script>
   <script src="js/docx.js"></script>
