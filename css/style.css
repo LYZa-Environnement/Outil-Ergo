@@ -452,12 +452,171 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .doc-figure figcaption { font-size: 9pt; font-style: italic; color: #4a5568; margin-top: 3pt; }
 .impression { display: none; }
 
+/* ---------- Occupations : autonomie, MCRO, OT'Hope, DCDQ ---------- */
+.item-avq .choix span, .ligne-othope .choix span { padding: 7px 10px; font-size: .88rem; }
+@media (min-width: 620px) { .item-avq { grid-template-columns: 220px 1fr; } }
+.probleme { padding: 6px 0 10px; border-bottom: 1px solid var(--seyes-fin); }
+.notes-mcro { display: grid; gap: 0 10px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.notes-mcro .champ > span:first-child { font-size: .82rem; }
+.notes-mcro input { text-align: center; }
+.ligne-othope { display: grid; gap: 6px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--seyes-fin); }
+@media (min-width: 720px) { .ligne-othope { grid-template-columns: minmax(160px, 1fr) auto auto; } }
+.case-objectif { margin: 0; align-items: center; font-weight: 700; color: var(--encre); }
+.etiquette { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--papier-2); color: var(--gris); font-size: .78rem; }
+.resultat-dcdq { margin: .8rem 0; padding: 8px 12px; border-left: 4px solid var(--seyes); background: var(--papier-2); border-radius: 0 var(--rayon) var(--rayon) 0; }
+.resultat-dcdq:empty { display: none; }
+.resultat-dcdq p { margin: .2rem 0; }
+.resultat-dcdq.niveau-patho { border-left-color: var(--marge); }
+.resultat-dcdq.niveau-moyenne { border-left-color: var(--vert); }
+
+/* Tri de cartes : côté ergothérapeute */
+.cartes-proposees { margin: .6rem 0; }
+.cartes-proposees summary { cursor: pointer; font-weight: 700; color: var(--encre); padding: 10px 0; }
+.cartes-liste { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin: .4rem 0; }
+.carte-case { position: relative; cursor: pointer; }
+.carte-case input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.carte-case > span { display: flex; align-items: center; gap: 8px; padding: 6px 10px; min-height: 44px; border: 1px solid var(--seyes-fin); border-radius: var(--rayon); font-size: .92rem; color: var(--gris); text-decoration: line-through; }
+.carte-case > span > span, .carte-case img { font-size: 1.3rem; width: 28px; height: 28px; object-fit: cover; border-radius: 4px; text-align: center; flex: 0 0 auto; }
+.carte-case input:checked + span { color: var(--graphite); text-decoration: none; border-color: var(--seyes); }
+.carte-case input:focus-visible + span { outline: 3px solid var(--encre); outline-offset: 2px; }
+.pile-res { margin: .6rem 0; }
+.pile-res h4 { margin: 0 0 .3rem; font-size: .95rem; }
+.pile-res h4 small { color: var(--gris); font-weight: 400; }
+.pile-res[data-couleur="facile"] h4, .pile-res[data-couleur="aime"] h4 { color: var(--vert); }
+.pile-res[data-couleur="moyen"] h4 { color: var(--ambre); }
+.pile-res[data-couleur="difficile"] h4, .pile-res[data-couleur="naime"] h4 { color: var(--marge); }
+.pile-res[data-couleur="egal"] h4 { color: var(--encre); }
+.pile-res[data-couleur="non"] h4 { color: var(--gris); }
+.puces-cartes { display: flex; flex-wrap: wrap; gap: 6px; }
+.puce-carte { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid var(--seyes-fin); border-radius: 999px; font-size: .9rem; }
+.puce-carte.choisie { border-color: #d49a06; font-weight: 700; }
+.puce-carte .etoile { color: #d49a06; }
+.liste-cartes-perso { list-style: none; margin: .4rem 0; padding: 0; }
+.liste-cartes-perso li { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--seyes-fin); }
+.liste-cartes-perso img, .liste-cartes-perso .vignette { width: 48px; height: 48px; border-radius: var(--rayon); object-fit: cover; display: grid; place-items: center; font-size: 1.6rem; background: var(--papier-2); flex: 0 0 auto; }
+.carte-perso-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.carte-perso-texte small { color: var(--gris); }
+
+/* ---------- Tri de cartes : écran de l'enfant ---------- */
+.tri {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  padding-left: var(--gouttiere-g); padding-right: var(--gouttiere-d);
+  color: var(--graphite);
+  background-color: var(--papier);
+  background-image: repeating-linear-gradient(180deg, transparent 0 31px, var(--seyes-fin) 31px 32px);
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+.tri [data-couleur="vert"] { --c: var(--vert); --c-fond: var(--vert-fond); }
+.tri [data-couleur="ambre"] { --c: var(--ambre); --c-fond: var(--ambre-fond); }
+.tri [data-couleur="corail"] { --c: var(--marge); --c-fond: var(--rouge-fond); }
+.tri [data-couleur="bleu"] { --c: var(--encre); --c-fond: var(--bleu-fond); }
+.tri [data-couleur="gris"] { --c: var(--gris); --c-fond: var(--papier-2); }
+.tri-haut { display: flex; align-items: center; gap: 12px; padding: 10px 0 6px; }
+.tri-rond, .tri-rond-vide { flex: 0 0 auto; width: 48px; height: 48px; }
+.tri-rond { border-radius: 50%; border: 1px solid var(--seyes); background: var(--papier); color: var(--graphite); font-size: 1.25rem; cursor: pointer; }
+.tri-rond[aria-pressed="true"] { background: var(--encre); border-color: var(--encre); }
+.tri-progres { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tri-jauge { flex: 1; height: 10px; border-radius: 999px; background: var(--seyes-fin); overflow: hidden; }
+.tri-jauge span { display: block; height: 100%; width: 0; background: var(--encre); border-radius: 999px; transition: width .3s; }
+.tri-compte { font-weight: 700; color: var(--gris); font-variant-numeric: tabular-nums; min-width: 4.2em; text-align: right; }
+.tri-scene { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.tri-accueil { margin: auto; max-width: 560px; padding: 16px 0; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.tri-bonjour { margin: 0; font: 400 clamp(2rem, 7vw, 3rem)/1.35 var(--police-titre); color: var(--encre); }
+.tri-phrase { margin: 0; font-size: clamp(1.15rem, 3.6vw, 1.45rem); line-height: 1.45; }
+.tri-petit { font-size: 1rem; color: var(--gris); }
+.tri-apercu { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.tri-mini { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; font-weight: 700; color: var(--c); background: var(--c-fond); }
+.tri-go {
+  font: 700 1.3rem var(--police); min-height: 60px; padding: 14px 36px;
+  border: 0; border-radius: 999px; background: var(--encre); color: var(--papier); cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .22);
+}
+.tri-go:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .22); }
+.tri-fete { margin: 0; font-size: 4.5rem; line-height: 1; }
+.tri-jeu { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.tri-consigne { margin: 4px 0 0; text-align: center; font: 700 clamp(1.2rem, 4vw, 1.6rem) var(--police); color: var(--encre); }
+.tri-zone { flex: 1; display: grid; place-items: center; min-height: 0; padding: 6px 0; }
+.tri-carte {
+  width: min(300px, 70vw, 40vh); aspect-ratio: 3 / 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 18px 16px 18px 30px; text-align: center;
+  color: #1d2230; border: 2px solid #e2e0f1; border-radius: 22px;
+  background-color: #fff;
+  background-image: linear-gradient(90deg, transparent 16px, #f1b6b1 16px, #f1b6b1 18px, transparent 18px);
+  box-shadow: 0 10px 28px rgba(20, 30, 60, .18), 0 2px 0 rgba(20, 30, 60, .08);
+  touch-action: none; cursor: grab; will-change: transform;
+}
+.tri-carte:focus-visible { outline: 4px solid var(--encre); outline-offset: 4px; }
+.tri-carte-emoji { font-size: clamp(64px, 15vh, 120px); line-height: 1; }
+.tri-carte-photo { max-width: 100%; max-height: 58%; object-fit: contain; border-radius: 12px; pointer-events: none; }
+.tri-carte-texte { font-weight: 700; font-size: clamp(1.2rem, 4.2vw, 1.65rem); line-height: 1.25; }
+.tri-carte.arrive { animation: tri-arrive .38s cubic-bezier(.2, .9, .3, 1.25); }
+.tri-carte.glisse { cursor: grabbing; box-shadow: 0 20px 44px rgba(20, 30, 60, .3); }
+@keyframes tri-arrive { from { transform: translateY(46px) scale(.88) rotate(-5deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.tri-piles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tri-pile {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 108px; padding: 12px 6px;
+  font: 700 clamp(.95rem, 3vw, 1.1rem)/1.2 var(--police); color: var(--c);
+  background: var(--c-fond); border: 3px dashed var(--c); border-radius: 18px; cursor: pointer;
+  transition: transform .15s;
+}
+.tri-pile-emoji { font-size: 2.4rem; line-height: 1; }
+.tri-pile.survol { transform: scale(1.07); border-style: solid; }
+.tri-pile.recoit { animation: tri-recoit .35s; }
+@keyframes tri-recoit { 50% { transform: scale(1.08); } }
+.tri-pile-n { position: absolute; top: 6px; right: 8px; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font-size: .85rem; background: var(--c); color: var(--papier); }
+.tri-pile-n:empty { display: none; }
+.tri-touche { display: none; }
+@media (hover: hover) and (pointer: fine) { .tri-touche { display: block; position: absolute; top: 6px; left: 10px; font-size: .75rem; opacity: .7; } }
+.tri-bas { display: flex; justify-content: space-between; gap: 10px; }
+.tri-lien { font: 700 1rem var(--police); min-height: 48px; padding: 10px 18px; border: 1px solid var(--seyes); border-radius: 999px; background: var(--papier); color: var(--graphite); cursor: pointer; }
+.tri-lien:disabled { opacity: .4; cursor: default; }
+.tri-choix { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; }
+.tri-grille { flex: 1; width: 100%; overflow-y: auto; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); align-content: start; padding: 4px 4px 8px; }
+.tri-petite {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 132px; padding: 14px 8px; border: 3px solid transparent; border-radius: 16px;
+  background: #fff; color: #1d2230; font: 700 1rem/1.25 var(--police); cursor: pointer;
+  box-shadow: 0 4px 14px rgba(20, 30, 60, .12);
+}
+.tri-petite-emoji { font-size: 2.6rem; line-height: 1; }
+.tri-petite-photo { max-width: 100%; max-height: 70px; border-radius: 8px; }
+.tri-petite[aria-pressed="true"] { border-color: #e0a106; background: #fff7dc; }
+.tri-etoile { position: absolute; top: 6px; right: 10px; font-size: 1.4rem; color: #e0a106; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .2s; }
+.tri-petite[aria-pressed="true"] .tri-etoile { opacity: 1; transform: none; }
+.tri-petite.refus { animation: tri-non .35s; }
+@keyframes tri-non { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.tri-arret { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(20, 24, 32, .45); }
+.tri-arret-boite { width: min(420px, 100%); padding: 20px 18px 10px; background: var(--papier); border: 1px solid var(--seyes); border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, .25); }
+.tri-arret-boite p { margin: 0 0 .5rem; }
+.tri-arret-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: .8rem 0 .4rem; }
+@media (max-height: 560px) {
+  .tri-carte { width: min(460px, 82vw); aspect-ratio: auto; flex-direction: row; justify-content: flex-start; gap: 16px; padding: 12px 18px 12px 34px; text-align: left; }
+  .tri-carte-emoji { font-size: 56px; }
+  .tri-carte-photo { max-width: 120px; max-height: 96px; }
+  .tri-carte-texte { font-size: 1.25rem; }
+  .tri-consigne { margin: 0; font-size: 1.1rem; }
+  .tri-jeu { gap: 8px; }
+  .tri-pile { min-height: 64px; padding: 6px; }
+  .tri-pile-emoji { font-size: 1.6rem; }
+  .tri-haut { padding: 4px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tri-carte.arrive, .tri-pile.recoit, .tri-petite.refus { animation: none; }
+  .tri-jauge span, .tri-pile, .tri-etoile { transition: none; }
+}
+
 @media (prefers-reduced-motion: reduce) { .statut { transition: none; } }
 
 @media print {
   @page { size: A4; margin: 18mm 16mm; }
   body { background: #fff; }
-  .entete, main, .statut, .apercu { display: none !important; }
+  .entete, .onglets, main, .statut, .apercu, .tri { display: none !important; }
   .impression { display: block; }
   .doc h2, .doc h3, .doc h4 { break-after: avoid; }
   .doc-table tr { break-inside: avoid; }

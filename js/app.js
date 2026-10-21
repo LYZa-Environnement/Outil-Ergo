@@ -4,6 +4,9 @@
 
   const B = window.BHK;
   const W = window.DocxBHK;
+  const O = window.Occup;
+  const TOUTES_SECTIONS = B.SECTIONS.concat(B.SECTIONS_ECOLE);
+  const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   const CLE_REGLAGES = "outil-ergo:reglages";
   const CLE_BROUILLON = "outil-ergo:brouillon";
   const RADIOS_EFFACABLES = ["sexe", "lateralite", "reperage", "c2"];
@@ -30,7 +33,12 @@
     try { if (valeur === null) localStorage.removeItem(cle); else localStorage.setItem(cle, JSON.stringify(valeur)); } catch (e) { /* stockage indisponible */ }
   }
 
-  function chargerReglages() { return B.normaliserReglages(lireStockage(CLE_REGLAGES)); }
+  // Version personnelle : les normes du manuel sont intégrées au fichier (window.NORMES_INTEGREES).
+  function avecNormesIntegrees(r) {
+    if (!B.normesPresentes(r.normes) && window.NORMES_INTEGREES) r.normes = B.normaliserNormes(window.NORMES_INTEGREES);
+    return r;
+  }
+  function chargerReglages() { return avecNormesIntegrees(B.normaliserReglages(lireStockage(CLE_REGLAGES))); }
   function sauverReglages() { ecrireStockage(CLE_REGLAGES, reglages); }
 
   let minuteurBrouillon = null;
@@ -336,6 +344,163 @@
     $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h + champZone("Synthèse de l'auto-évaluation", "auto.notes"));
   }
 
+  /* ---------- Occupations : autonomie, MCRO, OT'Hope, tri de cartes ; DCDQ ---------- */
+
+  function htmlAvq() {
+    return `<fieldset class="groupe"><legend>Autonomie dans les activités quotidiennes</legend>
+      <p class="note">À remplir avec les parents. La grille complète les lignes « À la maison » et « À l'école » du compte rendu ; un besoin d'aide s'ajoute aux occupations du diagnostic.</p>
+      ${O.DOMAINES_AVQ.map((dm) => `<h4 class="sous-groupe">${esc(dm.nom)}</h4>` + dm.items.map((it) =>
+        `<div class="item-grille item-avq"><span class="item-label">${esc(B.maj(it.nom))}</span>${pastilles("avq-" + it.id, "avq." + it.id, O.NIVEAUX_AVQ.map((n) => [n.id, n.label]))}</div>`).join("")).join("")}
+    </fieldset>`;
+  }
+
+  function htmlMcro() {
+    const champs = [["importance", "Importance"], ["rendement1", "Rendement"], ["satisfaction1", "Satisfaction"], ["rendement2", "Rendement (réév.)"], ["satisfaction2", "Satisfaction (réév.)"]];
+    return `<div class="grille3">${champTexte("Réalisée avec", "mcro.repondant", `placeholder="l'enfant et ses parents"`)}${champDate("Date", "mcro.date")}${champDate("Date de la réévaluation", "mcro.date2")}</div>
+      <p class="note">Jusqu'à 5 activités prioritaires, cotées de 1 à 10. Les colonnes de réévaluation se remplissent plus tard (elles sont reprises d'elles-mêmes quand on charge le bilan précédent).</p>
+      ${Array.from({ length: O.NB_MCRO }, (_, i) => `<div class="probleme">
+        ${champTexte("Activité " + (i + 1), "mcro.problemes." + i + ".activite")}
+        <div class="notes-mcro">${champs.map((c) => `<label class="champ"><span>${c[1]}</span><input type="text" inputmode="numeric" maxlength="2" data-chemin="mcro.problemes.${i}.${c[0]}"></label>`).join("")}</div>
+      </div>`).join("")}
+      <p class="calcule" id="mcro-moyennes" aria-live="polite"></p>
+      ${champZone("Observations", "mcro.notes")}`;
+  }
+
+  function htmlOthope() {
+    return `<p class="note">Saisissez le titre de chaque carte classée par l'enfant, son niveau, et cochez les objectifs qu'il a choisis. Les cartes OT'Hope ne sont pas reproduites dans l'outil.</p>
+      ${dossier.othope.items.map((x, i) => `<div class="ligne-othope">
+        <input type="text" data-chemin="othope.items.${i}.activite" placeholder="Activité ${i + 1}" aria-label="Activité ${i + 1}">
+        ${pastilles("oh-" + i, "othope.items." + i + ".niveau", O.NIVEAUX_OTHOPE.map((n) => [n.id, n.label]))}
+        <label class="case case-objectif"><input type="checkbox" data-chemin="othope.items.${i}.objectif"><span>Objectif</span></label>
+      </div>`).join("")}
+      ${dossier.othope.items.length < O.MAX_OTHOPE ? `<button type="button" class="bouton bouton-second" data-action="othope-lignes">Ajouter des lignes</button>` : ""}
+      ${champZone("Observations", "othope.notes")}`;
+  }
+
+  function htmlListeCartes(jeu) {
+    const cartes = O.cartesDuJeu(jeu, reglages.cartesPerso);
+    return cartes.map((c) => `<label class="carte-case"><input type="checkbox" data-carte-incluse="${jeu}:${esc(c.id)}">
+      <span>${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<span aria-hidden="true">${esc(c.emoji)}</span>`}${esc(c.enfant)}</span></label>`).join("");
+  }
+
+  function htmlCartes(jeu) {
+    const J = O.JEUX[jeu];
+    return `<p class="note">L'enfant range lui-même les cartes à l'écran (${J.piles.map((p) => "« " + p.label + " »").join(", ")}), en les glissant ou en touchant la boîte, puis choisit ce qui compte le plus pour lui. Une tablette est conseillée ; la lecture à voix haute aide les plus jeunes. Observation informelle, non étalonnée : cartes propres à l'outil, complétées par vos cartes personnelles (Réglages).</p>
+      <details class="cartes-proposees"><summary>Cartes proposées : <span id="nb-cartes-${jeu}"></span></summary>
+        <div class="cartes-liste" id="liste-cartes-${jeu}">${htmlListeCartes(jeu)}</div>
+      </details>
+      <div class="barre-actions">
+        <button type="button" class="bouton" data-action="lancer-tri" data-jeu="${jeu}">Lancer le tri avec l'enfant</button>
+        <button type="button" class="bouton-lien" data-action="effacer-tri" data-jeu="${jeu}" hidden>Effacer le tri</button>
+      </div>
+      <div class="resultat-tri" id="resultat-tri-${jeu}"></div>
+      ${champZone("Observations pendant le tri", "cartes." + jeu + ".notes")}`;
+  }
+
+  function construireOccupation() {
+    $("#occupation").innerHTML = htmlAvq() +
+      blocRealise("mcro", "MCRO : mesure canadienne du rendement occupationnel", "mcro", htmlMcro()) +
+      blocRealise("othope", "OT'Hope : résultats du tri de l'enfant", "othope", htmlOthope()) +
+      blocRealise("cartes-activites", "Tri de cartes sur écran : mes activités", "cartes.activites", htmlCartes("activites"));
+    $("#cartes-sensoriel").innerHTML = blocRealise("cartes-sensoriel", "Tri de cartes sur écran : ce que je ressens", "cartes.sensoriel", htmlCartes("sensoriel"));
+  }
+
+  function construireDcdq() {
+    const facteur = (n) => O.FACTEURS_DCDQ.find((f) => f.items.indexOf(n) >= 0);
+    let h = `${champTexte("Rempli par", "dcdq.repondant", 'placeholder="les parents"')}
+      <p class="note">Reportez la réponse (1 à 5) de chaque question, dans l'ordre de la feuille de réponses. Les questions ne sont pas reproduites.</p>`;
+    for (let n = 1; n <= O.NB_DCDQ; n++) {
+      h += `<div class="item-grille item-dcdq"><span class="item-label">Question ${n} <span class="etiquette">${esc(facteur(n).nom)}</span></span>
+        ${pastilles("dcdq-" + n, "dcdq.reponses." + n, [1, 2, 3, 4, 5].map((v) => [String(v), String(v)]))}</div>`;
+    }
+    h += `<div class="resultat-dcdq" id="dcdq-resultat" aria-live="polite"></div>${champZone("Observations", "dcdq.notes")}`;
+    $("#dcdq").innerHTML = blocRealise("dcdq", "DCDQ : questionnaire sur le trouble développemental de la coordination", "dcdq", h);
+  }
+
+  function majOccupation() {
+    const d = B.normaliserDossier(dossier);
+    const m = O.calculMcro(d.mcro);
+    const f = (v) => (v === null ? "–" : B.formaterNombre(v, 1));
+    $("#mcro-moyennes").textContent = m.problemes.length
+      ? "Moyennes : rendement " + f(m.r1) + "/10, satisfaction " + f(m.s1) + "/10" + (m.reeval ? " ; réévaluation : rendement " + f(m.r2) + "/10, satisfaction " + f(m.s2) + "/10" : "") + "."
+      : "";
+    const q = O.calculDcdq(d.dcdq, B.ageMois(d));
+    const zone = $("#dcdq-resultat");
+    if (!q.n) zone.innerHTML = "";
+    else {
+      const interp = q.indication === true ? `<span class="niveau">En faveur d'un trouble développemental de la coordination (seuil ${q.bande.seuil}, ${esc(q.bande.libelle)})</span>`
+        : q.indication === false ? `<span class="niveau">Probablement pas de trouble développemental de la coordination (seuil ${q.bande.seuil})</span>`
+        : !q.complet ? `${q.n} réponses sur 15` : "Renseignez les dates de naissance et du bilan (5 à 15 ans).";
+      zone.className = "resultat-dcdq" + (q.indication === true ? " niveau-patho" : q.indication === false ? " niveau-moyenne" : "");
+      zone.innerHTML = `<p>${q.facteurs.map((x) => esc(B.maj(x.nom)) + " : <strong>" + x.total + "/" + x.max + "</strong>").join(" · ")}</p>
+        <p>Score total : <strong>${q.total}/75</strong> · ${interp}</p>`;
+    }
+    majCartes(d);
+  }
+
+  function majCartes(d) {
+    Object.keys(O.JEUX).forEach((jeu) => {
+      const r = d.cartes[jeu];
+      const total = O.cartesDuJeu(jeu, reglages.cartesPerso).length;
+      const nb = total - r.exclues.filter((id) => O.cartesDuJeu(jeu, reglages.cartesPerso).some((c) => c.id === id)).length;
+      $("#nb-cartes-" + jeu).textContent = nb + " sur " + total;
+      $(`[data-action="effacer-tri"][data-jeu="${jeu}"]`).hidden = !r.resultats.length;
+      $(`[data-action="lancer-tri"][data-jeu="${jeu}"]`).textContent = r.resultats.length ? "Refaire le tri avec l'enfant" : "Lancer le tri avec l'enfant";
+      const zone = $("#resultat-tri-" + jeu);
+      if (!r.resultats.length) { zone.innerHTML = ""; return; }
+      zone.innerHTML = `<p class="calcule">Tri du ${esc(B.dateCourte(r.date) || "jour")} : ${r.resultats.length} cartes${r.choix.length ? ", ★ = choisie par l'enfant" : ""}.</p>` +
+        O.pilesDe(jeu).map((p) => {
+          const xs = r.resultats.filter((x) => x.pile === p.id);
+          if (!xs.length) return "";
+          return `<div class="pile-res" data-couleur="${p.id}"><h4><span aria-hidden="true">${p.emoji}</span> ${esc(p.label)} <small>(${xs.length})</small></h4>
+            <div class="puces-cartes">${xs.map((x) => {
+              const ch = r.choix.indexOf(x.id) >= 0;
+              return `<span class="puce-carte${ch ? " choisie" : ""}">${x.emoji ? `<span aria-hidden="true">${esc(x.emoji)}</span> ` : ""}${esc(x.enfant)}${ch ? ' <span class="etoile" aria-label="choisie">★</span>' : ""}</span>`;
+            }).join("")}</div></div>`;
+        }).join("");
+    });
+  }
+
+  async function lancerTri(jeu) {
+    const r = dossier.cartes[jeu];
+    if (r.resultats.length && !(await demander("Refaire le tri ? Les résultats actuels seront remplacés.", "Refaire le tri"))) return;
+    const cartes = O.cartesDuJeu(jeu, reglages.cartesPerso).filter((c) => r.exclues.indexOf(c.id) < 0);
+    if (!cartes.length) { annoncer("Aucune carte sélectionnée."); return; }
+    const res = await window.TriCartes.lancer({ jeu: O.JEUX[jeu], cartes: cartes, prenom: dossier.prenom });
+    if (!res) { annoncer("Tri arrêté, aucune carte rangée."); return; }
+    r.resultats = res.resultats;
+    r.choix = res.choix;
+    r.fait = "oui";
+    r.date = B.aujourdhui();
+    nonEnregistre = true;
+    majTout();
+    annoncer("Tri enregistré : " + res.resultats.length + " cartes");
+  }
+
+  function construireCartesPerso() {
+    const l = reglages.cartesPerso;
+    $("#cartes-perso").innerHTML = l.length
+      ? `<ul class="liste-cartes-perso">${l.map((c) => `<li>${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<span class="vignette" aria-hidden="true">🃏</span>`}
+          <span class="carte-perso-texte"><strong>${esc(c.texte)}</strong><small>${esc(O.JEUX[c.jeu].titre)}</small></span>
+          <button type="button" class="bouton-lien" data-suppr-carte="${esc(c.id)}">Retirer</button></li>`).join("")}</ul>`
+      : `<p class="note">Aucune carte personnelle pour l'instant.</p>`;
+  }
+  function rafraichirListesCartes() {
+    Object.keys(O.JEUX).forEach((jeu) => {
+      const el = $("#liste-cartes-" + jeu);
+      if (el) el.innerHTML = htmlListeCartes(jeu);
+    });
+    remplirCasesCartes();
+  }
+  function remplirCasesCartes() {
+    $$("[data-carte-incluse]").forEach((el) => {
+      const [jeu, id] = el.dataset.carteIncluse.split(":");
+      el.checked = dossier.cartes[jeu].exclues.indexOf(id) < 0;
+    });
+  }
+
+  let photoCarte = null;
+
   let signaturePreco = "";
   function majPreconisations() {
     const liste = B.proposerPreconisations(dossier, reglages);
@@ -407,7 +572,7 @@
   }
 
   function construireSections() {
-    $("#sections").innerHTML = B.SECTIONS.map((s) =>
+    const html = (liste) => liste.map((s) =>
       `<div class="section-cr">
         <div class="section-tete">
           <h3 id="h-${s.id}">${esc(B.titreSection(s.titre, { prenom: "" }))}</h3>
@@ -415,6 +580,8 @@
         </div>
         <textarea data-section="${s.id}" aria-labelledby="h-${s.id}" rows="3"></textarea>
       </div>`).join("");
+    $("#sections").innerHTML = html(B.SECTIONS);
+    $("#sections-ecole").innerHTML = html(B.SECTIONS_ECOLE);
   }
 
   /* ================= Réglages ================= */
@@ -442,7 +609,7 @@
     const n = reglages.normes;
     const nb = ["qualite", "vitesse"].reduce((a, ind) => a + Object.keys(n[ind].classe).length + Object.keys(n[ind].age).length, 0) + Object.keys(n.ado.vitesse.classe).length + Object.keys(n.ado.qualite.classe).length;
     $("#etat-normes-reglages").textContent = nb
-      ? "Normes importées" + (n.source ? " : " + n.source : "") + "."
+      ? (window.NORMES_INTEGREES ? "Normes intégrées à cette version personnelle (à ne pas publier)." : "Normes importées" + (n.source ? " : " + n.source : "") + ".")
       : "Aucune norme pour l'instant. Importez le fichier de normes pour calculer les déviations standard.";
     if (!nb) { $("#tableau-normes").innerHTML = ""; return; }
     const f = (v) => (v ? B.formaterNombre(v[0]) + " / " + B.formaterNombre(v[1]) : "–");
@@ -479,6 +646,7 @@
       (reglages.autoQuestions.length > 1 ? `<button type="button" class="bouton-lien" data-action="retirer-question">Retirer la dernière question</button>` : "") + `</div>`;
     construirePraticiens();
     construireNormes();
+    construireCartesPerso();
     $("#note-brouillon").textContent = reglages.brouillon
       ? "Rien n'est envoyé en ligne. Un brouillon du dossier en cours reste dans ce navigateur jusqu'à « Nouveau dossier » ; enregistrez le dossier pour le garder."
       : "Rien n'est envoyé en ligne. Enregistrez le dossier sur votre appareil pour le reprendre plus tard.";
@@ -537,6 +705,8 @@
     });
     $$("[data-grille]").forEach((el) => { el.checked = dossier.grille[el.dataset.grille] === el.value; });
     $$("[data-grille-note]").forEach((el) => { el.value = dossier.grilleNotes[el.dataset.grilleNote] || ""; });
+    if ($$('[data-chemin^="othope.items."][type="text"]').length !== dossier.othope.items.length) $("#corps-othope").innerHTML = htmlOthope();
+    remplirCasesCartes();
     $$("[data-chemin]").forEach((el) => {
       const v = lireChemin(dossier, el.dataset.chemin);
       const t = v === undefined || v === null ? "" : String(v);
@@ -556,8 +726,9 @@
     $$("[data-action='retirer-photo']").forEach((b) => { b.hidden = !dossier.photoCopie; });
   }
 
-  // Réduit la photo (1600 px au plus, JPEG) pour garder des dossiers légers.
-  function chargerPhoto(fichier) {
+  // Réduit la photo (1600 px au plus par défaut, JPEG) pour garder des dossiers légers.
+  function chargerPhoto(fichier, cote) {
+    const max = cote || 1600;
     return new Promise((ok, ko) => {
       const lecteur = new FileReader();
       lecteur.onerror = () => ko(new Error("La photo n'a pas pu être lue."));
@@ -565,7 +736,7 @@
         const img = new Image();
         img.onerror = () => ko(new Error("Ce fichier n'est pas une image lisible."));
         img.onload = () => {
-          const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+          const k = Math.min(1, max / Math.max(img.width, img.height));
           const l = Math.round(img.width * k), h = Math.round(img.height * k);
           const canvas = document.createElement("canvas");
           canvas.width = l; canvas.height = h;
@@ -608,6 +779,12 @@
       dossier.grille[el.dataset.grille] = el.value;
     } else if (el.dataset.grilleNote) {
       dossier.grilleNotes[el.dataset.grilleNote] = el.value;
+    } else if (el.dataset.carteIncluse) {
+      if (e.type !== "change") return;
+      const [jeu, id] = el.dataset.carteIncluse.split(":");
+      const ex = new Set(dossier.cartes[jeu].exclues);
+      if (el.checked) ex.delete(id); else ex.add(id);
+      dossier.cartes[jeu].exclues = Array.from(ex);
     } else if (el.dataset.test) {
       const s = dossier.tests[el.dataset.test];
       if (el.dataset.tchamp === "fait") {
@@ -710,7 +887,7 @@
   }
 
   function majACompleter() {
-    const n = B.SECTIONS.reduce((a, s) => a + ((cr[s.id] && cr[s.id].texte.match(/\[[^\]]*\]/g)) || []).length, 0);
+    const n = TOUTES_SECTIONS.reduce((a, s) => a + ((cr[s.id] && cr[s.id].texte.match(/\[[^\]]*\]/g)) || []).length, 0);
     $("#a-completer").textContent = n
       ? `Il reste ${n} passage${n > 1 ? "s" : ""} à compléter, entre crochets dans le texte ci-dessous.`
       : "Tout est complété.";
@@ -777,10 +954,16 @@
       if (o) o.textContent = sy.pourcentage === null ? "" : Math.round(sy.pourcentage) + " %";
     });
     majPreconisations();
+    majOccupation();
+
+    // Réévaluation
+    const p = dossier.precedent;
+    $("#etat-precedent").textContent = p ? "Comparaison avec le bilan du " + (B.dateCourte(p.passation) || "?") + " : " + p.mesures.length + " mesure" + (p.mesures.length > 1 ? "s" : "") + " enregistrée" + (p.mesures.length > 1 ? "s" : "") + "." : "";
+    $("[data-action='retirer-precedent']").hidden = !p;
 
     // Compte rendu
     genere = B.rediger(dossier, reglages);
-    B.SECTIONS.forEach((s) => {
+    TOUTES_SECTIONS.forEach((s) => {
       const ta = $(`[data-section="${s.id}"]`);
       $(`#h-${s.id}`).textContent = B.titreSection(s.titre, dossier);
       if (!cr[s.id] || !cr[s.id].modifie) {
@@ -798,7 +981,7 @@
 
   function textes() {
     const t = {};
-    B.SECTIONS.forEach((s) => { t[s.id] = cr[s.id] ? cr[s.id].texte : ""; });
+    TOUTES_SECTIONS.forEach((s) => { t[s.id] = cr[s.id] ? cr[s.id].texte : ""; });
     return t;
   }
 
@@ -902,11 +1085,25 @@
       annoncer("Le fichier Word n'a pas pu être créé : " + e.message);
       return;
     }
-    await telecharger(nomFichier("Bilan_ergo", "docx"), octets, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Word téléchargé");
+    await telecharger(nomFichier("Bilan_ergo", "docx"), octets, MIME_DOCX, "Word téléchargé");
   }
 
-  function apercu() {
-    $("#apercu-page").innerHTML = htmlModele(modele());
+  function modeleEcole() { return B.modeleSyntheseEcole(dossier, reglages, textes()); }
+
+  async function wordEcole() {
+    let octets;
+    try {
+      octets = W.construire(modeleEcole());
+    } catch (e) {
+      annoncer("La synthèse n'a pas pu être créée : " + e.message);
+      return;
+    }
+    await telecharger(nomFichier("Synthese_ecole", "docx"), octets, MIME_DOCX, "Synthèse pour l'école téléchargée");
+  }
+
+  function apercu(m, titre) {
+    $("#apercu-page").innerHTML = htmlModele(m || modele());
+    $("#apercu .apercu-barre h2").textContent = titre || "Aperçu du compte rendu";
     $("#apercu").hidden = false;
     document.body.classList.add("sans-defilement");
     $("[data-action='fermer-apercu']").focus();
@@ -947,7 +1144,7 @@
     dossier = B.normaliserDossier(obj.dossier);
     cr = {};
     const src = obj.compteRendu || {};
-    B.SECTIONS.forEach((s) => {
+    TOUTES_SECTIONS.forEach((s) => {
       if (src[s.id] && src[s.id].modifie && typeof src[s.id].texte === "string") cr[s.id] = { texte: src[s.id].texte, modifie: true };
       $(`[data-section="${s.id}"]`).value = cr[s.id] ? cr[s.id].texte : "";
     });
@@ -961,6 +1158,35 @@
     nonEnregistre = false;
     afficherOnglet("dossier");
     annoncer("Dossier ouvert");
+  }
+
+  // Réévaluation : mesures du bilan précédent ; reprise de l'identité, de l'anamnèse et de la MCRO si le dossier est vide.
+  function chargerPrecedent(obj) {
+    if (!obj || !obj.dossier || (obj.type !== "bilan-ergo-dossier" && obj.type !== "bhk-dossier")) throw new Error("Ce fichier n'est pas un dossier de bilan.");
+    const ancien = B.normaliserDossier(obj.dossier);
+    const repris = [];
+    if (!dossier.prenom.trim() && !dossier.nom.trim()) {
+      ["prenom", "nom", "sexe", "naissance", "parents", "adresse", "prescripteur", "etablissement", "enseignant", "lateralite",
+        "devTrajectoire", "devMoteur", "devLangage", "envFamilial", "envSuivis", "envParcours"].forEach((k) => { dossier[k] = ancien[k]; });
+      repris.push("identité et anamnèse");
+    }
+    if (!dossier.motif.trim()) dossier.motif = "Réévaluation en ergothérapie, à la suite du bilan du " + B.dateCourte(ancien.passation) + ".";
+    const m = O.calculMcro(ancien.mcro);
+    if (ancien.mcro.fait === "oui" && m.problemes.length && !dossier.mcro.problemes.some((p) => p.activite.trim())) {
+      dossier.mcro.fait = "oui";
+      dossier.mcro.repondant = ancien.mcro.repondant;
+      dossier.mcro.date = ancien.mcro.date2 || ancien.mcro.date;
+      dossier.mcro.date2 = dossier.passation;
+      dossier.mcro.problemes = ancien.mcro.problemes.map((p) => Object.assign(O.problemeVide(), {
+        activite: p.activite, importance: p.importance, rendement1: p.rendement2 || p.rendement1, satisfaction1: p.satisfaction2 || p.satisfaction1,
+      }));
+      repris.push("activités de la MCRO");
+    }
+    dossier.precedent = B.instantane(ancien, reglages);
+    remplirFormulaire();
+    majTout();
+    nonEnregistre = true;
+    annoncer("Bilan précédent chargé" + (repris.length ? " (repris : " + repris.join(", ") + ")" : ""));
   }
 
   async function nouveau() {
@@ -1042,11 +1268,58 @@
       });
       return;
     }
+    if (el.dataset.supprCarte) {
+      const id = el.dataset.supprCarte;
+      demander("Retirer cette carte personnelle ?", "Retirer").then((ok) => {
+        if (!ok) return;
+        reglages.cartesPerso = reglages.cartesPerso.filter((c) => c.id !== id);
+        sauverReglages(); construireCartesPerso(); rafraichirListesCartes(); majTout();
+      });
+      return;
+    }
     switch (el.dataset.action) {
       case "enregistrer": return enregistrer();
       case "nouveau": return nouveau();
       case "word": return word();
+      case "word-ecole": return wordEcole();
       case "apercu": return apercu();
+      case "apercu-ecole": return apercu(modeleEcole(), "Aperçu de la synthèse pour l'école");
+      case "lancer-tri": return lancerTri(el.dataset.jeu);
+      case "effacer-tri":
+        demander("Effacer les résultats de ce tri ?", "Effacer").then((ok) => {
+          if (!ok) return;
+          Object.assign(dossier.cartes[el.dataset.jeu], { resultats: [], choix: [], date: "" });
+          nonEnregistre = true; majTout();
+        });
+        return;
+      case "othope-lignes": {
+        const n = Math.min(O.MAX_OTHOPE - dossier.othope.items.length, 4);
+        for (let i = 0; i < n; i++) dossier.othope.items.push({ activite: "", niveau: "", objectif: "" });
+        const premier = dossier.othope.items.length - n;
+        remplirFormulaire();
+        const champ = $(`[data-chemin="othope.items.${premier}.activite"]`);
+        if (champ) champ.focus();
+        return;
+      }
+      case "retirer-precedent":
+        demander("Retirer la comparaison avec le bilan précédent ?", "Retirer").then((ok) => {
+          if (!ok) return;
+          dossier.precedent = null;
+          nonEnregistre = true; majTout();
+        });
+        return;
+      case "ajouter-carte": {
+        const t = $("#carte-texte").value.trim();
+        if (!t) { annoncer("Écrivez le texte de la carte."); $("#carte-texte").focus(); return; }
+        if (reglages.cartesPerso.length >= O.MAX_CARTES_PERSO) { annoncer(O.MAX_CARTES_PERSO + " cartes personnelles au plus."); return; }
+        reglages.cartesPerso = O.normaliserCartesPerso(reglages.cartesPerso.concat([Object.assign({ id: "p-" + Date.now().toString(36), jeu: $("#carte-jeu").value, texte: t }, photoCarte || {})]));
+        photoCarte = null;
+        $("#carte-texte").value = "";
+        $("#carte-photo-etat").textContent = "";
+        sauverReglages(); construireCartesPerso(); rafraichirListesCartes(); majTout();
+        annoncer("Carte ajoutée");
+        return;
+      }
       case "fermer-apercu": return fermerApercu();
       case "imprimer": $("#impression").innerHTML = htmlModele(modele()); return window.print();
       case "copier": return copier();
@@ -1098,6 +1371,15 @@
         majPhoto(); nonEnregistre = true; majTout();
         annoncer("Photo ajoutée");
       }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "precedent") {
+      lireFichier(e.target).then(chargerPrecedent).catch((err) => annoncer(err.message));
+    } else if (action === "photo-carte") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return true;
+      chargerPhoto(f, 480).then((p) => {
+        photoCarte = { photo: p.donnees, l: p.l, h: p.h };
+        $("#carte-photo-etat").textContent = "Photo prête.";
+      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "importer-normes") {
       lireFichier(e.target).then((obj) => {
         const n = obj && obj.qualite ? obj : obj && obj.normes ? obj.normes : null;
@@ -1109,8 +1391,8 @@
     } else if (action === "importer-reglages") {
       lireFichier(e.target).then((obj) => {
         if (!obj || obj.type !== "bhk-reglages") throw new Error("Ce fichier ne contient pas de réglages.");
-        reglages = B.normaliserReglages(obj);
-        sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
+        reglages = avecNormesIntegrees(B.normaliserReglages(obj));
+        sauverReglages(); remplirReglages(); construireAuto(); rafraichirListesCartes(); remplirFormulaire(); majTout();
         annoncer("Réglages importés");
       }).catch((err) => annoncer(err.message));
     } else return false;
@@ -1128,6 +1410,8 @@
     construireSections();
     construireSenso();
     construireManip();
+    construireOccupation();
+    construireDcdq();
     initOnglets();
     remplirReglages();
     construireAuto();

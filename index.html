@@ -16,12 +16,13 @@
   <header class="entete">
     <div class="cahier">
       <h1>Outil Ergo</h1>
-      <p class="sous-titre">Bilan en ergothérapie : écriture, BHK enfant, autres bilans et compte rendu</p>
+      <p class="sous-titre">Bilan en ergothérapie : occupations, écriture, BHK, bilan sensoriel et compte rendu</p>
     </div>
   </header>
   <nav class="onglets" role="tablist" aria-label="Étapes du bilan">
       <button type="button" role="tab" id="t-dossier" aria-controls="p-dossier" aria-selected="true">Dossier</button>
       <button type="button" role="tab" id="t-anamnese" aria-controls="p-anamnese" aria-selected="false" tabindex="-1">Anamnèse</button>
+      <button type="button" role="tab" id="t-occupations" aria-controls="p-occupations" aria-selected="false" tabindex="-1">Occupations</button>
       <button type="button" role="tab" id="t-ecriture" aria-controls="p-ecriture" aria-selected="false" tabindex="-1">Écriture</button>
       <button type="button" role="tab" id="t-bhk" aria-controls="p-bhk" aria-selected="false" tabindex="-1">BHK</button>
       <button type="button" role="tab" id="t-sensoriel" aria-controls="p-sensoriel" aria-selected="false" tabindex="-1">Sensoriel</button>
@@ -92,6 +93,16 @@
         <div class="cases" id="bilans-courants"></div>
         <label class="champ"><span>Autres bilans (un par ligne)</span><textarea data-champ="bilansLibre" rows="2"></textarea></label>
       </fieldset>
+      <fieldset class="groupe">
+        <legend>Réévaluation</legend>
+        <p class="note">Pour une réévaluation, chargez le dossier du bilan précédent : le compte rendu compare les résultats (tableau d'évolution). Si ce dossier est vide, l'identité et l'anamnèse sont reprises, ainsi que les activités de la MCRO.</p>
+        <div class="barre-actions">
+          <label class="bouton bouton-second">Charger le bilan précédent
+            <input type="file" accept=".json,application/json" data-action="precedent" class="masque"></label>
+          <button type="button" class="bouton-lien" data-action="retirer-precedent" hidden>Retirer la comparaison</button>
+        </div>
+        <p class="calcule" id="etat-precedent" aria-live="polite"></p>
+      </fieldset>
       <div class="suite"><button type="button" class="bouton" data-aller="anamnese">Passer à l'anamnèse</button></div>
     </section>
 
@@ -112,6 +123,7 @@
       </fieldset>
       <fieldset class="groupe">
         <legend>À la maison</legend>
+        <p class="note">La grille d'autonomie (onglet <button type="button" class="bouton-lien" data-aller="occupations">Occupations</button>) complète ces lignes dans le compte rendu.</p>
         <div class="grille2">
           <label class="champ"><span>Sommeil</span><input type="text" data-champ="occSommeil" placeholder="RAS"></label>
           <label class="champ"><span>Habillage</span><input type="text" data-champ="occHabillage" placeholder="RAS"></label>
@@ -130,6 +142,13 @@
         <label class="champ"><span>Environnement de la classe</span><input type="text" data-champ="ecoleClasse" placeholder="place en classe, tableau… (vide : RAS)"></label>
         <label class="champ"><span>Productions réalisées en classe</span><textarea data-champ="ecoleProductions" rows="2" placeholder="Ce que montrent les cahiers"></textarea></label>
       </fieldset>
+      <div class="suite"><button type="button" class="bouton" data-aller="occupations">Passer aux occupations</button></div>
+    </section>
+
+    <!-- ============ Occupations ============ -->
+    <section id="p-occupations" role="tabpanel" aria-labelledby="t-occupations" class="panneau" hidden>
+      <p class="note">Autonomie au quotidien, priorités de l'enfant et de sa famille. Touchez une réponse pour la choisir, touchez-la à nouveau pour l'effacer.</p>
+      <div id="occupation"></div>
       <div class="suite"><button type="button" class="bouton" data-aller="ecriture">Passer à l'observation de l'écriture</button></div>
     </section>
 
@@ -275,6 +294,7 @@
     <section id="p-sensoriel" role="tabpanel" aria-labelledby="t-sensoriel" class="panneau" hidden>
       <p class="note">Cochez chaque bilan réalisé. Les questionnaires protégés (Profil sensoriel 2, ESO, SensOT-dir) se saisissent avec les scores, classifications et résultats de leurs feuilles de cotation.</p>
       <div id="sensoriel"></div>
+      <div id="cartes-sensoriel"></div>
       <div class="suite"><button type="button" class="bouton" data-aller="bilans">Passer aux autres bilans</button></div>
     </section>
 
@@ -283,6 +303,7 @@
       <p class="note">Cochez les bilans réalisés et saisissez les scores donnés par leurs manuels. La déviation standard et l'appréciation se calculent selon le type de score.</p>
       <div id="tests"></div>
       <div id="manip"></div>
+      <div id="dcdq"></div>
       <div class="suite"><button type="button" class="bouton" data-aller="compte-rendu">Voir le compte rendu</button></div>
     </section>
 
@@ -293,6 +314,10 @@
         <button type="button" class="bouton bouton-second" data-action="apercu">Aperçu</button>
         <button type="button" class="bouton bouton-second" data-action="imprimer">Imprimer ou PDF</button>
         <button type="button" class="bouton-lien" data-action="copier">Copier le texte</button>
+      </div>
+      <div class="barre-actions">
+        <button type="button" class="bouton bouton-second" data-action="word-ecole">Synthèse pour l'école (Word)</button>
+        <button type="button" class="bouton-lien" data-action="apercu-ecole">Aperçu de la synthèse</button>
       </div>
       <p class="note" id="a-completer"></p>
 
@@ -326,6 +351,10 @@
       <h2>Texte du compte rendu</h2>
       <p class="note">Le texte suit la saisie. Une section modifiée à la main ne suit plus la saisie, sauf si vous la rétablissez. Les passages entre crochets sont surlignés dans le Word.</p>
       <div id="sections"></div>
+
+      <h2>Synthèse pour l'école</h2>
+      <p class="note">Document court pour l'équipe éducative : constats, points d'appui, aménagements et suivi, sans l'anamnèse ni les informations familiales.</p>
+      <div id="sections-ecole"></div>
     </section>
 
     <!-- ============ Réglages ============ -->
@@ -355,6 +384,21 @@
         <p class="note">Saisissez une fois le nom du questionnaire et le libellé de ses questions. Ils restent dans ce navigateur et figurent dans le tableau du compte rendu.</p>
         <label class="champ"><span>Nom du questionnaire</span><input type="text" data-reg-texte="autoNom"></label>
         <div id="questions-auto"></div>
+      </fieldset>
+      <fieldset class="groupe">
+        <legend>Tri de cartes : cartes personnelles</legend>
+        <p class="note">Ajoutez vos propres cartes (une activité, une situation), avec une photo si vous le souhaitez. Elles s'ajoutent aux cartes de l'outil pour tous les enfants et restent dans ce navigateur.</p>
+        <div id="cartes-perso"></div>
+        <div class="grille2">
+          <label class="champ"><span>Jeu</span><select id="carte-jeu"><option value="activites">Mes activités</option><option value="sensoriel">Ce que je ressens</option></select></label>
+          <label class="champ"><span>Texte de la carte (lu par l'enfant)</span><input type="text" id="carte-texte" maxlength="80" placeholder="Jouer du piano"></label>
+        </div>
+        <div class="barre-actions">
+          <label class="bouton bouton-second">Photo (facultative)
+            <input type="file" accept="image/*" data-action="photo-carte" class="masque"></label>
+          <span class="note" id="carte-photo-etat"></span>
+          <button type="button" class="bouton" data-action="ajouter-carte">Ajouter la carte</button>
+        </div>
       </fieldset>
       <fieldset class="groupe">
         <legend>Normes du BHK (enfant et ado)</legend>
@@ -388,8 +432,10 @@
 
   <script src="js/sensoriel.js"></script>
   <script src="js/graphiques.js"></script>
+  <script src="js/occupation.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/docx.js"></script>
+  <script src="js/tri.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

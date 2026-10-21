@@ -221,3 +221,156 @@ test("le fichier Word est une archive ZIP valide", () => {
   assert.equal(D.crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
   assert.ok(m.blocs.some((b) => b.type === "tableau"));
 });
+
+/* ---------- Bilans centrés sur l'occupation, réévaluation, synthèse école ---------- */
+
+const O = require("../js/occupation.js");
+
+test("DCDQ : facteurs, total et seuil selon l'âge", () => {
+  const rep = {};
+  for (let i = 1; i <= 15; i++) rep[i] = 3;
+  const q = O.calculDcdq({ reponses: rep }, 8 * 12 + 7);
+  assert.deepEqual(q.facteurs.map((f) => [f.total, f.max]), [[18, 30], [12, 20], [15, 25]]);
+  assert.equal(q.total, 45);
+  assert.equal(q.bande.seuil, 55);
+  assert.equal(q.indication, true);
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, true); // 45 ≤ 46
+  rep[1] = 5; rep[2] = 5;
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, false); // 49 > 46
+  delete rep[3];
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, null); // incomplet
+  assert.equal(O.calculDcdq({ reponses: rep }, null).bande, null);
+});
+
+test("DCDQ : constat, raison praxies et ligne du tableau récapitulatif", () => {
+  const rep = {};
+  for (let i = 1; i <= 15; i++) rep[i] = 2;
+  const d = dossierTest({ dcdq: { fait: "oui", repondant: "la maman", reponses: rep, notes: "" } });
+  const t = B.rediger(d, reglagesTest());
+  assert.match(t.complementaires, /Score total : 30\/75/);
+  assert.match(t.complementaires, /en faveur d'un trouble développemental de la coordination \(seuil : 55\)/);
+  assert.match(t.conclusion, /DCDQ en faveur/);
+  const p = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "reed-praxies");
+  assert.match(p.raison, /DCDQ 30\/75/);
+  const m = B.modeleDocument(d, reglagesTest());
+  const recap = m.blocs.filter((b) => b.type === "tableau").map((b) => JSON.stringify(b)).join("");
+  assert.match(recap, /En faveur d'un TDC/);
+});
+
+test("MCRO : moyennes, réévaluation et tableau", () => {
+  const mcro = O.vide().mcro;
+  mcro.fait = "oui";
+  mcro.problemes[0] = { activite: "Faire ses lacets", importance: "9", rendement1: "3", satisfaction1: "2", rendement2: "7", satisfaction2: "6" };
+  mcro.problemes[1] = { activite: "Écrire lisiblement", importance: "8", rendement1: "4", satisfaction1: "5", rendement2: "5", satisfaction2: "5" };
+  const c = O.calculMcro(mcro);
+  assert.equal(c.r1, 3.5);
+  assert.equal(c.s2, 5.5);
+  const d = dossierTest({ mcro: mcro });
+  const t = B.rediger(d, reglagesTest());
+  assert.match(t.mcro, /rendement 3,5\/10, satisfaction 3,5\/10/);
+  assert.match(t.mcro, /rendement 6,0\/10 \(\+2,5\)/);
+  assert.match(t.mcro, /cliniquement significative/);
+  assert.match(t.preconisations, /Améliorer le rendement et la satisfaction de Léa pour : faire ses lacets/);
+  const m = B.modeleDocument(d, reglagesTest());
+  const i = m.blocs.findIndex((b) => b.type === "h" && /MCRO/.test(b.texte));
+  assert.ok(i > 0);
+  const tab = m.blocs.slice(i).find((b) => b.type === "tableau");
+  assert.equal(tab.lignes.length, 4);
+  assert.equal(tab.lignes[0].cellules.length, 6);
+});
+
+test("grille d'autonomie : texte « À la maison », occupations et préconisations", () => {
+  const d = dossierTest({ avq: { "habillage-lacets": "aide-partielle", "habillage-chaussures": "autonome", "repas-couteau": "non-acquis", "scolaire-cartable": "lent" } });
+  const t = B.rediger(d, reglagesTest());
+  assert.match(t.maison, /Habillage : Autonome pour mettre ses chaussures ; a besoin d'une aide partielle pour faire ses lacets\./);
+  assert.match(t.maison, /Alimentation : Ne sait pas encore couper ses aliments au couteau\./);
+  assert.match(t.maison, /Sommeil : RAS/);
+  assert.match(t.ecole, /Autonomie en classe : Autonome mais lente pour préparer son cartable\./);
+  assert.match(t.conclusion, /difficultés dans l'habillage et les repas/);
+  assert.match(t.bilans, /Grille d'autonomie/);
+  const p = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "adaptations");
+  assert.match(p.raison, /faire ses lacets/);
+});
+
+test("OT'Hope et tri de cartes : résultats, objectifs et raisons", () => {
+  const d = dossierTest({
+    othope: { fait: "oui", notes: "", items: [{ activite: "Faire du vélo", niveau: "non", objectif: "oui" }, { activite: "Dessiner", niveau: "sait", objectif: "" }] },
+    cartes: {
+      activites: { fait: "oui", date: "2026-10-20", choix: ["a-lacets"], exclues: [], notes: "", resultats: [
+        { id: "a-lacets", enfant: "Faire mes lacets", rapport: "faire ses lacets", emoji: "👟", theme: "soins", pile: "difficile" },
+        { id: "a-velo", enfant: "Faire du vélo", rapport: "faire du vélo", emoji: "🚲", theme: "loisirs", pile: "facile" }] },
+      sensoriel: { fait: "oui", date: "", choix: ["s-cantine"], exclues: [], notes: "", resultats: [
+        { id: "s-cantine", enfant: "Le bruit à la cantine", rapport: "le bruit à la cantine", emoji: "", theme: "auditif", pile: "naime" },
+        { id: "s-calins", enfant: "Les câlins", rapport: "les câlins", emoji: "", theme: "tactile", pile: "aime" }] },
+    },
+  });
+  const t = B.rediger(d, reglagesTest());
+  assert.match(t.othope, /– Ne sait pas faire : faire du vélo\./);
+  assert.match(t.othope, /Objectifs choisis par Léa : faire du vélo\./);
+  assert.match(t.cartesActivites, /a classé 2 cartes/);
+  assert.match(t.cartesActivites, /– Difficile : faire ses lacets\./);
+  assert.match(t.cartesActivites, /voudrait mieux réussir : faire ses lacets/);
+  assert.match(t.cartesSensoriel, /Ce que Léa n'aime pas : le bruit à la cantine/);
+  assert.match(t.preconisations, /Faire du vélo \(objectif choisi par Léa\)/);
+  assert.match(t.preconisations, /Mieux vivre les situations qui gênent Léa : le bruit à la cantine/);
+  const casque = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "casque");
+  assert.match(casque.raison, /bruits \(tri de cartes/);
+  // Les résultats restent lisibles même sans les définitions des cartes.
+  const n = B.normaliserDossier(JSON.parse(JSON.stringify(d)));
+  assert.equal(n.cartes.activites.resultats[0].rapport, "faire ses lacets");
+  assert.deepEqual(n.cartes.sensoriel.choix, ["s-cantine"]);
+});
+
+test("cartes personnelles : validation et ajout au jeu", () => {
+  const perso = O.normaliserCartesPerso([{ jeu: "activites", texte: "Jouer du piano" }, { jeu: "inconnu", texte: "x" }, { jeu: "sensoriel", texte: "  " }]);
+  assert.equal(perso.length, 1);
+  assert.match(perso[0].id, /^p-/);
+  const cartes = O.cartesDuJeu("activites", perso);
+  assert.equal(cartes.length, O.JEUX.activites.cartes.length + 1);
+  assert.equal(cartes[cartes.length - 1].rapport, "jouer du piano");
+  assert.equal(B.normaliserReglages({ cartesPerso: perso }).cartesPerso.length, 1);
+});
+
+test("réévaluation : comparaison avec le bilan précédent", () => {
+  const reg = reglagesTest();
+  const avant = dossierTest({ passation: "2026-04-20", vitesse: "90", lignes: { 3: [1, 1, 1, 1, 1], 7: [1, 1, 1, 1, 0], 11: [1, 1, 0, 0, 0] } });
+  avant.tests.dtvp3.fait = "oui";
+  avant.tests.dtvp3.lignes[0].valeur = "6";
+  avant.tests.dtvp3.lignes[0].type = "ns";
+  const snap = B.instantane(avant, reg);
+  assert.ok(snap.mesures.some((m) => m.cle === "bhk-vitesse"));
+  const apres = dossierTest({ precedent: JSON.parse(JSON.stringify(snap)) });
+  apres.tests.dtvp3.fait = "oui";
+  apres.tests.dtvp3.lignes[0].valeur = "7";
+  apres.tests.dtvp3.lignes[0].type = "ns";
+  const e = B.evolution(apres, reg);
+  const v = e.lignes.find((x) => x.epreuve === "Vitesse");
+  assert.equal(v.tendance, "progres"); // (110 − 90) / 40 = +0,5 DS
+  assert.equal(e.lignes.find((x) => x.bilan === "DTVP-3").tendance, "stable");
+  const t = B.rediger(apres, reg);
+  assert.match(t.evolution, /Comparaison avec le bilan du 20\/04\/2026 \(CE2\)/);
+  assert.match(t.evolution, /– En progrès : qualité \(BHK\) et vitesse \(BHK\)\./);
+  assert.match(t.conclusion, /Évolution depuis le bilan du 20\/04\/2026/);
+  const m = B.modeleDocument(apres, reg);
+  assert.ok(m.blocs.some((b) => b.type === "tableau" && JSON.stringify(b).indexOf("Bilan du 20/04/2026") >= 0));
+  assert.equal(B.normaliserDossier({}).precedent, null);
+});
+
+test("synthèse pour l'école : sans données familiales, avec aménagements", () => {
+  const d = dossierTest({ parents: "M. et Mme Martin", adresse: "1 rue des Lilas", envFamilial: "Parents séparés", devTrajectoire: "Prématurité",
+    amenagements: ["temps", "reed-graphisme", "casque"], dispositif: "PAP", reevaluation: "6 mois", conclusionForces: "volontaire", vitesse: "60" });
+  const reg = reglagesTest();
+  reg.praticiens[0].nom = "Camille Ergo";
+  reg.praticiens[0].tel = "06 00 00 00 00";
+  const m = B.modeleSyntheseEcole(d, reg);
+  const tout = JSON.stringify(m);
+  ["Lilas", "séparés", "Prématurité", "M. et Mme"].forEach((x) => assert.ok(tout.indexOf(x) < 0, x));
+  assert.match(tout, /Accorder un tiers-temps/);
+  assert.match(tout, /formaliser dans un PAP/);
+  assert.match(tout, /Un accompagnement en ergothérapie est proposé : ","b":true\},\{"t":"rééducation graphique/);
+  assert.match(tout, /réévaluation est prévue dans 6 mois/);
+  assert.match(tout, /06 00 00 00 00/);
+  assert.match(tout, /Volontaire/);
+  const zip = D.construire(m);
+  assert.equal(zip[0], 0x50);
+});

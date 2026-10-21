@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"));
-  else racine.BHK = fabrique(racine.Senso);
-})(typeof self !== "undefined" ? self : this, function (Senso) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -297,6 +297,7 @@
     { id: "reed-sensoriel", cat: "reeducation", label: "Intégration sensorielle", texte: "Accompagnement en intégration sensorielle", raisons: ["modulation", "discrimination", "recherche", "evitement", "sensibilite", "enregistrement"] },
     { id: "reed-praxies", cat: "reeducation", label: "Planification motrice", texte: "Travail de la planification motrice (praxies)", raisons: ["praxies"] },
     { id: "reed-clavier", cat: "reeducation", label: "Apprentissage du clavier", texte: "Apprentissage de la frappe au clavier en vue d'une compensation", raisons: ["vitesseForte", "clavier"] },
+    { id: "reed-avq", cat: "reeducation", label: "Autonomie au quotidien", texte: "Travail de l'autonomie dans les activités quotidiennes (habillage, repas, soins personnels)", raisons: ["avq"] },
     { id: "polycopies", cat: "scolaire", label: "Limiter la tâche graphique", texte: "Limiter la tâche graphique (privilégier les polycopiés)", raisons: ["vitesse"] },
     { id: "temps", cat: "scolaire", label: "Tiers-temps", texte: "Accorder un tiers-temps pour les évaluations, afin de compenser la lenteur d'écriture et de permettre l'autocorrection", raisons: ["vitesse"] },
     { id: "non-penaliser", cat: "scolaire", label: "Ne pas pénaliser l'écriture", texte: "Ne pas pénaliser la qualité de l'écriture ni l'orthographe dans les productions écrites", raisons: ["qualite"] },
@@ -315,6 +316,7 @@
     { id: "activites", cat: "maison", label: "Activités sensorimotrices", texte: "Proposer des activités sensorimotrices dans la journée (porter, pousser, tirer, grimper)", raisons: ["recherche", "postural", "modulation"] },
     { id: "soins", cat: "maison", label: "Soins personnels adaptés", texte: "Adapter les soins personnels (vêtements sans étiquettes, prévenir avant de toucher, brosse douce)", raisons: ["tactile"] },
     { id: "coin-calme", cat: "maison", label: "Coin calme", texte: "Aménager un coin calme pour se ressourcer après l'école", raisons: ["evitement", "auditif", "modulation", "sensibilite"] },
+    { id: "adaptations", cat: "maison", label: "Adaptations du quotidien", texte: "Proposer des adaptations pour gagner en autonomie (lacets élastiques, vêtements faciles à enfiler, couverts adaptés)", raisons: ["avq"] },
   ];
   const AMENAGEMENTS = PRECONISATIONS; // ancien nom, gardé pour les dossiers enregistrés
   const DISPOSITIFS = ["PAP", "PPRE", "PPS"];
@@ -324,6 +326,7 @@
     ["devoirs", "les devoirs à la maison"], ["outils", "la manipulation des outils scolaires"], ["habillage", "l'habillage"], ["repas", "les repas"],
     ["toilette", "la toilette et les soins personnels"], ["jeux", "les jeux et les loisirs"], ["sport", "les activités sportives"],
     ["social", "la participation sociale avec les pairs"], ["transitions", "la gestion des transitions et des émotions"], ["sommeil", "le sommeil"],
+    ["deplacements", "les déplacements"],
   ].map((x) => ({ id: x[0], texte: x[1] }));
 
   /* ================= Réglages et normes ================= */
@@ -408,6 +411,7 @@
       brouillon: true,
       autoNom: "Questionnaire d'auto-appréciation de l'écriture",
       autoQuestions: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
+      cartesPerso: [],
       normes: normesVides(),
     };
   }
@@ -432,8 +436,15 @@
     if (r.brouillon !== undefined) out.brouillon = !!r.brouillon;
     if (typeof r.autoNom === "string" && r.autoNom.trim()) out.autoNom = r.autoNom;
     if (Array.isArray(r.autoQuestions) && r.autoQuestions.length) out.autoQuestions = r.autoQuestions.slice(0, 40).map(texte);
+    out.cartesPerso = Occup.normaliserCartesPerso(r.cartesPerso);
     if (r.normes) out.normes = normaliserNormes(r.normes);
     return out;
+  }
+
+  // Les normes sont-elles renseignées ? (sinon on peut utiliser les normes intégrées à la version personnelle)
+  function normesPresentes(n) {
+    return !!n && (["qualite", "vitesse"].some((ind) => Object.keys(n[ind].classe).length + Object.keys(n[ind].age).length > 0) ||
+      Object.keys(n.ado.vitesse.classe).length + Object.keys(n.ado.qualite.classe).length > 0);
   }
 
   /* ================= Dossier ================= */
@@ -473,7 +484,19 @@
     d.senso = Senso.vide();
     d.manip = { fait: "", md: {}, mg: {}, notes: "" };
     d.auto = { fait: "", reponses: {}, notes: "" };
+    Object.assign(d, Occup.vide());
+    d.precedent = null;
     return d;
+  }
+
+  // Mesures du bilan précédent, gardées pour la réévaluation.
+  function normaliserPrecedent(p) {
+    if (!p || typeof p !== "object" || !Array.isArray(p.mesures)) return null;
+    const mesures = p.mesures.filter((m) => m && texte(m.cle)).slice(0, 80).map((m) => ({
+      cle: texte(m.cle), bilan: texte(m.bilan), epreuve: texte(m.epreuve), valeur: texte(m.valeur), echelle: texte(m.echelle),
+      ds: nombre(m.ds), perf: nombre(m.perf), num: nombre(m.num), sens: nombre(m.sens) === -1 ? -1 : 1, seuil: nombre(m.seuil),
+    }));
+    return { passation: texte(p.passation), groupe: texte(p.groupe), mesures: mesures };
   }
 
   function normaliserDossier(src) {
@@ -484,6 +507,8 @@
     if (d.reference !== "age") d.reference = "classe";
     if (d.normesSexe !== "ensemble") d.normesSexe = "auto";
     d.senso = Senso.normaliser(src.senso);
+    Object.assign(d, Occup.normaliser(src));
+    d.precedent = normaliserPrecedent(src.precedent);
     if (src.manip && typeof src.manip === "object") {
       d.manip.fait = src.manip.fait ? "oui" : "";
       d.manip.notes = texte(src.manip.notes);
@@ -765,6 +790,9 @@
     { id: "environnement", titre: "Environnement de {enfant}", niveau: 2 },
     { id: "maison", titre: "À la maison", niveau: 3, groupes: ["occupations"] },
     { id: "ecole", titre: "À l'école", niveau: 3, groupes: ["occupations"] },
+    { id: "mcro", titre: "Priorités de {enfant} et de sa famille (MCRO)", niveau: 3, groupes: ["occupations"] },
+    { id: "othope", titre: "Auto-évaluation des occupations par {enfant} (OT'Hope)", niveau: 3, groupes: ["occupations"] },
+    { id: "cartesActivites", titre: "Tri de cartes : activités du quotidien", niveau: 3, groupes: ["occupations"] },
     { id: "autoeval", titre: "Auto-évaluation de l'écriture", niveau: 3, groupes: ["ecriture"] },
     { id: "personne", titre: "Composante liée à la personne", niveau: 3, groupes: ["ecriture"] },
     { id: "environnementale", titre: "Composante environnementale", niveau: 3, groupes: ["ecriture"] },
@@ -775,10 +803,19 @@
     { id: "dunn", titre: "Profil sensoriel 2 de Dunn", niveau: 3, groupes: ["sensoriel"], graphiques: ["dunn-enfant", "dunn-scolaire"] },
     { id: "eso", titre: "Engagement sensori-occupationnel (ESO)", niveau: 3, groupes: ["sensoriel"], graphiques: ["eso-roues", "eso-systemes"] },
     { id: "sensot", titre: "SensOT-dir", niveau: 3, groupes: ["sensoriel"] },
+    { id: "cartesSensoriel", titre: "Tri de cartes : situations sensorielles", niveau: 3, groupes: ["sensoriel"] },
     { id: "complementaires", titre: "Bilans complémentaires", niveau: 2 },
+    { id: "evolution", titre: "Évolution depuis le bilan précédent", niveau: 2 },
     { id: "conclusion", titre: "Diagnostic ergothérapique", niveau: 2, recap: true },
     { id: "preconisations", titre: "Objectifs et préconisations", niveau: 2 },
     { id: "salutations", titre: "Formule de politesse", niveau: 0 },
+  ];
+  // Synthèse courte pour l'équipe éducative : sans anamnèse ni données familiales.
+  const SECTIONS_ECOLE = [
+    { id: "ecoleBilan", titre: "Ce que montre le bilan", niveau: 2 },
+    { id: "ecoleAppui", titre: "Points d'appui", niveau: 2 },
+    { id: "ecoleAmenagements", titre: "Aménagements proposés en classe", niveau: 2 },
+    { id: "ecoleSuivi", titre: "Suivi en ergothérapie", niveau: 2 },
   ];
 
   const TITRES_GRAPHIQUES = {
@@ -850,14 +887,14 @@
       constats.push(r.niveauQ === "patho" ? "une qualité d'écriture très inférieure à la moyenne, en faveur d'une dysgraphie (" + r.nomTest + " : DS " + ds + ")" : "une qualité d'écriture inférieure à la moyenne (" + r.nomTest + " : DS " + ds + ")");
       facteur(r.niveauQ === "patho" ? "une qualité graphique très altérée" : "une qualité graphique fragile");
       ajout("qualite", "la qualité de l'écriture (" + r.nomTest + " : DS " + ds + ")");
-    } else if (r.niveauQ) constats.push("une qualité d'écriture dans la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsQ) + ")");
+    } else if (r.niveauQ) constats.push("une qualité d'écriture " + (r.niveauQ === "superieur" ? "supérieure à" : "dans") + " la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsQ) + ")");
     if (faible(r.niveauV)) {
       const ds = formaterDS(r.dsV);
       constats.push(r.niveauV === "patho" ? "une lenteur d'écriture marquée (" + r.nomTest + " : DS " + ds + ")" : "une vitesse d'écriture inférieure à la moyenne (" + r.nomTest + " : DS " + ds + ")");
       facteur("une lenteur d'écriture");
       ajout("vitesse", "la lenteur d'écriture (" + r.nomTest + " : DS " + ds + ")");
       if (r.niveauV === "patho") ajout("vitesseForte", "la lenteur d'écriture marquée (" + r.nomTest + " : DS " + ds + ")");
-    } else if (r.niveauV) constats.push("une vitesse d'écriture dans la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsV) + ")");
+    } else if (r.niveauV) constats.push("une vitesse d'écriture " + (r.niveauV === "superieur" ? "supérieure à" : "dans") + " la moyenne (" + r.nomTest + " : DS " + formaterDS(r.dsV) + ")");
     tests.filter((t) => t.fait && t.section === "vitesse").forEach((t) => {
       const f = t.lignes.filter((l) => faible(l.niveau));
       if (!f.length) return;
@@ -921,7 +958,80 @@
     s.constats.forEach((c) => constats.push(c));
     s.facteurs.forEach(facteur);
     Object.keys(s.raisons).forEach((k) => ajout(k, s.raisons[k]));
-    return { raisons: raisons, facteurs: facteurs, constats: constats, objectifs: s.objectifs };
+
+    const o = Occup.constats(d, accords(d), ageMois(d));
+    o.personne.forEach((c) => constats.push(c));
+    o.facteurs.forEach(facteur);
+    Object.keys(o.raisons).forEach((k) => ajout(k, o.raisons[k]));
+    return { raisons: raisons, facteurs: facteurs, constats: constats, objectifs: s.objectifs.concat(o.objectifs), occupations: o.occupations, occ: o.occ };
+  }
+
+  function ageMois(d) {
+    const a = age(d.naissance, d.passation);
+    return a ? a.ans * 12 + a.mois : null;
+  }
+
+  /* ================= Réévaluation ================= */
+
+  function cleTexte(s) { return texte(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+  function scoreCourt(l) { return l.type === "ds" ? "DS " + formaterDS(l.ds) : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "Indice ").replace(/^rang percentile /, "RP "); }
+
+  // Mesures comparables d'un bilan à l'autre (gardées dans le dossier suivant).
+  function mesures(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const r = calculerBHK(d, reg);
+    const l = [];
+    if (r.complet) l.push({ cle: "bhk-qualite", bilan: r.nomTest, epreuve: "Qualité", valeur: r.total + "/" + r.max, echelle: r.version, ds: r.dsQ, perf: r.perfQ, num: r.total, sens: -1, seuil: null });
+    if (r.vitesse !== null) l.push({ cle: "bhk-vitesse", bilan: r.nomTest, epreuve: "Vitesse", valeur: formaterNombre(r.vitesse) + " car. en 5 min", echelle: "caracteres", ds: r.dsV, perf: r.dsV, num: r.vitesse, sens: 1, seuil: null });
+    calculerTests(d, reg).filter((t) => t.fait).forEach((t) => t.lignes.filter((x) => x.remplie && x.epreuve.trim()).forEach((x) => {
+      l.push({ cle: t.id + ":" + cleTexte(x.epreuve), bilan: t.court, epreuve: x.epreuve, valeur: scoreCourt(x), echelle: "ds", ds: x.ds, perf: x.ds, num: null, sens: 1, seuil: null });
+    }));
+    if (d.mcro.fait === "oui") {
+      const m = Occup.calculMcro(d.mcro);
+      const rd = m.r2 !== null ? m.r2 : m.r1, sa = m.s2 !== null ? m.s2 : m.s1;
+      if (rd !== null) l.push({ cle: "mcro-rendement", bilan: "MCRO", epreuve: "Rendement moyen", valeur: formaterNombre(rd, 1) + "/10", echelle: "mcro", ds: null, perf: null, num: rd, sens: 1, seuil: Occup.SEUIL_MCRO });
+      if (sa !== null) l.push({ cle: "mcro-satisfaction", bilan: "MCRO", epreuve: "Satisfaction moyenne", valeur: formaterNombre(sa, 1) + "/10", echelle: "mcro", ds: null, perf: null, num: sa, sens: 1, seuil: Occup.SEUIL_MCRO });
+    }
+    if (d.dcdq.fait === "oui") {
+      const q = Occup.calculDcdq(d.dcdq, ageMois(d));
+      if (q.complet) l.push({ cle: "dcdq-total", bilan: "DCDQ", epreuve: "Score total", valeur: q.total + "/75", echelle: "dcdq", ds: null, perf: null, num: q.total, sens: 1, seuil: null });
+    }
+    return l;
+  }
+
+  function instantane(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    return { passation: d.passation, groupe: d.groupe, mesures: mesures(d, reglages) };
+  }
+
+  const SEUIL_EVOLUTION_DS = 0.5;
+  const TENDANCES = { progres: "En progrès", stable: "Stable", baisse: "En baisse" };
+
+  function evolution(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    if (!d.precedent) return null;
+    const avant = {};
+    d.precedent.mesures.forEach((m) => { avant[m.cle] = m; });
+    const lignes = [];
+    mesures(d, reglages).forEach((m) => {
+      const p = avant[m.cle];
+      if (!p) return;
+      let ecart = "", tendance = null;
+      if (p.perf !== null && m.perf !== null && p.ds !== null && m.ds !== null) {
+        const dp = m.perf - p.perf;
+        ecart = (m.ds - p.ds >= 0 ? "+" : "−") + formaterNombre(Math.abs(m.ds - p.ds), 2) + " DS";
+        tendance = dp >= SEUIL_EVOLUTION_DS ? "progres" : dp <= -SEUIL_EVOLUTION_DS ? "baisse" : "stable";
+      } else if (p.num !== null && m.num !== null && p.echelle === m.echelle) {
+        const dn = m.num - p.num;
+        ecart = (dn >= 0 ? "+" : "−") + formaterNombre(Math.abs(dn), 1);
+        const seuil = m.seuil !== null ? m.seuil : null;
+        if (seuil !== null) tendance = dn * m.sens >= seuil ? "progres" : dn * m.sens <= -seuil ? "baisse" : "stable";
+      }
+      const avec = (x) => x.valeur + (x.ds !== null && x.echelle !== "ds" ? " (DS " + formaterDS(x.ds) + ")" : "");
+      lignes.push({ bilan: m.bilan, epreuve: m.epreuve, avant: avec(p), apres: avec(m), ecart: ecart, tendance: tendance });
+    });
+    return { passation: d.precedent.passation, groupe: d.precedent.groupe, lignes: lignes, nonRefaits: d.precedent.mesures.length - lignes.length };
   }
 
   function proposerPreconisations(dossier, reglages) {
@@ -958,6 +1068,12 @@
       if (s.sensot.fait === "oui") l.push("SensOT-dir (version enfant)");
       if (d.manip.fait === "oui") l.push("Exner et Benbow : évaluation des manipulations fines dans la main");
       if (d.auto.fait === "oui") l.push(reg.autoNom);
+      if (Object.keys(d.avq).length) l.push("Grille d'autonomie dans les activités quotidiennes");
+      if (d.mcro.fait === "oui") l.push("Mesure canadienne du rendement occupationnel (MCRO)");
+      if (d.othope.fait === "oui") l.push("OT'Hope : auto-évaluation des occupations par " + a.sujetMin);
+      if (d.cartes.activites.fait === "oui") l.push("Tri de cartes sur écran : activités du quotidien");
+      if (d.cartes.sensoriel.fait === "oui") l.push("Tri de cartes sur écran : situations sensorielles");
+      if (d.dcdq.fait === "oui") l.push("DCDQ : questionnaire sur le trouble développemental de la coordination, rempli par " + (d.dcdq.repondant.trim() || "les parents"));
       lignesDe(d.bilansLibre).forEach((x) => l.push(maj(x)));
       out.bilans = l.length ? l.map((x) => "– " + x).join("\n") : "[Bilans utilisés à compléter.]";
     }
@@ -976,15 +1092,20 @@
       "Parcours scolaire : " + ou(d.envParcours, "RAS"),
     ].join("\n");
 
-    // Occupations
+    // Occupations : champs de l'anamnèse complétés par la grille d'autonomie.
     {
+      const ligne = (libelle, champ, domaine) => {
+        const libre = texte(d[champ]).trim();
+        const grille = domaine ? Occup.phraseAvq(d.avq, domaine, a) : "";
+        return libelle + " : " + (libre || grille ? [libre ? point(libre) : "", grille].filter(Boolean).join(" ") : "RAS");
+      };
       const l = [
-        "Sommeil : " + ou(d.occSommeil, "RAS"),
-        "Habillage : " + ou(d.occHabillage, "RAS"),
-        "Alimentation : " + ou(d.occAlimentation, "RAS"),
-        "Soins d'hygiène : " + ou(d.occHygiene, "RAS"),
-        "Loisirs : " + ou(d.occLoisirs, "RAS"),
-        "Déplacements : " + ou(d.occDeplacements, "RAS"),
+        ligne("Sommeil", "occSommeil"),
+        ligne("Habillage", "occHabillage", "habillage"),
+        ligne("Alimentation", "occAlimentation", "repas"),
+        ligne("Soins d'hygiène", "occHygiene", "hygiene"),
+        ligne("Loisirs", "occLoisirs", "loisirs"),
+        ligne("Déplacements", "occDeplacements", "deplacements"),
       ];
       if (d.occIndependant === "oui") l.push(a.sujet + " est indépendant" + a.e + " pour l'ensemble de ses activités quotidiennes.");
       if (d.occSynthese.trim()) l.push(point(maj(d.occSynthese.trim())));
@@ -997,8 +1118,16 @@
         "Environnement de la classe : " + ou(d.ecoleClasse, "RAS"),
       ];
       if (d.ecoleProductions.trim()) l.push("Productions réalisées en classe : " + point(d.ecoleProductions.trim()));
+      const autonomie = Occup.phraseAvq(d.avq, "scolaire", a);
+      if (autonomie) l.push("Autonomie en classe : " + autonomie);
       out.ecole = l.join("\n");
     }
+
+    // Bilans centrés sur l'occupation
+    out.mcro = Occup.redigerMcro(d.mcro, a);
+    out.othope = Occup.redigerOthope(d.othope, a);
+    out.cartesActivites = Occup.redigerCartes("activites", d.cartes.activites, a);
+    out.cartesSensoriel = Occup.redigerCartes("sensoriel", d.cartes.sensoriel, a);
 
     // Composante liée à la personne
     {
@@ -1138,8 +1267,26 @@
         if (l.length === 1) l.push("[Cotation à compléter.]");
         blocs.push(l.join("\n"));
       }
+      const dcdq = Occup.redigerDcdq(d.dcdq, ageMois(d));
+      if (dcdq) blocs.push(dcdq);
       out.complementaires = blocs.join("\n\n");
     }
+
+    // Évolution depuis le bilan précédent
+    const evo = evolution(d, reg);
+    const syntheseEvolution = (e) => {
+      const par = (t) => e.lignes.filter((x) => x.tendance === t).map((x) => min(x.epreuve) + " (" + x.bilan + ")");
+      return ["progres", "stable", "baisse"].map((t) => [t, par(t)]).filter((x) => x[1].length);
+    };
+    if (evo) {
+      const l = ["Comparaison avec le bilan du " + dateCourte(evo.passation) + (evo.groupe ? " (" + evo.groupe + ")" : "") + "."];
+      if (!evo.lignes.length) l.push("[Aucune mesure commune avec le bilan précédent : refaire au moins une épreuve pour comparer.]");
+      else {
+        syntheseEvolution(evo).forEach((x) => l.push("– " + TENDANCES[x[0]] + " : " + joindre(x[1]) + "."));
+        l.push("Une évolution est retenue à partir d'un écart de " + formaterNombre(SEUIL_EVOLUTION_DS) + " DS (2 points pour la MCRO). Le détail figure dans le tableau ci-dessous.");
+      }
+      out.evolution = l.join("\n");
+    } else out.evolution = "";
 
     // Auto-évaluation de l'écriture
     if (d.auto.fait === "oui") {
@@ -1153,7 +1300,7 @@
     } else out.autoeval = "";
 
     // Bilan seulement sensoriel : les sections du volet écriture restent vides.
-    if (!ecritureCommencee(d) && sensorielCommence(d)) ["personne", "environnementale", "observation", "bhk", "vitesse"].forEach((k) => { out[k] = ""; });
+    if (!ecritureCommencee(d) && (sensorielCommence(d) || Occup.commence(d))) ["personne", "environnementale", "observation", "bhk", "vitesse"].forEach((k) => { out[k] = ""; });
 
     // Bilan sensoriel
     Object.assign(out, Senso.rediger(d.senso, a));
@@ -1178,11 +1325,15 @@
       if (d.envObstacles.trim()) env.push("obstacles : " + min(d.envObstacles.trim()).replace(/\.$/, ""));
       if (d.envFacilitateurs.trim()) env.push("facilitateurs : " + min(d.envFacilitateurs.trim()).replace(/\.$/, ""));
       if (env.length) liste("Sur le plan de l'environnement :", env);
-      const occ = OCCUPATIONS.filter((o) => d.occDifficultes.indexOf(o.id) >= 0).map((o) => o.texte);
+      const occ = OCCUPATIONS.filter((o) => d.occDifficultes.indexOf(o.id) >= 0 || ind.occ.indexOf(o.id) >= 0).map((o) => o.texte);
       const occItems = [];
       if (occ.length) occItems.push("difficultés dans " + joindre(occ));
+      ind.occupations.forEach((x) => occItems.push(x));
       if (d.diagImpact.trim()) occItems.push(min(d.diagImpact.trim()).replace(/\.$/, ""));
       if (occItems.length) liste("Sur le plan des occupations :", occItems);
+      if (evo && evo.lignes.some((x) => x.tendance)) {
+        liste("Évolution depuis le bilan du " + dateCourte(evo.passation) + " :", syntheseEvolution(evo).map((x) => min(TENDANCES[x[0]]) + " : " + joindre(x[1])));
+      }
 
       let enonce;
       if (!ind.facteurs.length && !occ.length) enonce = "[Diagnostic à rédiger une fois les bilans saisis.]";
@@ -1227,6 +1378,40 @@
     }
 
     out.salutations = "En espérant que ces éléments aideront à la scolarisation de " + a.sujetMin + ", je vous adresse, Madame, Monsieur, l'expression de mes sincères salutations.";
+
+    // Synthèse pour l'école : constats, points d'appui, aménagements, suivi (sans données familiales ni médicales).
+    {
+      const l = ["Bilan en ergothérapie réalisé le " + (dateLongue(d.passation) || "[date]") + "."];
+      const enonce = /Diagnostic ergothérapique : (.*)$/m.exec(out.conclusion);
+      if (enonce && !/^\[/.test(enonce[1])) l.push(enonce[1]);
+      if (ind.constats.length) {
+        l.push("Le bilan met en évidence :");
+        ind.constats.forEach((x, i) => l.push("– " + x + (i === ind.constats.length - 1 ? "." : " ;")));
+      }
+      out.ecoleBilan = l.join("\n");
+    }
+    {
+      const appui = [];
+      if (d.conclusionForces.trim()) appui.push(maj(d.conclusionForces.trim()).replace(/\.$/, ""));
+      if (d.reperage === "bon") appui.push("Bonne prise d'informations visuelles en copie");
+      out.ecoleAppui = appui.map((x) => "– " + x + ".").join("\n");
+    }
+    {
+      const l = [];
+      if (d.dispositif) l.push("Ces aménagements sont à formaliser dans un " + d.dispositif + ".");
+      const items = PRECONISATIONS.filter((p) => (p.cat === "scolaire" || p.cat === "sensoriel") && d.amenagements.indexOf(p.id) >= 0).map((p) => p.texte);
+      lignesDe(d.amenagementsLibre).forEach((x) => items.push(maj(x).replace(/\.$/, "")));
+      items.forEach((x) => l.push("– " + x + "."));
+      out.ecoleAmenagements = items.length ? l.join("\n") : "[Aménagements à cocher dans l'onglet Compte rendu.]";
+    }
+    {
+      const l = [];
+      const reed = PRECONISATIONS.filter((p) => p.cat === "reeducation" && d.amenagements.indexOf(p.id) >= 0).map((p) => min(p.texte));
+      if (reed.length) l.push("Un accompagnement en ergothérapie est proposé : " + joindre(reed) + ".");
+      if (d.reeducationObjet.trim()) l.push("Modalités : " + point(d.reeducationObjet.trim()));
+      if (d.reevaluation.trim()) l.push("Une réévaluation est prévue dans " + d.reevaluation.trim() + ".");
+      out.ecoleSuivi = l.join("\n");
+    }
     return out;
   }
 
@@ -1293,7 +1478,7 @@
 
     const emis = {};
     SECTIONS.forEach((s) => {
-      if (s.recap) blocs.push.apply(blocs, blocsRecap(r, tests, reg));
+      if (s.recap) blocs.push.apply(blocs, blocsRecap(r, tests, reg, d));
       const t = tx(s.id);
       if (!texte(t).trim()) return;
       (s.groupes || []).forEach((g) => {
@@ -1313,34 +1498,95 @@
         }
       }
       if (s.id === "bhk" && d.photoCopie) blocs.push({ type: "photo", donnees: d.photoCopie, l: nombre(d.photoL), h: nombre(d.photoH), alt: "Copie du BHK", largeurCm: 15 });
+      if (s.id === "mcro") blocs.push.apply(blocs, blocsMcro(d));
+      if (s.id === "evolution") blocs.push.apply(blocs, blocsEvolution(d, reg));
       (s.graphiques || []).forEach((id) => {
         if (Senso.aDesDonnees(d.senso, id)) blocs.push({ type: "graphique", id: id, alt: TITRES_GRAPHIQUES[id], largeurCm: LARGEURS_GRAPHIQUES[id] });
       });
     });
 
-    const sig = reg.praticiens[reg.signataire] || reg.praticiens[0];
+    const sig = signataire(reg);
     if (sig && (sig.nom || sig.titre)) blocs.push({ type: "signature", texte: [sig.nom, sig.titre].filter(Boolean).join(", ") });
 
-    const pied = sig ? [
-      [sig.nom, sig.titre].filter(Boolean).join(" – "),
-      [sig.tel, sig.email].filter(Boolean).join(" – "),
-      sig.adresse || texte(reg.cabinet.adresse).split("\n").join(", "),
-    ].filter((x) => x && x.trim()) : [];
+    return Object.assign({ titre: "Bilan en ergothérapie" + (nomComplet ? " – " + nomComplet : ""), blocs: blocs }, papier(reg));
+  }
 
+  function signataire(reg) { return reg.praticiens[reg.signataire] || reg.praticiens[0]; }
+
+  // En-tête (cabinet, praticiens) et pied de page communs aux documents.
+  function papier(reg) {
+    const sig = signataire(reg);
     return {
-      titre: "Bilan en ergothérapie" + (nomComplet ? " – " + nomComplet : ""),
       entete: {
         cabinet: { nom: reg.cabinet.nom, lignes: texte(reg.cabinet.adresse).split("\n").map((x) => x.trim()).filter(Boolean) },
         praticiens: reg.praticiens.filter((p) => p.nom).map((p) => ({
           nom: p.nom, lignes: [p.titre, p.tel, p.email, p.siret ? "N° SIRET : " + p.siret : "", p.adeli ? "N° ADELI : " + p.adeli : ""].filter(Boolean),
         })),
       },
-      pied: pied,
-      blocs: blocs,
+      pied: sig ? [
+        [sig.nom, sig.titre].filter(Boolean).join(" – "),
+        [sig.tel, sig.email].filter(Boolean).join(" – "),
+        sig.adresse || texte(reg.cabinet.adresse).split("\n").join(", "),
+      ].filter((x) => x && x.trim()) : [],
     };
   }
 
-  function blocsRecap(r, tests, reg) {
+  function blocsMcro(d) {
+    if (d.mcro.fait !== "oui") return [];
+    const m = Occup.calculMcro(d.mcro);
+    if (!m.problemes.length) return [];
+    const f = (v) => (v === null ? "–" : formaterNombre(v, Number.isInteger(v) ? 0 : 1));
+    const c = (t, o) => cellule(t, Object.assign({ align: "center" }, o || {}));
+    const entetes = ["Activité", "Importance", "Rendement", "Satisfaction"].concat(m.reeval ? ["Rendement (réév.)", "Satisfaction (réév.)"] : []);
+    const lignes = [{ entete: true, cellules: entetes.map((x, i) => cellule(x, { gras: true, fond: "entete", align: i ? "center" : null })) }];
+    m.problemes.forEach((p) => lignes.push({ cellules: [cellule(maj(p.activite)), c(f(p.importance)), c(f(p.r1)), c(f(p.s1))].concat(m.reeval ? [c(f(p.r2)), c(f(p.s2))] : []) }));
+    const fm = (v) => (v === null ? "–" : formaterNombre(v, 1));
+    lignes.push({ cellules: [cellule("Moyenne", { gras: true }), c(""), c(fm(m.r1), { gras: true }), c(fm(m.s1), { gras: true })].concat(m.reeval ? [c(fm(m.r2), { gras: true }), c(fm(m.s2), { gras: true })] : []) });
+    return [{ type: "tableau", largeurs: m.reeval ? [0.32, 0.13, 0.13, 0.14, 0.14, 0.14] : [0.46, 0.18, 0.18, 0.18], entetes: true, petit: true, lignes: lignes }];
+  }
+
+  function blocsEvolution(d, reg) {
+    const e = evolution(d, reg);
+    if (!e || !e.lignes.length) return [];
+    const fonds = { progres: "niveau-moyenne", baisse: "niveau-inferieur" };
+    const lignes = [{ entete: true, cellules: ["Bilan", "Épreuve", "Bilan du " + dateCourte(e.passation), "Ce bilan", "Évolution"].map((x) => cellule(x, { gras: true, fond: "entete" })) }];
+    e.lignes.forEach((x) => lignes.push({ cellules: [
+      cellule(x.bilan, { gras: true }), cellule(x.epreuve), cellule(x.avant, { align: "center" }), cellule(x.apres, { align: "center" }),
+      cellule([{ t: x.tendance ? TENDANCES[x.tendance] : "–" }].concat(x.ecart ? [{ t: " (" + x.ecart + ")", i: true }] : []), { fond: fonds[x.tendance] || null }),
+    ] }));
+    return [{ type: "tableau", largeurs: [0.13, 0.25, 0.2, 0.2, 0.22], entetes: true, petit: true, lignes: lignes }];
+  }
+
+  // Synthèse courte pour l'équipe éducative (second document Word).
+  function modeleSyntheseEcole(dossier, reglages, textes) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const gen = rediger(d, reg);
+    const tx = (id) => (textes && typeof textes[id] === "string" ? textes[id] : gen[id]);
+    const sig = signataire(reg);
+    const nomComplet = [texte(d.prenom).trim(), texte(d.nom).trim().toUpperCase()].filter(Boolean).join(" ");
+    const scol = [TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? d.groupe : "", texte(d.etablissement).trim()].filter(Boolean).join(", ");
+    const blocs = [
+      { type: "titre", texte: "Synthèse du bilan en ergothérapie" },
+      { type: "p", runs: [{ t: "À l'attention de l'équipe éducative", i: true }] },
+      { type: "tableau", largeurs: [0.34, 0.66], lignes: [
+        ["Élève", nomComplet], ["Classe, établissement", scol], ["Date du bilan", dateCourte(d.passation)],
+        ["Ergothérapeute", sig ? [sig.nom, sig.titre].filter(Boolean).join(", ") : ""],
+      ].map((p) => ({ cellules: [cellule(p[0], { gras: true }), cellule(texte(p[1]).trim() || "–")] })) },
+    ];
+    SECTIONS_ECOLE.forEach((s) => {
+      const t = tx(s.id);
+      if (!texte(t).trim()) return;
+      blocs.push({ type: "h", niveau: s.niveau, texte: s.titre });
+      blocs.push.apply(blocs, texteVersBlocs(t));
+    });
+    const contact = sig ? [sig.tel, sig.email].filter((x) => texte(x).trim()) : [];
+    if (contact.length) blocs.push({ type: "p", runs: [{ t: "Pour toute question, vous pouvez me joindre : " + contact.join(" ou ") + "." }] });
+    if (sig && (sig.nom || sig.titre)) blocs.push({ type: "signature", texte: [sig.nom, sig.titre].filter(Boolean).join(", ") });
+    return Object.assign({ titre: "Synthèse pour l'école" + (nomComplet ? " – " + nomComplet : ""), blocs: blocs }, papier(reg));
+  }
+
+  function blocsRecap(r, tests, reg, d) {
     const lignes = [];
     const ajout = (bilan, epreuve, score, ds, niv, commentaire) => lignes.push({ cellules: [
       cellule(bilan, { gras: true }), cellule(epreuve), cellule(score, { align: "center" }), cellule(ds === null ? "–" : formaterDS(ds), { align: "center" }),
@@ -1353,6 +1599,14 @@
       types.add(l.type);
       ajout(t.court, l.epreuve, l.type === "ds" ? "–" : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "").replace(/^rang percentile /, "RP "), l.ds, l.niveau, l.commentaire);
     }));
+    if (d && d.dcdq.fait === "oui") {
+      const q = Occup.calculDcdq(d.dcdq, ageMois(d));
+      if (q.complet) {
+        const app = q.indication === true ? "En faveur d'un TDC" : q.indication === false ? "Probablement pas de TDC" : "Âge à renseigner";
+        lignes.push({ cellules: [cellule("DCDQ", { gras: true }), cellule("Score total"), cellule(q.total + "/75", { align: "center" }), cellule("–", { align: "center" }),
+          cellule([{ t: app }].concat(q.bande ? [{ t: " – seuil " + q.bande.seuil, i: true }] : []), { fond: q.indication === true ? "niveau-patho" : q.indication === false ? "niveau-moyenne" : null })] });
+      }
+    }
     if (!lignes.length) return [];
 
     const z = zonesLegende(reg);
@@ -1385,5 +1639,6 @@
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
+    SECTIONS_ECOLE, modeleSyntheseEcole, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
   };
 });

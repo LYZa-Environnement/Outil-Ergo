@@ -2,7 +2,7 @@
   "name": "outil-ergo",
   "version": "1.0.0",
   "private": true,
-  "description": "Saisie, cotation du BHK enfant et compte rendu de bilan d'écriture en ergothérapie",
+  "description": "Bilan en ergothérapie pédiatrique : occupations, écriture (BHK enfant et ado), bilan sensoriel et comptes rendus Word",
   "scripts": {
     "test": "node --test tests/*.test.js"
   }

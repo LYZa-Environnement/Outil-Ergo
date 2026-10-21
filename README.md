@@ -1,6 +1,6 @@
 # Outil Ergo
 
-Page web pour saisir un bilan en ergothérapie (écriture et bilan sensoriel), coter le **BHK enfant**, rédiger un **diagnostic ergothérapique** avec des préconisations argumentées et produire le compte rendu en **Word (.docx)**, sur le modèle des comptes rendus du cabinet.
+Page web pour saisir un bilan en ergothérapie pédiatrique (occupations, écriture, bilan sensoriel), coter le **BHK enfant et ado**, rédiger un **diagnostic ergothérapique** avec des préconisations argumentées et produire le compte rendu en **Word (.docx)**, sur le modèle des comptes rendus du cabinet.
 
 Tout se passe dans le navigateur : aucune donnée n'est envoyée en ligne.
 
@@ -17,13 +17,14 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 
 | Onglet | Contenu |
 | --- | --- |
-| Dossier | Identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés |
+| Dossier | Identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés ; réévaluation (chargement du bilan précédent) |
 | Anamnèse | Développement, environnement, occupations à la maison et à l'école (vide = « RAS ») |
+| Occupations | Grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
 | Écriture | Questionnaire d'auto-évaluation ; grille d'observation de l'écriture manuscrite : posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité ; environnement |
 | BHK | BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie. Normes (classe ou âge, selon le sexe ou ensemble ; pour l'ado, classe ou tous niveaux), cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
-| Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir |
-| Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) |
-| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, texte modifiable section par section, téléchargement Word avec graphiques, aperçu |
+| Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir, tri de cartes « Ce que je ressens » |
+| Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) ; DCDQ (facteurs, total, seuil selon l'âge) |
+| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, texte modifiable section par section, téléchargement Word avec graphiques, aperçu ; synthèse courte pour l'école (second Word) |
 
 ### Diagnostic et préconisations
 
@@ -31,9 +32,21 @@ Le diagnostic regroupe les constats du bilan sur le plan de la personne, de l'en
 
 L'outil propose les préconisations justifiées par les résultats (par exemple un tiers-temps quand la vitesse du BHK est inférieure à la moyenne). L'ergothérapeute coche celles qu'elle retient ; le compte rendu indique pour chacune le constat qui la justifie.
 
+### Tri de cartes à l'écran
+
+L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touchant la boîte), puis choisit les trois qui comptent le plus pour lui : activités qu'il voudrait mieux réussir, ou situations sensorielles qui le gênent le plus. Lecture des cartes à voix haute possible. Les cartes (textes et pictogrammes) sont propres à l'outil ; l'ergothérapeute peut ajouter ses cartes, avec photo, dans les réglages, et retirer des cartes pour un enfant. C'est une observation informelle, non étalonnée : elle complète les outils validés sans les remplacer. Les résultats alimentent le diagnostic (occupations difficiles, gênes sensorielles) et les objectifs.
+
+### Réévaluation
+
+« Charger le bilan précédent » garde les mesures comparables du dossier précédent (BHK, épreuves des autres bilans, moyennes de la MCRO, DCDQ). Le compte rendu ajoute une section « Évolution » avec un tableau ; une évolution est retenue à partir de 0,5 DS (2 points pour la MCRO). Si le dossier en cours est vide, l'identité, l'anamnèse et les activités de la MCRO sont reprises.
+
+### Synthèse pour l'école
+
+Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
+
 ### Questionnaires protégés
 
-Les questions du Profil sensoriel 2, de l'ESO, du SensOT-dir et des questionnaires d'auto-évaluation ne sont pas reproduites. L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
+Les questions et cartes du Profil sensoriel 2, de l'ESO, du SensOT-dir, de l'OT'Hope, du DCDQ et des questionnaires d'auto-évaluation ne sont pas reproduites. L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
 
 4. **Enregistrer le dossier** télécharge un fichier `.json` qu'on rouvre avec **Ouvrir un dossier**. Un brouillon du dossier en cours reste aussi dans le navigateur jusqu'à « Nouveau dossier » (désactivable dans les réglages, à faire sur un ordinateur partagé).
 
@@ -55,7 +68,7 @@ Règles reprises du manuel (Charles, Soppelsa et Albaret) :
 
 ## Normes
 
-Les normes du BHK viennent du manuel édité par les Éditions et Applications Psychologiques. Elles **ne sont pas dans ce dépôt** : on les importe dans l'outil depuis un fichier JSON gardé à part. Format :
+Les normes du BHK viennent du manuel édité par les Éditions et Applications Psychologiques. Elles **ne sont pas dans ce dépôt** (il est public) : on les importe une fois par appareil depuis un fichier JSON gardé à part. Pour un usage personnel, une version du fichier HTML peut les intégrer (variable `window.NORMES_INTEGREES` définie avant les scripts) : elle calcule sans import, et ne doit pas être publiée. Format :
 
 ```json
 {
@@ -87,9 +100,11 @@ Aucune dépendance. Le fichier Word est écrit directement (archive ZIP de XML) 
 index.html        page
 css/style.css     mise en forme (cahier Seyès, thème sombre)
 js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
+js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
 js/graphiques.js  profils en SVG (OTIPIS, Dunn 2, ESO)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document
 js/docx.js        génération du .docx (texte, tableaux, images)
+js/tri.js         écran de tri de cartes pour l'enfant
 js/app.js         interface
 tests/          tests (node --test)
 ```
