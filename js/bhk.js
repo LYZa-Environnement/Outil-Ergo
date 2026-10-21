@@ -348,6 +348,8 @@
     const out = normesVides();
     if (!n || typeof n !== "object") return out;
     out.source = texte(n.source);
+    const pentes = n.calques && Array.isArray(n.calques.margeB) ? n.calques.margeB.map(nombre) : [];
+    if (pentes.length === 5 && pentes.every((v, i) => v !== null && v > 0 && (!i || v > pentes[i - 1]))) out.calques = { margeB: pentes };
     if (n.ado && typeof n.ado === "object") {
       CLASSES_ADO.forEach((cl) => {
         const q = n.ado.qualite && n.ado.qualite.classe && n.ado.qualite.classe[cl];
@@ -492,6 +494,7 @@
     Object.assign(d, Occup.vide());
     d.precedent = null;
     d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
+    d.tdc = { fait: "", debut: "", exclusion: "", notes: "" };
     return d;
   }
 
@@ -515,6 +518,11 @@
     d.senso = Senso.normaliser(src.senso);
     Object.assign(d, Occup.normaliser(src));
     d.precedent = normaliserPrecedent(src.precedent);
+    if (src.tdc && typeof src.tdc === "object") {
+      d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
+      ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
+      d.tdc.notes = texte(src.tdc.notes);
+    }
     if (src.suivi && typeof src.suivi === "object") {
       ["debut", "frequence", "nombre", "duree", "notes"].forEach((k) => { if (src.suivi[k] !== undefined && src.suivi[k] !== null) d.suivi[k] = texte(src.suivi[k]); });
       if (Array.isArray(src.suivi.exclus)) d.suivi.exclus = src.suivi.exclus.map(texte).slice(0, 20);
@@ -990,6 +998,94 @@
     return a ? a.ans * 12 + a.mois : null;
   }
 
+  /* ================= Repères TDC : recommandations internationales (ajout) ================= */
+
+  const SOURCE_TDC = {
+    court: "Blank et al., 2019",
+    texte: "Blank R., Barnett A. L., Cairney J. et al. International clinical practice recommendations on the definition, diagnosis, assessment, intervention, and psychosocial aspects of developmental coordination disorder. Developmental Medicine & Child Neurology, 2019, 61 (3), 242-285.",
+    lien: "https://doi.org/10.1111/dmcn.14132",
+  };
+  // Fonction de répartition de la loi normale (approximation d'Abramowitz et Stegun), pour passer d'un DS à un rang percentile.
+  function repartition(z) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const p = 0.3989423 * Math.exp((-z * z) / 2) * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
+  }
+  const ETATS_TDC = { oui: "rempli", non: "non rempli", "?": "à préciser" };
+
+  function reperesTdc(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const a = accords(d);
+    const am = ageMois(d);
+    const avant5 = am !== null && am < 60;
+    const seuilRp = avant5 ? 5 : 16;
+    // Critère I : motricité nettement en dessous de l'âge, mesurée par un test standardisé (note totale).
+    let I;
+    const mabc = d.tests.mabc3;
+    if (mabc.fait === "oui") {
+      const total = mabc.lignes.find((l) => l.id === "total" || /total/i.test(l.epreuve));
+      const ds = total ? dsLigne(total) : null;
+      if (ds !== null) {
+        const rp = repartition(ds) * 100;
+        I = { etat: rp <= seuilRp ? "oui" : "non", texte: "MABC-3, note totale au rang percentile " + (rp < 1 ? "inférieur à 1" : Math.round(rp)) + " (repère : " + seuilRp + "e percentile ou moins)" };
+      } else I = { etat: "?", texte: "MABC-3 coché : saisir la note totale de motricité" };
+    } else I = { etat: "?", texte: "test moteur standardisé à réaliser (par exemple la MABC-3, note totale)" };
+    // Critère II : retentissement sur les activités quotidiennes, scolaires et de loisirs.
+    const preuves = [];
+    const q = Occup.calculDcdq(d.dcdq, am);
+    if (d.dcdq.fait === "oui" && q.indication === true) preuves.push("DCDQ en faveur (" + q.total + "/75)");
+    const aide = Occup.ITEMS_AVQ.filter((it) => Occup.AIDE_AVQ.indexOf(d.avq[it.id]) >= 0).length;
+    if (aide) preuves.push("besoin d'aide pour " + aide + " activité" + (aide > 1 ? "s" : "") + " de la grille d'autonomie");
+    const occ = OCCUPATIONS.filter((o) => d.occDifficultes.indexOf(o.id) >= 0).map((o) => o.texte);
+    if (occ.length) preuves.push("difficultés dans " + joindre(occ));
+    const mc = Occup.calculMcro(d.mcro);
+    if (d.mcro.fait === "oui" && mc.problemes.length) preuves.push("activités prioritaires à la MCRO");
+    let II;
+    if (preuves.length) II = { etat: "oui", texte: joindre(preuves) };
+    else if (d.dcdq.fait === "oui" && q.indication === false) II = { etat: "non", texte: "DCDQ non en faveur, sans retentissement relevé par ailleurs" };
+    else II = { etat: "?", texte: "retentissement à documenter (DCDQ, grille d'autonomie, entretien)" };
+    // Critères III et IV : renseignés par l'ergothérapeute.
+    const III = d.tdc.debut === "oui" ? { etat: "oui", texte: "difficultés motrices présentes depuis la petite enfance" }
+      : d.tdc.debut === "non" ? { etat: "non", texte: "début des difficultés plus tardif" } : { etat: "?", texte: "à préciser à l'anamnèse" };
+    const IV = d.tdc.exclusion === "oui" ? { etat: "oui", texte: "autres causes écartées par le médecin" }
+      : d.tdc.exclusion === "non" ? { etat: "non", texte: "une autre cause est en cours d'exploration" }
+      : { etat: "?", texte: "à vérifier par le médecin (déficience intellectuelle, trouble visuel, atteinte neurologique)" };
+    const criteres = [
+      Object.assign({ id: "I", nom: "Motricité nettement inférieure à celle attendue pour l'âge" }, I),
+      Object.assign({ id: "II", nom: "Retentissement sur la vie quotidienne, l'école et les loisirs" }, II),
+      Object.assign({ id: "III", nom: "Début dans la petite enfance" }, III),
+      Object.assign({ id: "IV", nom: "Difficultés non mieux expliquées par une autre cause" }, IV),
+    ];
+    const e = criteres.map((c) => c.etat);
+    let conclusion;
+    if (e.every((x) => x === "oui")) conclusion = "Les quatre critères sont réunis : ces éléments sont à transmettre au médecin, qui pose le diagnostic.";
+    else if (e[0] === "oui" && e[1] === "oui") {
+      const ids = (etat) => criteres.filter((c) => c.etat === etat).map((c) => c.id);
+      const reunis = ids("oui"), non = ids("non"), aVoir = ids("?");
+      const phrase = (liste, un, plusieurs) => liste.length > 1 ? "les critères " + joindre(liste) + " " + plusieurs : "le critère " + liste[0] + " " + un;
+      const morceaux = ["Les critères " + joindre(reunis) + " sont réunis"];
+      if (non.length) morceaux.push(phrase(non, "n'est pas rempli", "ne sont pas remplis"));
+      if (aVoir.length) morceaux.push(phrase(aVoir, "reste à vérifier", "restent à vérifier"));
+      conclusion = morceaux.join(" ; ") + ". Une consultation médicale est conseillée.";
+    }
+    else if (e[0] === "non" || e[1] === "non") conclusion = "Les éléments recueillis ne réunissent pas les critères I et II.";
+    else conclusion = "Repères incomplets : compléter les éléments à préciser.";
+    return { criteres: criteres, conclusion: conclusion, avant5: avant5, source: SOURCE_TDC, sujet: a.sujetMin };
+  }
+
+  function redigerTdc(d, reg) {
+    if (d.tdc.fait !== "oui") return "";
+    const t = reperesTdc(d, reg);
+    const l = ["Ajout, à titre indicatif : repères des recommandations internationales sur le trouble développemental de la coordination (TDC) (" + SOURCE_TDC.court + ") :"];
+    t.criteres.forEach((c, i) => l.push("– Critère " + c.id + " (" + c.nom.charAt(0).toLowerCase() + c.nom.slice(1) + ") : " + ETATS_TDC[c.etat] + ", " + c.texte + (i === 3 ? "." : " ;")));
+    if (t.avant5) l.push("Avant 5 ans, les recommandations demandent une atteinte sévère, confirmée par deux évaluations à au moins trois mois d'intervalle.");
+    l.push(t.conclusion + " Le diagnostic de TDC est médical : ces repères ne le remplacent pas.");
+    if (d.tdc.notes.trim()) l.push(point(maj(d.tdc.notes.trim())));
+    l.push("Source : " + SOURCE_TDC.texte + " " + SOURCE_TDC.lien);
+    return l.join("\n");
+  }
+
   /* ================= Réévaluation ================= */
 
   function cleTexte(s) { return texte(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
@@ -1093,6 +1189,7 @@
       if (d.cartes.activites.fait === "oui") l.push("Tri de cartes sur écran : activités du quotidien");
       if (d.cartes.sensoriel.fait === "oui") l.push("Tri de cartes sur écran : situations sensorielles");
       if (d.dcdq.fait === "oui") l.push("DCDQ : questionnaire sur le trouble développemental de la coordination, rempli par " + (d.dcdq.repondant.trim() || "les parents"));
+      if (d.tdc.fait === "oui") l.push("Repères des recommandations internationales sur le TDC (" + SOURCE_TDC.court + ")");
       lignesDe(d.bilansLibre).forEach((x) => l.push(maj(x)));
       out.bilans = l.length ? l.map((x) => "– " + x).join("\n") : "[Bilans utilisés à compléter.]";
     }
@@ -1288,6 +1385,8 @@
       }
       const dcdq = Occup.redigerDcdq(d.dcdq, ageMois(d));
       if (dcdq) blocs.push(dcdq);
+      const tdc = redigerTdc(d, reg);
+      if (tdc) blocs.push(tdc);
       out.complementaires = blocs.join("\n\n");
     }
 
@@ -1704,5 +1803,6 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
+    reperesTdc, SOURCE_TDC, ETATS_TDC, repartition,
   };
 });

@@ -19,7 +19,7 @@
   // seance : [titre, déroulé, progression] ; maison : [titre, consigne, fréquence].
   const AXES = [
     {
-      id: "graphisme", titre: "Geste graphique et lisibilité", cles: ["qualite", "geste", "lignage", "ratures"],
+      id: "graphisme", parents: "Pour une écriture plus facile à lire", titre: "Geste graphique et lisibilité", cles: ["qualite", "geste", "lignage", "ratures"],
       cle: "Verbaliser le trajet des lettres, travailler en grand avant de réduire, toujours terminer par une écriture en situation réelle.",
       seance: [
         ["Grands tracés sur plan vertical", "Au tableau ou sur une feuille fixée au mur : boucles, ponts, vagues et ronds, en suivant un rythme (comptine, métronome).", "Réduire la taille, passer au plan incliné puis à la table."],
@@ -36,7 +36,7 @@
       ],
     },
     {
-      id: "vitesse", titre: "Vitesse et automatisation de l'écriture", cles: ["vitesse", "vitesseForte"],
+      id: "vitesse", parents: "Pour écrire plus vite, avec moins d'effort", titre: "Vitesse et automatisation de l'écriture", cles: ["vitesse", "vitesseForte"],
       cle: "La vitesse vient de l'automatisation : entraîner des enchaînements fréquents, mesurer et montrer les progrès à l'enfant.",
       seance: [
         ["Mots outils automatisés", "Écrire plusieurs fois, de mémoire, les petits mots fréquents (le, les, et, est, on, un, une, dans, pour), en cherchant la fluidité.", "Passer aux groupes de mots puis aux phrases dictées."],
@@ -50,7 +50,7 @@
       ],
     },
     {
-      id: "clavier", titre: "Outil numérique et frappe au clavier", cles: ["vitesseForte", "clavier"],
+      id: "clavier", parents: "Pour apprendre le clavier", titre: "Outil numérique et frappe au clavier", cles: ["vitesseForte", "clavier"],
       cle: "Le clavier compense quand l'écrit manuscrit reste trop coûteux ; il s'apprend progressivement, en séance et à la maison.",
       seance: [
         ["Position et doigté", "Installation devant l'ordinateur, position des mains sur la rangée de repère, premières touches avec un logiciel ou un site d'apprentissage ludique.", "Ajouter une rangée par étape, sans regarder le clavier."],
@@ -62,7 +62,7 @@
       ],
     },
     {
-      id: "motricite", titre: "Motricité fine, manipulations et dosage de la force", cles: ["motriciteFine", "pression", "douleur"],
+      id: "motricite", parents: "Pour des mains plus habiles", titre: "Motricité fine, manipulations et dosage de la force", cles: ["motriciteFine", "pression", "douleur"],
       cle: "Renforcer la main et dissocier les doigts par le jeu ; travailler le relâchement quand l'appui est trop fort ou douloureux.",
       seance: [
         ["Pâte à modeler", "Rouler des boudins, faire de petites boules entre le pouce et l'index, pincer, cacher et retrouver des perles dans la pâte.", "Pâte plus ferme, objets plus petits."],
@@ -79,7 +79,7 @@
       ],
     },
     {
-      id: "posture", titre: "Posture, stabilité et installation", cles: ["posture", "postural", "fatigue"],
+      id: "posture", parents: "Pour bien s'installer et se tenir", titre: "Posture, stabilité et installation", cles: ["posture", "postural", "fatigue"],
       cle: "Une bonne base (pieds à plat, table à hauteur des coudes) et une ceinture des épaules plus solide libèrent la main.",
       seance: [
         ["Installation", "Régler la chaise et la table, caler les pieds, incliner la feuille selon la main d'écriture ; tester un plan incliné.", "Transposer les réglages à la maison et en classe."],
@@ -93,7 +93,7 @@
       ],
     },
     {
-      id: "praxies", titre: "Planification motrice et coordination", cles: ["praxies"],
+      id: "praxies", parents: "Pour mieux organiser ses gestes", titre: "Planification motrice et coordination", cles: ["praxies"],
       cle: "Approche orientée vers la tâche : l'enfant choisit l'activité, se fixe un but, fait un plan, essaie et vérifie (démarche de type CO-OP).",
       seance: [
         ["But, plan, faire, vérifier", "Sur une activité choisie par l'enfant (lacets, vélo, découpage…), l'aider à trouver lui-même sa stratégie et à la vérifier.", "Transférer la stratégie à une autre activité."],
@@ -108,7 +108,7 @@
       ],
     },
     {
-      id: "visuel", titre: "Perception visuelle et coordination œil-main", cles: ["visuel", "discrimination"],
+      id: "visuel", parents: "Pour mieux regarder et repérer", titre: "Perception visuelle et coordination œil-main", cles: ["visuel", "discrimination"],
       cle: "Entraîner l'analyse visuelle en lien avec le geste : repérer, comparer, reproduire.",
       seance: [
         ["Reproduction sur géoplan", "Reproduire une figure avec des élastiques sur un géoplan ou des points à relier.", "Figures plus complexes, modèle retiré."],
@@ -121,7 +121,7 @@
       ],
     },
     {
-      id: "regulation", titre: "Régulation sensorielle et attention", cles: ["modulation", "recherche", "evitement", "sensibilite", "enregistrement", "auditif", "tactile", "attention"],
+      id: "regulation", parents: "Pour se sentir bien dans son corps", titre: "Régulation sensorielle et attention", cles: ["modulation", "recherche", "evitement", "sensibilite", "enregistrement", "auditif", "tactile", "attention"],
       cle: "Construire avec l'enfant ses propres outils de régulation ; ne jamais imposer une sensation, avancer à son rythme.",
       seance: [
         ["Activités proprioceptives", "Porter, pousser, tirer, sauter sur un trampoline avant une tâche qui demande de la concentration.", "L'enfant choisit lui-même l'activité qui l'aide."],
@@ -137,7 +137,7 @@
       ],
     },
     {
-      id: "autonomie", titre: "Autonomie dans les activités quotidiennes", cles: ["avq"],
+      id: "autonomie", parents: "Pour faire seul au quotidien", titre: "Autonomie dans les activités quotidiennes", cles: ["avq"],
       cle: "Travailler l'activité elle-même, découpée en étapes, avec des adaptations si besoin, puis la pratiquer chaque jour à la maison.",
       seance: [
         ["Chaînage arrière", "L'adulte fait les premières étapes, l'enfant fait la dernière (par exemple serrer la boucle des lacets), puis une étape de plus à chaque fois.", "L'enfant réalise toute l'activité seul."],
@@ -378,6 +378,14 @@
       ].concat(def.seance.map((e) => ({ cellules: [c(e[0], { gras: true }), c(e[1]), c(e[2])] }))) });
     });
 
+    const tdc = d.tdc.fait === "oui" ? B.reperesTdc(d, reg) : null;
+    if (actifs.indexOf("praxies") >= 0 || (tdc && tdc.criteres[0].etat === "oui")) {
+      h(3, "Ajout : recommandation internationale sur le TDC");
+      txt("Les recommandations internationales (" + B.SOURCE_TDC.court + ") conseillent, pour les difficultés de coordination, des approches centrées sur l'activité et la participation (par exemple CO-OP ou l'entraînement neuromoteur à la tâche) : objectifs choisis avec l'enfant et sa famille, entraînement des activités elles-mêmes, pratique régulière sur plusieurs mois, avec les parents et l'école. Les approches qui travaillent seulement les fonctions sous-jacentes, hors activité, ne sont pas recommandées pour améliorer la motricité." +
+        (tdc ? "\nRepères du bilan : " + tdc.criteres.map((x) => "critère " + x.id + " " + B.ETATS_TDC[x.etat]).join(", ") + ". " + tdc.conclusion : "") +
+        "\nSource : " + B.SOURCE_TDC.texte + " " + B.SOURCE_TDC.lien);
+    }
+
     h(2, "Objectifs et échelles d'atteinte (GAS)");
     txt("Pour chaque objectif, décrire avec l'enfant et sa famille ce que serait chaque niveau, puis coter à mi-parcours et à la réévaluation. Le niveau 0 correspond au résultat attendu.");
     const obj = plan.objectifs.slice(0, 5);
@@ -414,5 +422,61 @@
     return Object.assign({ titre: "Plan de suivi" + (nomComplet ? " – " + nomComplet : ""), blocs: blocs }, B.papier(reg));
   }
 
-  return { AXES, FREQUENCES, DUREES, suiviVide, normaliserSuivi, axesProposes, parametres, planning, analyse, modeleSuivi, ajouterJours };
+  /* ================= Livret d'activités pour les parents ================= */
+
+  const JOURS = ["Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam.", "Dim."];
+
+  function modeleLivret(dossier, reglages) {
+    const d = B.normaliserDossier(dossier);
+    const reg = B.normaliserReglages(reglages);
+    const a = B.accords(d);
+    const plan = planning(d, reg);
+    const c = (t, o) => B.cellule(t, o);
+    const prenom = texte(d.prenom).trim();
+    const blocs = [
+      { type: "titre", texte: "Mon carnet d'activités" + (prenom ? " : " + prenom : "") },
+      { type: "p", runs: [{ t: "À faire à la maison, entre deux séances d'ergothérapie", i: true }] },
+    ];
+    const h = (niveau, t) => blocs.push({ type: "h", niveau: niveau, texte: t });
+    const txt = (t) => blocs.push.apply(blocs, B.texteVersBlocs(t));
+
+    h(2, "Pour les parents");
+    txt("Ces petites activités prolongent le travail des séances. Quelques minutes suffisent : c'est la régularité qui compte, pas la durée.\n" +
+      "– Choisissez un moment calme, quand " + a.sujetMin + " n'est pas trop fatigué" + a.e + ".\n" +
+      "– Proposez l'activité comme un jeu, et arrêtez si elle devient une source de conflit.\n" +
+      "– Félicitez l'effort plus que le résultat.\n" +
+      "– Cochez le tableau de la semaine et notez ce qui a aidé : nous en parlerons à la prochaine séance.");
+
+    const activites = [];
+    plan.axes.forEach((x) => {
+      const def = AXES.find((y) => y.id === x.id);
+      h(2, def.parents);
+      def.maison.forEach((m) => {
+        blocs.push({ type: "p", runs: [{ t: m[0] + " : ", b: true }, { t: m[1] }] });
+        blocs.push({ type: "p", runs: [{ t: "Quand : " + m[2] + ".", i: true }], petit: true });
+        activites.push(m[0]);
+      });
+    });
+    if (!activites.length) txt("[Les activités apparaîtront ici quand les axes de travail seront choisis dans l'onglet Compte rendu.]");
+
+    const lignes = activites.slice(0, 8);
+    [1, 2].forEach((semaine) => {
+      h(2, "Mon tableau, semaine " + semaine);
+      blocs.push({ type: "tableau", largeurs: [0.37].concat(JOURS.map(() => 0.09)), lignes: [
+        { entete: true, cellules: [c("Activité", { gras: true, fond: "entete" })].concat(JOURS.map((j) => c(j, { gras: true, fond: "entete", align: "center" }))) },
+      ].concat((lignes.length ? lignes : ["", "", ""]).map((t) => ({ cellules: [c(t)].concat(JOURS.map(() => c(""))) }))) });
+    });
+
+    h(2, "Ce que nous avons remarqué");
+    blocs.push({ type: "tableau", largeurs: [1], lignes: ["Ce qui a aidé :", "Ce qui a été difficile :", "Questions pour la prochaine séance :"].map((t) => ({ cellules: [c([{ t: t + "\n\n", b: true }])] })) });
+
+    const sig = reg.praticiens[reg.signataire] || reg.praticiens[0];
+    if (sig && sig.nom) {
+      const contact = [sig.tel, sig.email].filter((x) => texte(x).trim()).join(" – ");
+      blocs.push({ type: "p", runs: [{ t: "Votre ergothérapeute : ", b: true }, { t: sig.nom + (contact ? " (" + contact + ")" : "") }] });
+    }
+    return Object.assign({ titre: "Carnet d'activités" + (prenom ? " – " + prenom : ""), blocs: blocs }, B.papier(reg));
+  }
+
+  return { AXES, FREQUENCES, DUREES, suiviVide, normaliserSuivi, axesProposes, parametres, planning, analyse, modeleSuivi, modeleLivret, ajouterJours };
 });

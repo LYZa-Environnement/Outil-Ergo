@@ -443,3 +443,84 @@ test("plan de suivi : axes justifiés, calendrier toutes les deux semaines, docu
   // Champs du plan gardés dans le dossier
   assert.equal(B.normaliserDossier(JSON.parse(JSON.stringify(d))).suivi.frequence, "7");
 });
+
+/* ---------- Analyse locale de la photo, repères TDC, carnet pour les parents ---------- */
+
+const A = require("../js/analyse.js");
+
+// Fausse photo : feuille A4 claire sur fond gris, « mots » faits de lettres rectangulaires.
+function fausseCopie(o) {
+  const W = 1500, H = 2100, s = 6, x0 = 120, y0 = 80, pw = 210 * s, ph = 297 * s;
+  const data = new Uint8ClampedArray(W * H * 4);
+  const pose = (x, y, v) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) pose(x, y, x >= x0 && x < x0 + pw && y >= y0 && y < y0 + ph ? 245 : 110);
+  const xh = Math.round(o.xhMm * s);
+  for (let ligne = 0; ligne < 6; ligne++) {
+    const base = y0 + Math.round((40 + 12 * ligne) * s);
+    let x = x0 + Math.round((20 + o.deriveMm * ligne) * s);
+    for (let mot = 0; mot < 7; mot++) {
+      const dy = ligne === o.dansante ? [0, 0.8, -0.7, 0.9, -0.8, 0.7, -0.6][mot] * xh : 0;
+      for (let lettre = 0; lettre < 4; lettre++) {
+        const haut = lettre === 1 ? Math.round(2.2 * xh) : xh;      // une lettre à hampe par mot
+        for (let yy = 0; yy < haut; yy++) for (let xx = 0; xx < Math.round(0.6 * xh); xx++) pose(x + xx, Math.round(base + dy - yy), 30);
+        x += Math.round(0.8 * xh);
+      }
+      x += Math.round(1.6 * xh);
+    }
+  }
+  return { width: W, height: H, data: data };
+}
+
+test("analyse locale de la photo : feuille, taille des lettres, marge et lignes non planes", () => {
+  const r = A.analyser(fausseCopie({ xhMm: 3.5, deriveMm: 2, dansante: 2 }), { pentesMarge: [0.05, 0.1, 0.2, 0.3, 0.4] }); // pentes fictives
+  assert.ok(r.ok, r.message);
+  assert.ok(r.feuille.detectee && r.feuille.entiere);
+  assert.ok(Math.abs(r.feuille.pxParMm - 6) < 0.1);
+  assert.equal(r.nbLignes, 6);
+  assert.ok(Math.abs(r.tailleMm - 3.5) < 0.6, "taille " + r.tailleMm);
+  assert.ok(Math.abs(r.marge.deriveMm - 10) < 1, "dérive " + r.marge.deriveMm);
+  assert.equal(r.marge.points, 2);
+  assert.deepEqual(r.lignes.map((l) => l.nonPlane), [false, false, true, false, false, false]);
+  // Sans les pentes du calque, pas de points proposés pour le critère 2.
+  assert.equal(A.analyser(fausseCopie({ xhMm: 3, deriveMm: 0, dansante: -1 })).marge.points, null);
+  // Image vide : pas de ligne d'écriture.
+  const vide = fausseCopie({ xhMm: 3, deriveMm: 0, dansante: -1 });
+  for (let i = 0; i < vide.data.length; i += 4) if (vide.data[i] === 30) vide.data[i] = vide.data[i + 1] = vide.data[i + 2] = 245;
+  assert.equal(A.analyser(vide).ok, false);
+});
+
+test("repères TDC : critères I à IV, mention d'ajout et source", () => {
+  const reg = reglagesTest();
+  const d = dossierTest({ tdc: { fait: "oui", debut: "oui", exclusion: "", notes: "" } });
+  d.tests.mabc3.fait = "oui";
+  d.tests.mabc3.lignes[3].valeur = "5"; // note standard 5 : environ 5e percentile
+  const rep = {};
+  for (let i = 1; i <= 15; i++) rep[i] = 2;
+  d.dcdq = { fait: "oui", repondant: "", notes: "", reponses: rep };
+  const t = B.reperesTdc(d, reg);
+  assert.deepEqual(t.criteres.map((c) => c.etat), ["oui", "oui", "oui", "?"]);
+  assert.equal(t.conclusion, "Les critères I, II et III sont réunis ; le critère IV reste à vérifier. Une consultation médicale est conseillée.");
+  const txt = B.rediger(d, reg).complementaires;
+  assert.match(txt, /Ajout, à titre indicatif/);
+  assert.match(txt, /doi\.org\/10\.1111\/dmcn\.14132/);
+  assert.match(txt, /Le diagnostic de TDC est médical/);
+  // Note standard 9 : au-dessus du 16e percentile, critère I non rempli.
+  d.tests.mabc3.lignes[3].valeur = "9";
+  assert.equal(B.reperesTdc(d, reg).criteres[0].etat, "non");
+  assert.match(B.reperesTdc(d, reg).conclusion, /ne réunissent pas/);
+  assert.equal(B.normaliserDossier(JSON.parse(JSON.stringify(d))).tdc.debut, "oui");
+});
+
+test("carnet d'activités pour les parents : activités des axes retenus et tableaux de la semaine", () => {
+  const reg = reglagesTest();
+  reg.praticiens[0].nom = "Camille Ergo";
+  const d = dossierTest({ avq: { "habillage-lacets": "aide-partielle" }, envFamilial: "Parents séparés" });
+  const m = U.modeleLivret(d, reg);
+  const tout = JSON.stringify(m);
+  assert.match(tout, /Mon carnet d'activités : Léa/);
+  assert.match(tout, /Pour faire seul au quotidien/);
+  assert.match(tout, /Mon tableau, semaine 2/);
+  assert.match(tout, /Camille Ergo/);
+  assert.ok(tout.indexOf("séparés") < 0);
+  assert.equal(D.construire(m)[0], 0x50);
+});

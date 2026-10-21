@@ -9,23 +9,35 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 ## Utilisation
 
 1. Ouvrir `index.html` dans un navigateur (ordinateur, tablette ou téléphone).
-2. Au premier lancement, chaque praticien choisit son profil : ses bilans sont signés à son nom.
-3. **Réglages**, une seule fois par appareil :
+2. Au lancement, l'outil demande le profil tant qu'aucun n'est choisi : chaque praticien choisit le sien (ou le crée), et ses bilans sont signés à son nom. On change de profil avec le bouton en haut à droite.
+3. **Réglages** (bouton ⚙️), une seule fois par appareil :
    - importer le fichier de normes du BHK (`normes-bhk-enfant.json`, fourni à part, voir plus bas) ;
    - renseigner le cabinet et les praticiens (en-tête, pied de page et signature du compte rendu) ;
    - exporter les réglages pour les réinstaller sur un autre appareil.
-4. Remplir les onglets dans l'ordre (un ✓ vert marque les onglets remplis ; chaque onglet a un encadré « Comment faire ? ») :
+4. Remplir les cinq onglets dans l'ordre. Certains ont des sous-onglets, affichés juste en dessous. Un ✓ vert marque ce qui est rempli ; chaque partie a un encadré « Comment faire ? ».
 
-| Onglet | Contenu |
+| Onglet | Sous-onglets et contenu |
 | --- | --- |
-| Dossier | Identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés ; réévaluation (chargement du bilan précédent) |
-| Anamnèse | Développement, environnement, occupations à la maison et à l'école (vide = « RAS ») |
-| Occupations | Grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
-| Écriture | Questionnaire d'auto-évaluation ; grille d'observation de l'écriture manuscrite : posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité ; environnement |
-| BHK | BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie. Normes (classe ou âge, selon le sexe ou ensemble ; pour l'ado, classe ou tous niveaux), cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
-| Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir, tri de cartes « Ce que je ressens » |
-| Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) ; DCDQ (facteurs, total, seuil selon l'âge) |
-| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, téléchargement Word, aperçu ; synthèse courte pour l'école ; plan de suivi pour l'ergothérapeute |
+| 📁 Dossier | Mes dossiers (reprise d'un dossier enregistré), identité, âge calculé, parents, prescription, scolarité, motif, bilans utilisés ; réévaluation (chargement du bilan précédent) |
+| 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
+| ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie et son analyse, résultats, observations pendant la copie, douleur (EVA) |
+| 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (synthèse et réponses détaillées), SensOT-dir, tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
+| 📄 Compte rendu | Les quatre documents (aperçu, impression, Word), diagnostic ergothérapique, objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, réglage du plan de suivi |
+
+Le bouton 🌙 / ☀️ passe du mode jour (par défaut) au mode nuit ; le choix est gardé sur l'appareil.
+
+### Documents
+
+L'onglet Compte rendu propose quatre documents, chacun avec **Aperçu**, **Imprimer** et **Word** :
+
+| Document | Pour qui |
+| --- | --- |
+| Compte rendu de bilan | Famille et médecin |
+| Synthèse pour l'école | Équipe éducative (sans anamnèse ni informations familiales) |
+| Plan de suivi | Ergothérapeute seulement |
+| Carnet d'activités | Parents, à imprimer et à garder à la maison |
+
+Dans la version ouverte depuis le lien claude.ai, l'impression directe n'est pas permise : « Imprimer » télécharge alors une page prête à imprimer.
 
 ### Diagnostic et préconisations
 
@@ -44,6 +56,22 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 ### Synthèse pour l'école
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
+
+### Carnet d'activités pour les parents
+
+Un livret court à imprimer : conseils pour que l'entraînement reste un plaisir, activités à faire à la maison pour chaque axe de travail retenu dans le plan de suivi (expliquées simplement), deux tableaux de la semaine à cocher avec l'enfant, une page de remarques pour la prochaine séance et le contact de l'ergothérapeute. Il ne contient ni résultats chiffrés ni informations familiales.
+
+### Analyse de la photo de la copie
+
+Sous la photo de la copie du BHK, « Analyser la photo » mesure la copie **sur l'appareil**, par des calculs d'image simples (aucune intelligence artificielle, aucun envoi) : repérage de la feuille, des lignes d'écriture, de la hauteur des lettres troncs (échelle prise sur la largeur d'une feuille A4), du décalage de la marge et des lignes dont la base ondule. L'outil **propose** des valeurs pour les critères 1, 2 et 3 ; l'ergothérapeute vérifie sur la copie et clique pour les reprendre (annulable). Les autres critères restent à coter à l'œil.
+
+Conditions : feuille A4 entière, à plat, photographiée de face, bien éclairée, sur un fond plus sombre que la feuille. Pour le critère 2, les points ne sont proposés que si le fichier de normes contient les pentes des lignes du calque B (clé `calques.margeB`, cinq nombres croissants, voir Normes).
+
+### Repères TDC (ajout)
+
+Dans Bilans › Moteur et autres, un encadré clairement signalé comme **ajout à titre indicatif** reprend les critères des recommandations internationales sur le trouble développemental de la coordination : Blank R., Barnett A. L., Cairney J. et al., *International clinical practice recommendations on the definition, diagnosis, assessment, intervention, and psychosocial aspects of developmental coordination disorder*, Developmental Medicine & Child Neurology, 2019, 61(3), 242-285, https://doi.org/10.1111/dmcn.14132.
+
+Les critères I (MABC-3 au 16e percentile ou moins, 5e avant 5 ans) et II (DCDQ, grille d'autonomie, MCRO) sont renseignés d'après les résultats saisis ; l'ergothérapeute renseigne les critères III (début dans la petite enfance) et IV (autres causes écartées par le médecin). Le compte rendu ajoute un paragraphe marqué « Ajout, à titre indicatif », avec la source, et rappelle que le diagnostic est médical. Le plan de suivi rappelle les interventions recommandées (approches centrées sur l'activité, comme CO-OP ou l'entraînement aux tâches).
 
 ### Plan de suivi (document interne)
 
@@ -94,11 +122,14 @@ Les normes du BHK viennent du manuel édité par les Éditions et Applications P
     "classe": { "CP": { "F": [10.0, 2.0], "M": [11.0, 2.5], "E": [10.5, 2.2] } },
     "age": { "6": { "F": [10.0, 2.0], "M": [11.0, 2.5], "E": [10.5, 2.2] } }
   },
-  "vitesse": { "classe": {}, "age": {} }
+  "vitesse": { "classe": {}, "age": {} },
+  "calques": { "margeB": [0.1, 0.2, 0.3, 0.4, 0.5] }
 }
 ```
 
-Une version du cabinet peut aussi intégrer l'en-tête et les praticiens (variable `window.REGLAGES_INTEGRES`, avec `cabinet` et `praticiens`), utilisés tant que les réglages n'en contiennent pas.
+La clé facultative `calques.margeB` donne les pentes (décalage horizontal divisé par la hauteur) des lignes du calque B, dans l'ordre croissant : elle sert à proposer les points du critère 2 lors de l'analyse de la photo. Les valeurs ci-dessus sont fictives.
+
+Une version du cabinet peut aussi intégrer l'en-tête et les praticiens (variable `window.REGLAGES_INTEGRES`, avec `cabinet`, `praticiens` et, au besoin, `retires` : noms à retirer des réglages déjà enregistrés). Les praticiens intégrés sont ajoutés aux réglages s'ils n'y sont pas.
 
 Une clé `ado` donne les normes du BHK ado : `ado.vitesse.classe` et `ado.qualite.classe` (de `6e` à `3e`), et `ado.qualite.global` pour la norme de qualité tous niveaux.
 
@@ -116,13 +147,14 @@ Aucune dépendance. Le fichier Word est écrit directement (archive ZIP de XML) 
 
 ```
 index.html        page
-css/style.css     mise en forme (cahier Seyès, thème sombre)
+css/style.css     mise en forme (thème nature, mode jour et mode nuit)
 js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
-js/suivi.js       plan de suivi : axes de travail, exercices, calendrier, GAS
+js/suivi.js       plan de suivi et carnet des parents : axes de travail, exercices, calendrier, GAS
 js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document
 js/docx.js        génération du .docx (texte, tableaux, images)
+js/analyse.js     analyse locale de la photo de la copie (feuille, lignes, taille, marge, lignes non planes)
 js/tri.js         écran de tri de cartes pour l'enfant
 js/app.js         interface
 tests/          tests (node --test)

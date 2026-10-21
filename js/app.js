@@ -38,10 +38,26 @@
     if (!B.normesPresentes(r.normes) && window.NORMES_INTEGREES) r.normes = B.normaliserNormes(window.NORMES_INTEGREES);
     // Version du cabinet : en-tête et praticiens préremplis tant que les réglages n'en ont pas.
     const integres = window.REGLAGES_INTEGRES;
-    if (integres && !r.praticiens.some((p) => p.nom.trim())) {
-      const base = B.normaliserReglages(Object.assign({}, r, { cabinet: integres.cabinet, praticiens: integres.praticiens }));
-      r.cabinet = base.cabinet;
-      r.praticiens = base.praticiens;
+    if (integres) {
+      if (!r.praticiens.some((p) => p.nom.trim())) {
+        const base = B.normaliserReglages(Object.assign({}, r, { cabinet: integres.cabinet, praticiens: integres.praticiens }));
+        r.cabinet = base.cabinet;
+        r.praticiens = base.praticiens;
+      } else {
+        // Praticiens du cabinet ajoutés s'ils manquent ; praticiens retirés du cabinet enlevés.
+        const retires = (integres.retires || []).map((n) => n.toLowerCase());
+        r.praticiens = r.praticiens.filter((p) => retires.indexOf(p.nom.trim().toLowerCase()) < 0);
+        (integres.praticiens || []).forEach((p) => {
+          if (r.praticiens.length < 4 && !r.praticiens.some((x) => x.nom.trim().toLowerCase() === String(p.nom).trim().toLowerCase())) {
+            const vide = r.praticiens.findIndex((x) => !x.nom.trim());
+            const nouveau = Object.assign(B.praticienVide(), p);
+            if (vide >= 0) r.praticiens[vide] = nouveau; else r.praticiens.push(nouveau);
+          }
+        });
+        if (!r.praticiens.length) r.praticiens = [B.praticienVide()];
+        if (r.signataire >= r.praticiens.length) r.signataire = 0;
+        if (!r.cabinet.nom.trim() && integres.cabinet) r.cabinet = B.normaliserReglages({ cabinet: integres.cabinet }).cabinet;
+      }
     }
     return r;
   }
@@ -432,7 +448,22 @@
         ${pastilles("dcdq-" + n, "dcdq.reponses." + n, [1, 2, 3, 4, 5].map((v) => [String(v), String(v)]))}</div>`;
     }
     h += `<div class="resultat-dcdq" id="dcdq-resultat" aria-live="polite"></div>${champZone("Observations", "dcdq.notes")}`;
-    $("#dcdq").innerHTML = blocRealise("dcdq", "DCDQ : questionnaire sur le trouble développemental de la coordination", "dcdq", h);
+    $("#dcdq").innerHTML = blocRealise("dcdq", "DCDQ : questionnaire sur le trouble développemental de la coordination", "dcdq", h) +
+      blocRealise("tdc", "Repères TDC : recommandations internationales (ajout)", "tdc", `
+        <p class="ajout"><strong>Ajout fondé sur une recommandation, à titre indicatif.</strong> Les recommandations internationales sur le trouble développemental de la coordination (${esc(B.SOURCE_TDC.court)}) décrivent quatre critères. L'outil les renseigne avec les résultats saisis (MABC-3, DCDQ, grille d'autonomie, MCRO) ; vous complétez les critères III et IV. Le diagnostic reste médical.
+          <a href="${B.SOURCE_TDC.lien}" target="_blank" rel="noopener">Lire la source</a></p>
+        <ul class="tdc-criteres" id="tdc-criteres"></ul>
+        <div class="item-grille"><span class="item-label">Critère III : difficultés motrices présentes depuis la petite enfance ?</span>${pastilles("tdc-debut", "tdc.debut", [["oui", "Oui"], ["non", "Non"]])}</div>
+        <div class="item-grille"><span class="item-label">Critère IV : autres causes écartées par un médecin ?</span>${pastilles("tdc-exclusion", "tdc.exclusion", [["oui", "Oui"], ["non", "Non"]])}</div>
+        <p class="tdc-conclusion" id="tdc-conclusion" aria-live="polite"></p>
+        ${champZone("Observations", "tdc.notes")}`);
+  }
+
+  function majTdc() {
+    const t = B.reperesTdc(dossier, reglages);
+    $("#tdc-criteres").innerHTML = t.criteres.map((c) => `<li class="tdc-${c.etat === "?" ? "inconnu" : c.etat}"><span class="tdc-badge">${esc(B.ETATS_TDC[c.etat])}</span>
+      <span><strong>Critère ${c.id} :</strong> ${esc(c.nom)}<br><small>${esc(c.texte)}</small></span></li>`).join("");
+    $("#tdc-conclusion").textContent = t.conclusion + (t.avant5 ? " Avant 5 ans : atteinte sévère et deux évaluations à au moins trois mois d'intervalle." : "");
   }
 
   function majOccupation() {
@@ -749,6 +780,8 @@
     img.hidden = !dossier.photoCopie;
     if (dossier.photoCopie) img.src = dossier.photoCopie; else img.removeAttribute("src");
     $$("[data-action='retirer-photo']").forEach((b) => { b.hidden = !dossier.photoCopie; });
+    $("[data-action='analyser-photo']").hidden = !dossier.photoCopie || !window.Analyse;
+    if (!dossier.photoCopie) { const z = $("#analyse-photo"); z.hidden = true; z.innerHTML = ""; }
   }
 
   // Réduit la photo (1600 px au plus par défaut, JPEG) pour garder des dossiers légers.
@@ -994,6 +1027,7 @@
     });
     majPreconisations();
     majOccupation();
+    majTdc();
     majSuivi();
     majEtapes();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
@@ -1143,6 +1177,55 @@
       return;
     }
     await telecharger(nomFichier("Synthese_ecole", "docx"), octets, MIME_DOCX, "Synthèse pour l'école téléchargée");
+  }
+
+  const DOCS = {
+    "compte-rendu": { titre: "Compte rendu de bilan", prefixe: "Bilan_ergo", modele: () => modele() },
+    ecole: { titre: "Synthèse pour l'école", prefixe: "Synthese_ecole", modele: () => modeleEcole() },
+    suivi: { titre: "Plan de suivi", prefixe: "Plan_suivi", modele: () => U.modeleSuivi(dossier, reglages) },
+    livret: { titre: "Carnet d'activités pour les parents", prefixe: "Carnet_activites", modele: () => U.modeleLivret(dossier, reglages) },
+  };
+  let docApercu = "compte-rendu";
+
+  async function wordDoc(id) {
+    const doc = DOCS[id];
+    let octets;
+    try { octets = W.construire(await avecImages(doc.modele())); } catch (e) { annoncer("Le document n'a pas pu être créé : " + e.message); return; }
+    await telecharger(nomFichier(doc.prefixe, "docx"), octets, MIME_DOCX, doc.titre + " téléchargé");
+  }
+
+  // Styles du document pour la page à imprimer (version partagée, où l'impression directe n'est pas permise).
+  const CSS_IMPRESSION = `@page{size:A4;margin:16mm 14mm}body{margin:0;background:#fff}.doc{font:11pt/1.4 Calibri,Arial,sans-serif;color:#222;max-width:180mm;margin:0 auto}
+.doc h1{font-size:16pt;text-align:center;text-transform:uppercase;color:#1f3a5f;margin:12pt 0 16pt}.doc h2{font-size:13pt;color:#1f3a5f;border-bottom:1px solid #8ea3c2;padding-bottom:2pt;margin:16pt 0 6pt;break-after:avoid}
+.doc h3{font-size:11.5pt;color:#2e5c8a;margin:12pt 0 4pt;break-after:avoid}.doc p{margin:0 0 4pt}.doc p.petit{font-size:9pt}.doc ul{margin:0 0 6pt;padding-left:18pt}.doc mark{background:#fff36b}
+.doc-entete{display:flex;gap:12px;justify-content:space-around;text-align:center;font-size:8pt;border-bottom:1px solid #8ea3c2;padding-bottom:6pt;margin-bottom:8pt}
+.doc-pied{text-align:center;font-size:8pt;color:#4a5568;border-top:1px solid #8ea3c2;padding-top:6pt;margin-top:18pt}.doc-signature{text-align:right;font-weight:700;margin-top:18pt}
+.doc-table{width:100%;border-collapse:collapse;margin:4pt 0 8pt;font-size:10pt;table-layout:fixed}.doc-table.petit{font-size:9pt}.doc-table tr{break-inside:avoid}
+.doc-table th,.doc-table td{border:1px solid #a6b4c8;padding:2pt 4pt;vertical-align:middle;text-align:left;overflow-wrap:anywhere;white-space:pre-line}.a-center{text-align:center!important}.gras{font-weight:700}
+.fond-entete{background:#dce3f0}.fond-niveau-patho{background:#f4cccc}.fond-niveau-inferieur{background:#fce5cd}.fond-niveau-moyenne{background:#ddebd7}.fond-niveau-superieur{background:#d5e4f2}
+.doc-figure{margin:8pt 0 10pt;text-align:center;break-inside:avoid}.doc-figure svg,.doc-figure img{display:block;width:100%;max-width:15cm;height:auto;margin:0 auto}.doc-figure figcaption{font-size:9pt;font-style:italic;color:#4a5568}`;
+
+  let aImprimer = null;
+  function imprimerDoc(id) {
+    const doc = DOCS[id];
+    const m = doc.modele();
+    if (!dansClaude) {
+      aImprimer = m;
+      $("#impression").innerHTML = htmlModele(m);
+      window.print();
+      return;
+    }
+    // Balises écrites en morceaux : le fichier de l'outil est lui-même assemblé en une seule page.
+    const b = (t) => "<" + t + ">";
+    const page = b("!doctype html") + b('html lang="fr"') + b("head") + b('meta charset="utf-8"') + "<title>" + esc(doc.titre) + "</title><style>" + CSS_IMPRESSION + "</style>" + b("/head") +
+      b("body") + '<div class="doc">' + htmlModele(m) + "</div>" + b("script") + 'window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});' + b("/script") + b("/body") + b("/html");
+    telecharger(nomFichier(doc.prefixe + "_a_imprimer", "html"), page, "text/html",
+      "Ouvrez le fichier téléchargé : l'impression se lance toute seule.");
+  }
+
+  function apercuDoc(id) {
+    docApercu = id;
+    apercu(DOCS[id].modele(), DOCS[id].titre);
   }
 
   function apercu(m, titre) {
@@ -1371,8 +1454,9 @@
   function majProfil() {
     const b = $("#profil");
     const nom = profilActif();
-    b.hidden = !reglages.praticiens.some((p) => p.nom.trim());
-    b.innerHTML = nom ? `<span class="profil-rond" aria-hidden="true">${esc(initiales(nom))}</span><span class="profil-nom">${esc(nom)}</span>` : "Choisir mon profil";
+    b.hidden = false;
+    b.innerHTML = nom ? `<span class="profil-rond" aria-hidden="true">${esc(initiales(nom))}</span><span class="profil-nom">${esc(nom)}</span>`
+      : reglages.praticiens.some((p) => p.nom.trim()) ? "Choisir mon profil" : "Créer mon profil";
   }
   function choisirProfil(i) {
     const p = reglages.praticiens[i];
@@ -1386,29 +1470,155 @@
     majTout();
     annoncer("Bonjour " + p.nom.split(" ")[0] + " !");
   }
-  function ouvrirChoixProfil() {
+  function ouvrirChoixProfil(creer) {
     const avecNom = reglages.praticiens.map((p, i) => [p, i]).filter((x) => x[0].nom.trim());
-    if (!avecNom.length) { afficherOnglet("reglages"); annoncer("Ajoutez d'abord votre nom dans les réglages (Praticiens)."); return; }
+    const creation = creer || !avecNom.length;
     const fond = document.createElement("div");
     fond.className = "demande";
     fond.setAttribute("role", "dialog");
     fond.setAttribute("aria-modal", "true");
     fond.setAttribute("aria-labelledby", "titre-profil");
-    fond.innerHTML = `<div class="demande-boite boite-profil"><p class="profil-titre" id="titre-profil">Bonjour ! Qui utilise l'outil ?</p>
-      <p class="note">Vos bilans seront signés à votre nom. Vous pourrez changer en touchant votre nom, en haut de la page.</p>
-      <div class="profils">${avecNom.map(([p, i]) => `<button type="button" class="carte-profil" data-profil="${i}"><span class="profil-rond grand" aria-hidden="true">${esc(initiales(p.nom))}</span><strong>${esc(p.nom)}</strong><small>${esc(p.titre)}</small></button>`).join("")}</div>
-      <div class="barre-actions"><button type="button" class="bouton-lien" data-profil="plus-tard">Plus tard</button></div></div>`;
+    fond.innerHTML = creation
+      ? `<form class="demande-boite boite-profil" novalidate><p class="profil-titre" id="titre-profil">Bienvenue ! Créez votre profil</p>
+        <p class="note">Il sert à signer vos comptes rendus et à remplir leur en-tête. Il reste sur cet appareil ; vous pourrez le modifier dans les réglages (⚙️).</p>
+        <div class="profil-formulaire">
+          <label class="champ"><span>Prénom et nom</span><input type="text" name="nom" autocomplete="name" placeholder="Camille Durand" required></label>
+          <label class="champ"><span>Titre</span><input type="text" name="titre" value="Ergothérapeute D.E."></label>
+          <label class="champ"><span>Téléphone (facultatif)</span><input type="tel" name="tel" autocomplete="tel" placeholder="06 12 34 56 78"></label>
+          <label class="champ"><span>E-mail (facultatif)</span><input type="email" name="email" autocomplete="email" placeholder="camille.durand@exemple.fr"></label>
+        </div>
+        <div class="barre-actions"><button type="submit" class="bouton">Créer mon profil</button><button type="button" class="bouton-lien" data-profil="plus-tard">Plus tard</button></div></form>`
+      : `<div class="demande-boite boite-profil"><p class="profil-titre" id="titre-profil">Bonjour ! Qui utilise l'outil ?</p>
+        <p class="note">Vos bilans seront signés à votre nom. Vous pourrez changer en touchant votre nom, en haut de la page.</p>
+        <div class="profils">${avecNom.map(([p, i]) => `<button type="button" class="carte-profil" data-profil="${i}"><span class="profil-rond grand" aria-hidden="true">${esc(initiales(p.nom))}</span><strong>${esc(p.nom)}</strong><small>${esc(p.titre)}</small></button>`).join("")}
+        ${reglages.praticiens.length < 4 ? `<button type="button" class="carte-profil carte-ajout" data-profil="nouveau"><span class="profil-rond grand" aria-hidden="true">＋</span><strong>Nouveau profil</strong><small>Créer un profil</small></button>` : ""}</div>
+        <div class="barre-actions"><button type="button" class="bouton-lien" data-profil="plus-tard">Plus tard</button></div></div>`;
     const fermer = () => { fond.remove(); document.removeEventListener("keydown", clavier, true); };
-    const clavier = (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(); } };
+    const plusTard = () => { try { sessionStorage.setItem("outil-ergo:profil-plus-tard", "1"); } catch (e) { /* rien */ } fermer(); };
+    const clavier = (e) => { if (e.key === "Escape") { e.stopPropagation(); plusTard(); } };
     fond.addEventListener("click", (e) => {
       const b = e.target.closest("[data-profil]");
-      if (!b) { if (e.target === fond) fermer(); return; }
-      if (b.dataset.profil !== "plus-tard") choisirProfil(Number(b.dataset.profil));
+      if (!b) { if (e.target === fond) plusTard(); return; }
+      if (b.dataset.profil === "plus-tard") return plusTard();
+      if (b.dataset.profil === "nouveau") { fermer(); ouvrirChoixProfil(true); return; }
+      choisirProfil(Number(b.dataset.profil));
+      fermer();
+    });
+    const form = fond.querySelector("form");
+    if (form) form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = (n) => form.elements[n].value.trim();
+      if (!v("nom")) { form.elements.nom.setAttribute("aria-invalid", "true"); form.elements.nom.focus(); return; }
+      const p = Object.assign(B.praticienVide(), { nom: v("nom"), titre: v("titre") || "Ergothérapeute D.E.", tel: v("tel"), email: v("email") });
+      const vide = reglages.praticiens.findIndex((x) => !x.nom.trim());
+      if (vide >= 0) reglages.praticiens[vide] = Object.assign(reglages.praticiens[vide], p);
+      else reglages.praticiens.push(p);
+      sauverReglages();
+      choisirProfil(vide >= 0 ? vide : reglages.praticiens.length - 1);
       fermer();
     });
     document.addEventListener("keydown", clavier, true);
     document.body.appendChild(fond);
-    fond.querySelector("[data-profil]").focus();
+    (fond.querySelector("input[name='nom']") || fond.querySelector("[data-profil]")).focus();
+  }
+
+  /* ---------- Analyse locale de la photo du BHK ---------- */
+
+  let derniereAnalyse = null;
+  function chargerImage(src) {
+    return new Promise((ok, ko) => { const img = new Image(); img.onload = () => ok(img); img.onerror = () => ko(new Error("La photo n'a pas pu être lue.")); img.src = src; });
+  }
+
+  async function analyserPhoto() {
+    const zone = $("#analyse-photo");
+    if (!dossier.photoCopie) return;
+    zone.hidden = false;
+    zone.innerHTML = `<p class="note">Analyse en cours, sur cet appareil…</p>`;
+    let img;
+    try { img = await chargerImage(dossier.photoCopie); } catch (e) { zone.innerHTML = `<p class="alerte">${esc(e.message)}</p>`; return; }
+    await new Promise((r) => setTimeout(r, 30));
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const donnees = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const calques = reglages.normes.calques;
+    const r = window.Analyse.analyser(donnees, { pentesMarge: calques ? calques.margeB : null });
+    derniereAnalyse = r;
+    if (!r.ok) { zone.innerHTML = `<p class="alerte">${esc(r.message)}</p>`; return; }
+
+    // Image annotée : feuille, bandes des lettres troncs, base des lettres, marge.
+    const f = r.feuille, t = Math.tan((r.inclinaisonPhoto * Math.PI) / 180), xc = (f.x0 + f.x1) / 2;
+    const Y = (x, y) => y + t * (x - xc);
+    ctx.lineWidth = Math.max(2, canvas.width / 500);
+    ctx.strokeStyle = "rgba(47,107,79,.9)"; ctx.strokeRect(f.x0, f.y0, f.x1 - f.x0, f.y1 - f.y0);
+    r.lignes.forEach((L) => {
+      ctx.fillStyle = L.nonPlane ? "rgba(200,85,61,.22)" : "rgba(244,188,76,.28)";
+      ctx.beginPath();
+      ctx.moveTo(L.boite.x0, Y(L.boite.x0, L.coeur.y0)); ctx.lineTo(L.boite.x1, Y(L.boite.x1, L.coeur.y0));
+      ctx.lineTo(L.boite.x1, Y(L.boite.x1, L.coeur.y1)); ctx.lineTo(L.boite.x0, Y(L.boite.x0, L.coeur.y1)); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(35,64,142,.9)";
+      L.base.forEach((p) => { ctx.beginPath(); ctx.arc(p[0], Y(p[0], p[1]), ctx.lineWidth * 1.4, 0, 7); ctx.fill(); });
+      ctx.font = `bold ${Math.round(canvas.width / 45)}px sans-serif`; ctx.fillStyle = "rgba(200,85,61,1)";
+      ctx.fillText(String(L.numero), Math.max(4, L.boite.x0 - canvas.width / 30), Y(L.boite.x0, L.coeur.y1));
+    });
+    ctx.strokeStyle = "rgba(200,85,61,.95)"; ctx.beginPath();
+    r.lignes.forEach((L, i) => { const x = L.boite.x0, y = Y(x, (L.coeur.y0 + L.coeur.y1) / 2); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.stroke();
+    const apercuAnnote = canvas.toDataURL("image/jpeg", 0.8);
+
+    const enfant = B.versionBHK(dossier) === "enfant";
+    const fmt = (v, d) => B.formaterNombre(v, d === undefined ? 1 : d);
+    const taille = Math.round(r.tailleMm * 10) / 10;
+    const nonPlanes = r.lignes.slice(0, 5).filter((L) => L.nonPlane);
+    const points1 = B.pointsTaille(taille, dossier.groupe);
+    zone.innerHTML = `<h3>Mesures proposées</h3>
+      <p class="note">Analyse faite sur cet appareil : la photo n'est envoyée nulle part. Ce sont des mesures automatiques, à vérifier avec les calques du manuel avant de les utiliser.</p>
+      ${r.avertissements.length ? `<ul class="avertissements">${r.avertissements.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+      <ul class="mesures">
+        <li><span><strong>Taille moyenne des lettres troncs :</strong> ${fmt(taille)} mm${points1 !== null && enfant ? `, soit ${points1} point${points1 > 1 ? "s" : ""} au critère 1 en ${esc(dossier.groupe)}` : ""}.</span>
+          ${enfant ? `<button type="button" class="bouton bouton-second bouton-petit" data-appliquer="taille">Utiliser pour le critère 1</button>` : ""}</li>
+        <li><span><strong>Marge :</strong> ${r.marge.deriveMm >= 0 ? "elle se décale de " + fmt(Math.abs(r.marge.deriveMm)) + " mm vers la droite" : "elle se décale de " + fmt(Math.abs(r.marge.deriveMm)) + " mm vers la gauche"} entre la première et la dernière ligne (${fmt(r.marge.degres)}°)${r.marge.points !== null ? ", soit " + r.marge.points + " point" + (r.marge.points > 1 ? "s" : "") + " au critère 2 d'après les lignes du calque B" : " ; comparez avec le calque B"}.</span>
+          ${enfant && r.marge.points !== null ? `<button type="button" class="bouton bouton-second bouton-petit" data-appliquer="marge">Utiliser pour le critère 2</button>` : ""}</li>
+        <li><span><strong>Lignes non planes (5 premières lignes) :</strong> ${nonPlanes.length ? nonPlanes.map((L) => "ligne " + L.numero + " (la base s'écarte de " + fmt(L.ondulationMm) + " mm)").join(", ") : "aucune ligne nettement non plane repérée"}.</span>
+          ${enfant && nonPlanes.length ? `<button type="button" class="bouton bouton-second bouton-petit" data-appliquer="lignes">Cocher ces lignes au critère 3</button>` : ""}</li>
+        <li><span>${r.nbLignes} lignes d'écriture repérées${Math.abs(r.inclinaisonPhoto) >= 0.5 ? ", photo redressée de " + fmt(Math.abs(r.inclinaisonPhoto)) + "°" : ""}.</span></li>
+      </ul>
+      <figure class="doc-figure analyse-figure"><img src="${apercuAnnote}" alt="Photo annotée : lignes repérées, base des lettres et marge"><figcaption>En jaune : lettres troncs repérées (en rouge si la ligne n'est pas plane) ; points bleus : base des lettres ; trait rouge : marge.</figcaption></figure>`;
+  }
+
+  function appliquerAnalyse(quoi) {
+    const r = derniereAnalyse;
+    if (!r || !r.ok) return;
+    const avant = instantane();
+    if (quoi === "taille") dossier.tailleMm = B.formaterNombre(Math.round(r.tailleMm * 10) / 10, 1);
+    if (quoi === "marge" && r.marge.points !== null) dossier.c2 = String(r.marge.points);
+    if (quoi === "lignes") {
+      const l = (dossier.lignes[3] || [0, 0, 0, 0, 0]).slice();
+      r.lignes.slice(0, 5).forEach((L, i) => { if (L.nonPlane) l[i] = 1; });
+      dossier.lignes[3] = l;
+    }
+    remplirFormulaire(); nonEnregistre = true; majTout();
+    proposerAnnulation(quoi === "taille" ? "Taille reportée au critère 1." : quoi === "marge" ? "Points reportés au critère 2." : "Lignes cochées au critère 3.", restaurerInstantane(avant));
+  }
+
+  /* ---------- Mode jour ou nuit ---------- */
+
+  const CLE_THEME = "outil-ergo:theme";
+  function themeActuel() { return document.documentElement.dataset.theme === "dark" ? "dark" : "light"; }
+  function majBoutonTheme() {
+    const b = $("#theme");
+    const nuit = themeActuel() === "dark";
+    b.textContent = nuit ? "☀️" : "🌙";
+    b.setAttribute("aria-label", nuit ? "Passer en mode jour" : "Passer en mode nuit");
+    b.title = nuit ? "Mode jour" : "Mode nuit";
+  }
+  function basculerTheme() {
+    const t = themeActuel() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem(CLE_THEME, t); } catch (e) { /* préférence non gardée */ }
+    majBoutonTheme();
+    annoncer(t === "dark" ? "Mode nuit" : "Mode jour");
   }
 
   /* ---------- Plan de suivi ---------- */
@@ -1464,11 +1674,14 @@
       ecriture: Object.keys(d.grille).length > 0 || d.auto.fait === "oui" || !!t("prise"),
       bhk: !!t("vitesse") || Object.keys(d.lignes).length > 0,
       sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui") || d.cartes.sensoriel.fait === "oui",
-      bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui",
+      bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui" || d.tdc.fait === "oui",
       "compte-rendu": d.amenagements.length > 0,
     };
+    etatEtapes = etat;
     Object.keys(etat).forEach((k) => { const b = $("#t-" + k); if (b) b.classList.toggle("rempli", etat[k]); });
+    GROUPES_ONGLETS.forEach((g) => { const b = $("#g-" + g.id); if (b) b.classList.toggle("rempli", g.panneaux.some((p) => etat[p[0]])); });
   }
+  let etatEtapes = {};
 
   /* ================= Dossier : enregistrer, ouvrir, nouveau ================= */
 
@@ -1545,13 +1758,32 @@
 
   /* ================= Onglets ================= */
 
+  // Cinq étapes ; chacune peut regrouper plusieurs pages (sous-onglets). Les réglages s'ouvrent depuis l'en-tête.
+  const GROUPES_ONGLETS = [
+    { id: "dossier", panneaux: [["dossier", "Dossier"]] },
+    { id: "entretien", panneaux: [["anamnese", "💬 Anamnèse"], ["occupations", "🌱 Autonomie et priorités"]] },
+    { id: "ecrit", panneaux: [["ecriture", "✏️ Observation"], ["bhk", "📝 BHK"]] },
+    { id: "evaluations", panneaux: [["sensoriel", "🌈 Sensoriel"], ["bilans", "🧩 Moteur et autres"]] },
+    { id: "compte-rendu", panneaux: [["compte-rendu", "Compte rendu"]] },
+  ];
+  const dernierPanneau = {};
+  function groupeDe(nom) { return GROUPES_ONGLETS.find((g) => g.panneaux.some((p) => p[0] === nom)); }
+
   function afficherOnglet(nom) {
+    const g = groupeDe(nom);
+    if (g) dernierPanneau[g.id] = nom;
     $$(".onglets [role=tab]").forEach((t) => {
-      const actif = t.id === "t-" + nom;
+      const actif = !!g && t.id === "g-" + g.id;
       t.setAttribute("aria-selected", String(actif));
-      t.tabIndex = actif ? 0 : -1;
+      t.tabIndex = actif || (!g && t.id === "g-dossier") ? 0 : -1;
       if (actif) t.scrollIntoView({ block: "nearest", inline: "nearest" });
     });
+    const sous = $("#sous-onglets");
+    if (g && g.panneaux.length > 1) {
+      sous.hidden = false;
+      sous.innerHTML = g.panneaux.map((p) => `<button type="button" id="t-${p[0]}" class="${etatEtapes[p[0]] ? "rempli" : ""}" data-aller="${p[0]}" aria-current="${p[0] === nom ? "page" : "false"}">${esc(p[1])}</button>`).join("");
+    } else { sous.hidden = true; sous.innerHTML = ""; }
+    $("#bouton-reglages").setAttribute("aria-pressed", String(nom === "reglages"));
     $$("[role=tabpanel]").forEach((p) => { p.hidden = p.id !== "p-" + nom; });
     window.scrollTo(0, 0);
     if (nom === "compte-rendu") { $$("[data-section]").forEach(ajuster); majGalerie(); }
@@ -1561,12 +1793,13 @@
   function initOnglets() {
     const onglets = $$(".onglets [role=tab]");
     onglets.forEach((t, i) => {
-      t.addEventListener("click", () => afficherOnglet(t.id.slice(2)));
+      const g = GROUPES_ONGLETS[i];
+      t.addEventListener("click", () => afficherOnglet(dernierPanneau[g.id] || g.panneaux[0][0]));
       t.addEventListener("keydown", (e) => {
         if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
         const j = (i + (e.key === "ArrowRight" ? 1 : onglets.length - 1)) % onglets.length;
         onglets[j].focus();
-        afficherOnglet(onglets[j].id.slice(2));
+        afficherOnglet(dernierPanneau[GROUPES_ONGLETS[j].id] || GROUPES_ONGLETS[j].panneaux[0][0]);
       });
     });
   }
@@ -1577,6 +1810,13 @@
     const el = e.target.closest("button");
     if (!el) return;
     if (el.dataset.aller) return afficherOnglet(el.dataset.aller);
+    if (el.dataset.faire) {
+      const id = el.dataset.docApercu !== undefined ? docApercu : el.dataset.doc;
+      if (el.dataset.faire === "apercu") return apercuDoc(id);
+      if (el.dataset.faire === "imprimer") return imprimerDoc(id);
+      if (el.dataset.faire === "word") return wordDoc(id);
+    }
+    if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
     if (el.dataset.ouvrirDossier) return ouvrirDeMesDossiers(el.dataset.ouvrirDossier);
     if (el.dataset.supprDossier) return supprimerDeMesDossiers(el.dataset.supprDossier);
     if (el.dataset.annuler !== undefined) {
@@ -1637,10 +1877,12 @@
     switch (el.dataset.action) {
       case "enregistrer": return enregistrer();
       case "nouveau": return nouveau();
-      case "word": return word();
-      case "word-ecole": return wordEcole();
-      case "apercu": return apercu();
-      case "apercu-ecole": return apercu(modeleEcole(), "Aperçu de la synthèse pour l'école");
+      case "word": return wordDoc("compte-rendu");
+      case "word-ecole": return wordDoc("ecole");
+      case "apercu": return apercuDoc("compte-rendu");
+      case "apercu-ecole": return apercuDoc("ecole");
+      case "theme": return basculerTheme();
+      case "analyser-photo": return analyserPhoto();
       case "lancer-tri": return lancerTri(el.dataset.jeu);
       case "effacer-tri": {
         const avant = instantane();
@@ -1678,7 +1920,7 @@
         return;
       }
       case "fermer-apercu": return fermerApercu();
-      case "imprimer": $("#impression").innerHTML = htmlModele(modele()); return window.print();
+      case "imprimer": return imprimerDoc("compte-rendu");
       case "copier": return copier();
       case "effacer-cotation": {
         const avant = instantane();
@@ -1710,9 +1952,9 @@
         return;
       }
       case "copie-securite": return telechargerCopie();
-      case "profil": return ouvrirChoixProfil();
-      case "word-suivi": return wordSuivi();
-      case "apercu-suivi": return apercu(modeleSuivi(), "Aperçu du plan de suivi");
+      case "profil": return ouvrirChoixProfil(false);
+      case "word-suivi": return wordDoc("suivi");
+      case "apercu-suivi": return apercuDoc("suivi");
       case "lire-eso": {
         const l = S.lireLibellesEso($("#eso-coller").value);
         const n = l.sp.length + l.p.length + l.l.length;
@@ -1796,7 +2038,6 @@
     initOnglets();
     remplirReglages();
     construireAuto();
-    if (dansClaude) $$("[data-action='imprimer']").forEach((b) => { b.hidden = true; });
 
     const brouillon = reglages.brouillon ? lireStockage(CLE_BROUILLON) : null;
     if (brouillon && brouillon.dossier) {
@@ -1811,8 +2052,11 @@
     majProfil();
     // Demande au navigateur de ne pas effacer les données de l'outil quand l'appareil manque de place.
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* rien */ }
-    if (!profilActif() && reglages.praticiens.filter((p) => p.nom.trim()).length > 1) setTimeout(ouvrirChoixProfil, 400);
-    else if (!profilActif()) { const seul = reglages.praticiens.findIndex((p) => p.nom.trim()); if (seul >= 0) ecrireStockage(CLE_PROFIL, reglages.praticiens[seul].nom); majProfil(); }
+    // Premier lancement (ou profil pas encore choisi) : on demande qui utilise l'outil, ou on propose de créer son profil.
+    let plusTard = false;
+    try { plusTard = sessionStorage.getItem("outil-ergo:profil-plus-tard") === "1"; } catch (e) { /* rien */ }
+    if (!profilActif() && !plusTard) setTimeout(() => ouvrirChoixProfil(), 500);
+    majBoutonTheme();
     // Enregistrement immédiat quand on quitte la page ou qu'on change d'application.
     const toutDeSuite = () => { clearTimeout(minuteurBrouillon); if (reglages.brouillon) { ecrireStockage(CLE_BROUILLON, { dossier: dossier, compteRendu: cr, le: new Date().toISOString() }); enregistrerDansMesDossiers(); } };
     window.addEventListener("pagehide", toutDeSuite);
@@ -1822,7 +2066,8 @@
     document.addEventListener("change", (e) => { if (!surFichier(e)) surSaisie(e); });
     document.addEventListener("click", (e) => { surClicRadio(e); surClic(e); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#apercu").hidden) fermerApercu(); });
-    window.addEventListener("beforeprint", () => { $("#impression").innerHTML = htmlModele(modele()); });
+    window.addEventListener("beforeprint", () => { $("#impression").innerHTML = htmlModele(aImprimer || modele()); });
+    window.addEventListener("afterprint", () => { aImprimer = null; });
     window.addEventListener("beforeunload", (e) => {
       if (!nonEnregistre || reglages.brouillon) return;
       e.preventDefault();

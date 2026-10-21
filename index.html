@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("outil-ergo:theme") || "light"; } catch (e) { document.documentElement.dataset.theme = "light"; }</script>
 </head>
 <body>
   <header class="entete">
@@ -32,25 +33,26 @@
       </div>
       <div class="entete-droite">
         <span class="indicateur" id="indicateur" role="status" aria-live="polite"></span>
-        <button type="button" class="profil" id="profil" data-action="profil" hidden>Choisir mon profil</button>
+        <button type="button" class="profil" id="profil" data-action="profil">Créer mon profil</button>
+        <button type="button" class="bouton-rond" id="theme" data-action="theme" aria-label="Passer en mode nuit" title="Mode jour ou nuit">🌙</button>
+        <button type="button" class="bouton-rond" id="bouton-reglages" data-aller="reglages" aria-label="Réglages" title="Réglages">⚙️</button>
       </div>
     </div>
   </header>
-  <nav class="onglets" role="tablist" aria-label="Étapes du bilan">
-    <button type="button" role="tab" id="t-dossier" aria-controls="p-dossier" aria-selected="true"><span class="onglet-icone" aria-hidden="true">📁</span>Dossier</button>
-    <button type="button" role="tab" id="t-anamnese" aria-controls="p-anamnese" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">💬</span>Anamnèse</button>
-    <button type="button" role="tab" id="t-occupations" aria-controls="p-occupations" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌱</span>Occupations</button>
-    <button type="button" role="tab" id="t-ecriture" aria-controls="p-ecriture" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">✏️</span>Écriture</button>
-    <button type="button" role="tab" id="t-bhk" aria-controls="p-bhk" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📝</span>BHK</button>
-    <button type="button" role="tab" id="t-sensoriel" aria-controls="p-sensoriel" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌈</span>Sensoriel</button>
-    <button type="button" role="tab" id="t-bilans" aria-controls="p-bilans" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🧩</span>Autres bilans</button>
-    <button type="button" role="tab" id="t-compte-rendu" aria-controls="p-compte-rendu" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📄</span>Compte rendu</button>
-    <button type="button" role="tab" id="t-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">⚙️</span>Réglages</button>
-  </nav>
+  <div class="barre-onglets">
+    <nav class="onglets" role="tablist" aria-label="Étapes du bilan">
+      <button type="button" role="tab" id="g-dossier" aria-selected="true"><span class="onglet-icone" aria-hidden="true">📁</span>Dossier</button>
+      <button type="button" role="tab" id="g-entretien" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">💬</span>Entretien</button>
+      <button type="button" role="tab" id="g-ecrit" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">✏️</span>Écriture</button>
+      <button type="button" role="tab" id="g-evaluations" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌈</span>Bilans</button>
+      <button type="button" role="tab" id="g-compte-rendu" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📄</span>Compte rendu</button>
+    </nav>
+    <nav class="sous-onglets" id="sous-onglets" aria-label="Parties de l'étape" hidden></nav>
+  </div>
 
   <main>
     <!-- ============ Dossier ============ -->
-    <section id="p-dossier" role="tabpanel" aria-labelledby="t-dossier" class="panneau">
+    <section id="p-dossier" role="tabpanel" aria-label="Dossier" class="panneau">
       <section class="carte carte-dossiers" aria-labelledby="h-mes-dossiers">
         <div class="carte-tete">
           <h2 id="h-mes-dossiers">Mes dossiers <span class="discret" id="nb-dossiers"></span></h2>
@@ -153,7 +155,7 @@
     </section>
 
     <!-- ============ Anamnèse ============ -->
-    <section id="p-anamnese" role="tabpanel" aria-labelledby="t-anamnese" class="panneau" hidden>
+    <section id="p-anamnese" role="tabpanel" aria-label="Anamnèse" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -199,7 +201,7 @@
     </section>
 
     <!-- ============ Occupations ============ -->
-    <section id="p-occupations" role="tabpanel" aria-labelledby="t-occupations" class="panneau" hidden>
+    <section id="p-occupations" role="tabpanel" aria-label="Autonomie et priorités" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -213,7 +215,7 @@
     </section>
 
     <!-- ============ Écriture ============ -->
-    <section id="p-ecriture" role="tabpanel" aria-labelledby="t-ecriture" class="panneau" hidden>
+    <section id="p-ecriture" role="tabpanel" aria-label="Observation de l'écriture" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -248,7 +250,7 @@
     </section>
 
     <!-- ============ BHK ============ -->
-    <section id="p-bhk" role="tabpanel" aria-labelledby="t-bhk" class="panneau" hidden>
+    <section id="p-bhk" role="tabpanel" aria-label="BHK" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -325,13 +327,15 @@
 
       <fieldset class="groupe">
         <legend>Photo de la copie</legend>
-        <p class="note">Elle apparaît dans le compte rendu Word, sous les résultats du BHK.</p>
+        <p class="note">Elle apparaît dans le compte rendu Word, sous les résultats du BHK. L'outil peut aussi la mesurer pour vous proposer certains critères : photographiez la feuille entière, bien à plat, de face, avec une bonne lumière.</p>
         <div class="barre-actions">
           <label class="bouton bouton-second">📷 Ajouter une photo
             <input type="file" accept="image/*" capture="environment" data-action="photo" class="masque"></label>
           <button type="button" class="bouton-lien" data-action="retirer-photo" hidden>Retirer la photo</button>
         </div>
         <img id="apercu-photo" class="apercu-photo" alt="Photo de la copie du BHK" hidden>
+        <div class="barre-actions"><button type="button" class="bouton bouton-second" data-action="analyser-photo" hidden>🔍 Analyser la photo (sur cet appareil)</button></div>
+        <div class="analyse-photo" id="analyse-photo" hidden></div>
       </fieldset>
 
       <section class="resultats" aria-labelledby="h-resultats">
@@ -365,7 +369,7 @@
     </section>
 
     <!-- ============ Sensoriel ============ -->
-    <section id="p-sensoriel" role="tabpanel" aria-labelledby="t-sensoriel" class="panneau" hidden>
+    <section id="p-sensoriel" role="tabpanel" aria-label="Bilan sensoriel" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -380,7 +384,7 @@
     </section>
 
     <!-- ============ Autres bilans ============ -->
-    <section id="p-bilans" role="tabpanel" aria-labelledby="t-bilans" class="panneau" hidden>
+    <section id="p-bilans" role="tabpanel" aria-label="Bilans moteurs et autres" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -395,7 +399,7 @@
     </section>
 
     <!-- ============ Compte rendu ============ -->
-    <section id="p-compte-rendu" role="tabpanel" aria-labelledby="t-compte-rendu" class="panneau" hidden>
+    <section id="p-compte-rendu" role="tabpanel" aria-label="Compte rendu" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
@@ -404,21 +408,37 @@
           <li>Téléchargez le compte rendu Word. La synthèse pour l'école et le plan de suivi (pour vous) se téléchargent aussi ici.</li>
         </ol>
       </details>
-      <div class="carte carte-exports">
-        <div class="barre-actions">
-          <button type="button" class="bouton" data-action="word">⬇ Compte rendu (Word)</button>
-          <button type="button" class="bouton bouton-second" data-action="apercu">Aperçu</button>
-          <button type="button" class="bouton bouton-second" data-action="imprimer">Imprimer ou PDF</button>
-          <button type="button" class="bouton-lien" data-action="copier">Copier le texte</button>
-        </div>
-        <div class="barre-actions">
-          <button type="button" class="bouton bouton-second" data-action="word-ecole">⬇ Synthèse pour l'école</button>
-          <button type="button" class="bouton-lien" data-action="apercu-ecole">Aperçu de la synthèse</button>
-          <button type="button" class="bouton bouton-second" data-action="word-suivi">⬇ Plan de suivi (pour vous)</button>
-          <button type="button" class="bouton-lien" data-action="apercu-suivi">Aperçu du plan</button>
+      <section class="documents" aria-labelledby="h-documents">
+        <h2 id="h-documents">Les documents</h2>
+        <div class="documents-grille">
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">📄</span>
+            <h3>Compte rendu de bilan</h3>
+            <p>Pour la famille et le médecin.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="compte-rendu" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🏫</span>
+            <h3>Synthèse pour l'école</h3>
+            <p>Pour l'équipe éducative, sans informations familiales.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="ecole" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🗂️</span>
+            <h3>Plan de suivi</h3>
+            <p>Pour vous : analyse détaillée, axes de travail, calendrier, exercices.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="suivi" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🌱</span>
+            <h3>Carnet d'activités</h3>
+            <p>Pour les parents : activités à la maison et tableau de la semaine.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="livret" data-faire="word">Word</button></div>
+          </article>
         </div>
         <p class="note" id="a-completer"></p>
-      </div>
+        <button type="button" class="bouton-lien" data-action="copier">Copier le texte du compte rendu</button>
+      </section>
 
       <fieldset class="groupe">
         <legend>Diagnostic ergothérapique</legend>
@@ -462,8 +482,8 @@
         <div class="champ"><span>Axes de travail (proposés d'après le bilan)</span><div id="axes-suivi"></div></div>
         <label class="champ"><span>Notes pour le suivi</span><textarea data-chemin="suivi.notes" rows="2" placeholder="Prévoir un échange avec l'enseignante avant les vacances"></textarea></label>
         <div class="barre-actions">
-          <button type="button" class="bouton" data-action="word-suivi">⬇ Plan de suivi (Word)</button>
-          <button type="button" class="bouton-lien" data-action="apercu-suivi">Aperçu du plan</button>
+          <button type="button" class="bouton bouton-second" data-doc="suivi" data-faire="apercu">Aperçu du plan</button>
+          <button type="button" class="bouton bouton-second" data-doc="livret" data-faire="apercu">Aperçu du carnet pour les parents</button>
         </div>
       </fieldset>
 
@@ -481,7 +501,7 @@
     </section>
 
     <!-- ============ Réglages ============ -->
-    <section id="p-reglages" role="tabpanel" aria-labelledby="t-reglages" class="panneau" hidden>
+    <section id="p-reglages" role="tabpanel" aria-label="Réglages" class="panneau" hidden>
       <p class="note">Les réglages restent dans ce navigateur. Exportez-les pour les installer sur un autre appareil.</p>
       <fieldset class="groupe">
         <legend>Cabinet (en-tête du compte rendu)</legend>
@@ -556,7 +576,11 @@
   <div class="apercu" id="apercu" hidden>
     <div class="apercu-barre">
       <h2>Aperçu du compte rendu</h2>
-      <button type="button" class="bouton bouton-second" data-action="fermer-apercu">Fermer</button>
+      <div class="apercu-actions">
+        <button type="button" class="bouton bouton-second bouton-petit" data-faire="imprimer" data-doc-apercu>Imprimer</button>
+        <button type="button" class="bouton bouton-petit" data-faire="word" data-doc-apercu>Word</button>
+        <button type="button" class="bouton bouton-second bouton-petit" data-action="fermer-apercu">Fermer</button>
+      </div>
     </div>
     <div class="apercu-page doc" id="apercu-page"></div>
   </div>
@@ -571,6 +595,7 @@
   <script src="js/bhk.js"></script>
   <script src="js/suivi.js"></script>
   <script src="js/docx.js"></script>
+  <script src="js/analyse.js"></script>
   <script src="js/tri.js"></script>
   <script src="js/app.js"></script>
 </body>
