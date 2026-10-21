@@ -93,7 +93,10 @@ h3 { font-size: 1.05rem; margin: 1rem 0 .4rem; }
   max-width: 1000px; margin: 0 auto;
   padding: calc(14px + env(safe-area-inset-top, 0px)) var(--gouttiere-d) 46px var(--gouttiere-g);
 }
-.marque { display: flex; align-items: center; gap: 12px; }
+.marque { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; border-radius: 16px; padding: 4px 8px 4px 4px; margin: -4px 0 -4px -4px; cursor: pointer; transition: background .15s; }
+.marque:hover { background: color-mix(in srgb, var(--papier) 55%, transparent); }
+.marque:focus-visible { outline: 3px solid var(--encre); outline-offset: 2px; }
+#h-mes-dossiers:focus { outline: none; }
 .logo { width: 46px; height: 46px; flex: 0 0 auto; }
 .logo circle { fill: var(--papier); stroke: var(--encre); stroke-width: 2; }
 .logo .logo-tige { stroke: var(--encre); stroke-width: 3; stroke-linecap: round; fill: none; }

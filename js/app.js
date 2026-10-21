@@ -2330,6 +2330,14 @@
     if (nom === "seances") rendreAgenda();
   }
 
+  function allerAccueil() {
+    if (!$("#apercu").hidden) fermerApercu();
+    afficherOnglet("dossier");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const titre = $("#h-mes-dossiers");
+    if (titre) { titre.setAttribute("tabindex", "-1"); titre.focus({ preventScroll: true }); }
+  }
+
   function initOnglets() {
     const onglets = $$(".onglets [role=tab]");
     onglets.forEach((t, i) => {
@@ -2656,7 +2664,11 @@
     });
     document.addEventListener("input", surSaisie);
     document.addEventListener("change", (e) => { if (!surFichier(e)) surSaisie(e); });
-    document.addEventListener("click", (e) => { surClicRadio(e); surClic(e); });
+    document.addEventListener("click", (e) => {
+      // Logo et nom de l'outil : retour à l'accueil (Mes dossiers), d'où que l'on soit.
+      if (e.target.closest && e.target.closest("[data-accueil]")) { e.preventDefault(); allerAccueil(); return; }
+      surClicRadio(e); surClic(e);
+    });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#apercu").hidden) fermerApercu(); });
     window.addEventListener("beforeprint", () => { $("#impression").innerHTML = htmlModele(aImprimer || modele()); });
     window.addEventListener("afterprint", () => { aImprimer = null; });
