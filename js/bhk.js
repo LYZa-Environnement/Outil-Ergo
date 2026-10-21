@@ -412,6 +412,7 @@
       autoNom: "Questionnaire d'auto-appréciation de l'écriture",
       autoQuestions: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
       cartesPerso: [],
+      esoLibelles: { sp: [], p: [], l: [] },
       normes: normesVides(),
     };
   }
@@ -437,6 +438,9 @@
     if (typeof r.autoNom === "string" && r.autoNom.trim()) out.autoNom = r.autoNom;
     if (Array.isArray(r.autoQuestions) && r.autoQuestions.length) out.autoQuestions = r.autoQuestions.slice(0, 40).map(texte);
     out.cartesPerso = Occup.normaliserCartesPerso(r.cartesPerso);
+    if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
+      if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
+    });
     if (r.normes) out.normes = normaliserNormes(r.normes);
     return out;
   }
@@ -460,6 +464,7 @@
     "conclusionContexte", "conclusionPoints", "conclusionForces", "diagImpact", "envObstacles", "envFacilitateurs", "objectifsLibre",
     "dispositif", "amenagementsLibre", "reeducation", "reeducationObjet", "reevaluation", "precoLibre",
     "photoCopie", "photoL", "photoH", "adoQualite", "adoTermine",
+    "id", "creeLe", "auteur",
   ];
   const CHAMPS_LISTE = ["bilansUtilises", "remarques", "amenagements", "occDifficultes"];
 
@@ -486,6 +491,7 @@
     d.auto = { fait: "", reponses: {}, notes: "" };
     Object.assign(d, Occup.vide());
     d.precedent = null;
+    d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
     return d;
   }
 
@@ -509,6 +515,10 @@
     d.senso = Senso.normaliser(src.senso);
     Object.assign(d, Occup.normaliser(src));
     d.precedent = normaliserPrecedent(src.precedent);
+    if (src.suivi && typeof src.suivi === "object") {
+      ["debut", "frequence", "nombre", "duree", "notes"].forEach((k) => { if (src.suivi[k] !== undefined && src.suivi[k] !== null) d.suivi[k] = texte(src.suivi[k]); });
+      if (Array.isArray(src.suivi.exclus)) d.suivi.exclus = src.suivi.exclus.map(texte).slice(0, 20);
+    }
     if (src.manip && typeof src.manip === "object") {
       d.manip.fait = src.manip.fait ? "oui" : "";
       d.manip.notes = texte(src.manip.notes);
@@ -801,7 +811,7 @@
     { id: "vitesse", titre: "Vitesse d'écriture", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "otipis", titre: "Observations cliniques (OTIPIS)", niveau: 3, groupes: ["sensoriel"], graphiques: ["otipis"] },
     { id: "dunn", titre: "Profil sensoriel 2 de Dunn", niveau: 3, groupes: ["sensoriel"], graphiques: ["dunn-enfant", "dunn-scolaire"] },
-    { id: "eso", titre: "Engagement sensori-occupationnel (ESO)", niveau: 3, groupes: ["sensoriel"], graphiques: ["eso-roues", "eso-systemes"] },
+    { id: "eso", titre: "Engagement sensori-occupationnel (ESO)", niveau: 3, groupes: ["sensoriel"], graphiques: ["eso-roues", "eso-systemes", "eso-items"] },
     { id: "sensot", titre: "SensOT-dir", niveau: 3, groupes: ["sensoriel"] },
     { id: "cartesSensoriel", titre: "Tri de cartes : situations sensorielles", niveau: 3, groupes: ["sensoriel"] },
     { id: "complementaires", titre: "Bilans complémentaires", niveau: 2 },
@@ -824,8 +834,17 @@
     "dunn-scolaire": "Profil sensoriel 2 de Dunn, compagnon scolaire",
     "eso-roues": "Profil ESO par domaine d'occupation",
     "eso-systemes": "Systèmes sensoriels (ESO)",
+    "eso-items": "ESO : réponses détaillées",
+    "profil-ds": "Profil des résultats en déviations standard",
+    "bhk-criteres": "Score de chaque critère du BHK",
+    mcro: "MCRO : rendement et satisfaction",
+    dcdq: "DCDQ : scores par facteur",
+    evolution: "Évolution des résultats depuis le bilan précédent",
   };
-  const LARGEURS_GRAPHIQUES = { otipis: 14, "dunn-enfant": 14, "dunn-scolaire": 14, "eso-roues": 16.5, "eso-systemes": 14 };
+  const LARGEURS_GRAPHIQUES = {
+    otipis: 14, "dunn-enfant": 14, "dunn-scolaire": 14, "eso-roues": 16.5, "eso-systemes": 14, "eso-items": 16,
+    "profil-ds": 16, "bhk-criteres": 15, mcro: 15, dcdq: 14, evolution: 15,
+  };
 
   // Le volet écriture est-il commencé ? (sinon ses sections restent vides dans un bilan seulement sensoriel)
   function ecritureCommencee(d) {
@@ -1415,6 +1434,43 @@
     return out;
   }
 
+  /* ================= Données des graphiques ================= */
+
+  function donneesGraphiques(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const r = calculerBHK(d, reg);
+    const seuils = { patho: reg.seuilPatho, inferieur: reg.seuilInferieur, superieur: reg.seuilSuperieur };
+    const g = {};
+    // Profil des résultats : toutes les mesures en DS (la qualité du BHK dans le sens « plus haut = mieux »).
+    const lignes = [];
+    if (r.complet && r.perfQ !== null) lignes.push({ bilan: r.nomTest, epreuve: "Qualité", ds: r.perfQ, niveau: r.niveauQ });
+    if (r.dsV !== null) lignes.push({ bilan: r.nomTest, epreuve: "Vitesse", ds: r.dsV, niveau: r.niveauV });
+    calculerTests(d, reg).filter((t) => t.fait).forEach((t) => t.lignes.filter((l) => l.ds !== null).forEach((l) => lignes.push({ bilan: t.court, epreuve: l.epreuve, ds: l.ds, niveau: l.niveau })));
+    g["profil-ds"] = lignes.length >= 2 ? { lignes: lignes, seuils: seuils } : null;
+    g["bhk-criteres"] = r.complet ? {
+      titre: "Score de chaque critère (" + r.nomTest + ")",
+      criteres: r.liste.map((c, i) => ({ id: String(c.id), nom: c.nom, score: r.scores[i] || 0, ds: r.criteres[i].ds, niveau: r.criteres[i].niveau })),
+    } : null;
+    const m = Occup.calculMcro(d.mcro);
+    g.mcro = d.mcro.fait === "oui" && m.problemes.some((p) => p.r1 !== null || p.s1 !== null) ? { problemes: m.problemes, reeval: m.reeval } : null;
+    const q = Occup.calculDcdq(d.dcdq, ageMois(d));
+    g.dcdq = d.dcdq.fait === "oui" && q.complet ? { facteurs: q.facteurs, total: q.total, seuil: q.bande ? q.bande.seuil : null, indication: q.indication } : null;
+    const e = evolution(d, reg);
+    if (e && d.precedent) {
+      const avant = {};
+      d.precedent.mesures.forEach((x) => { avant[x.cle] = x; });
+      const ls = mesures(d, reg).filter((x) => x.perf !== null && avant[x.cle] && avant[x.cle].perf !== null)
+        .map((x) => ({ bilan: x.bilan, epreuve: x.epreuve, avant: avant[x.cle].perf, apres: x.perf }));
+      g.evolution = ls.length ? { lignes: ls, seuils: seuils, date: dateCourte(e.passation) } : null;
+    } else g.evolution = null;
+    return g;
+  }
+
+  function blocGraphique(g, id) {
+    return g[id] ? [{ type: "graphique", id: id, donnees: g[id], alt: TITRES_GRAPHIQUES[id], largeurCm: LARGEURS_GRAPHIQUES[id] }] : [];
+  }
+
   /* ================= Modèle du document ================= */
 
   // Découpe une ligne en segments : libellé en gras avant « : », passages entre crochets surlignés.
@@ -1462,6 +1518,7 @@
     const gen = rediger(d, reg);
     const tx = (id) => (textes && typeof textes[id] === "string" ? textes[id] : gen[id]);
     const blocs = [];
+    const g = donneesGraphiques(d, reg);
 
     blocs.push({ type: "titre", texte: "Compte rendu de bilan en ergothérapie" });
 
@@ -1478,7 +1535,11 @@
 
     const emis = {};
     SECTIONS.forEach((s) => {
-      if (s.recap) blocs.push.apply(blocs, blocsRecap(r, tests, reg, d));
+      if (s.recap) {
+        const recap = blocsRecap(r, tests, reg, d);
+        blocs.push.apply(blocs, recap);
+        if (recap.length) blocs.push.apply(blocs, blocGraphique(g, "profil-ds"));
+      }
       const t = tx(s.id);
       if (!texte(t).trim()) return;
       (s.groupes || []).forEach((g) => {
@@ -1497,9 +1558,11 @@
             .concat(ECHELLE_AUTO.map((e, k) => cellule(d.auto.reponses[n] === k ? "X" : "", { align: "center", gras: true }))) }))) });
         }
       }
+      if (s.id === "bhk") blocs.push.apply(blocs, blocGraphique(g, "bhk-criteres"));
+      if (s.id === "complementaires") blocs.push.apply(blocs, blocGraphique(g, "dcdq"));
       if (s.id === "bhk" && d.photoCopie) blocs.push({ type: "photo", donnees: d.photoCopie, l: nombre(d.photoL), h: nombre(d.photoH), alt: "Copie du BHK", largeurCm: 15 });
-      if (s.id === "mcro") blocs.push.apply(blocs, blocsMcro(d));
-      if (s.id === "evolution") blocs.push.apply(blocs, blocsEvolution(d, reg));
+      if (s.id === "mcro") blocs.push.apply(blocs, blocsMcro(d).concat(blocGraphique(g, "mcro")));
+      if (s.id === "evolution") blocs.push.apply(blocs, blocsEvolution(d, reg).concat(blocGraphique(g, "evolution")));
       (s.graphiques || []).forEach((id) => {
         if (Senso.aDesDonnees(d.senso, id)) blocs.push({ type: "graphique", id: id, alt: TITRES_GRAPHIQUES[id], largeurCm: LARGEURS_GRAPHIQUES[id] });
       });
@@ -1640,5 +1703,6 @@
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
+    donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
   };
 });

@@ -374,3 +374,72 @@ test("synthèse pour l'école : sans données familiales, avec aménagements", (
   const zip = D.construire(m);
   assert.equal(zip[0], 0x50);
 });
+
+/* ---------- ESO détaillé, graphiques, plan de suivi ---------- */
+
+const S = require("../js/sensoriel.js");
+const U = require("../js/suivi.js");
+
+test("ESO : lecture des libellés collés (texte fictif) et réponses détaillées", () => {
+  const bloc = (titre, n) => [titre].concat(Array.from({ length: n }, (_, i) => (i + 1) + " Question fictive " + titre.charAt(0) + (i + 1) + "   0 1 2 3 4 5 6 7 8 9 10")).join("\n");
+  const t = ["Titre du questionnaire", bloc("SOINS PERSONNELS", 36), "Mention de bas de page", bloc("TRAVAIL SCOLAIRE", 36), bloc("LOISIRS", 36)].join("\n");
+  const l = S.lireLibellesEso(t);
+  assert.deepEqual([l.sp.length, l.p.length, l.l.length], [36, 36, 36]);
+  assert.equal(l.sp[0], "Question fictive S1");
+  assert.equal(l.l[35], "Question fictive L36");
+  // Numéro seul sur sa ligne (autre format de copie)
+  const l2 = S.lireLibellesEso("SOINS PERSONNELS\n1\nPremière question\n0\n1 2 3 4 5 6 7 8 9 10\n2\nDeuxième question\n");
+  assert.deepEqual(l2.sp, ["Première question", "Deuxième question"]);
+  const e = S.normaliser({ eso: { fait: "oui", items: { sp: { 1: "9", 2: 1, 3: "12", 40: 5 } } } }).eso;
+  assert.deepEqual(e.items.sp, { 1: 9, 2: 1 });
+  const items = S.itemsEso(e, { sp: ["A", "B"] });
+  assert.equal(items[0].n, 2);
+  assert.equal(items[0].moyenne, 5);
+  assert.equal(items[0].forts[0].libelle, "A");
+  assert.ok(S.aDesDonnees(S.normaliser({ eso: e }), "eso-items"));
+  assert.match(S.rediger(S.normaliser({ eso: e }), B.accords({ prenom: "Léa", sexe: "F" })).eso, /soins personnels 2\/36 réponses \(moyenne 5,0\/10\)/);
+});
+
+test("graphiques du compte rendu : données préparées", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.tests.dtvp3.fait = "oui";
+  d.tests.dtvp3.lignes[0].type = "ns";
+  d.tests.dtvp3.lignes[0].valeur = "4";
+  const g = B.donneesGraphiques(d, reg);
+  assert.equal(g["profil-ds"].lignes.length, 3);
+  assert.equal(g["bhk-criteres"].criteres.length, 13);
+  assert.equal(g.mcro, null);
+  const m = B.modeleDocument(d, reg);
+  const ids = m.blocs.filter((b) => b.type === "graphique").map((b) => b.id);
+  assert.ok(ids.indexOf("profil-ds") >= 0 && ids.indexOf("bhk-criteres") >= 0);
+});
+
+test("plan de suivi : axes justifiés, calendrier toutes les deux semaines, document", () => {
+  const reg = reglagesTest();
+  const d = dossierTest({ reevaluation: "6 mois", objectifsLibre: "Écrire plus lisiblement", avq: { "habillage-lacets": "aide-partielle" } });
+  const p = U.planning(d, reg);
+  assert.equal(p.parametres.frequence, 14);
+  assert.equal(p.parametres.debut, "2026-11-03");
+  assert.equal(p.seances.length, 13);
+  assert.equal(p.seances[1].date, "2026-11-17");
+  assert.equal(p.seances[0].phase, "Lancement");
+  assert.equal(p.seances[12].phase, "Réévaluation");
+  assert.ok(p.seances.some((s) => s.phase === "Point d'étape"));
+  const axes = p.axes.map((a) => a.id);
+  assert.ok(axes.indexOf("vitesse") >= 0 && axes.indexOf("autonomie") >= 0);
+  // Réglages du plan : chaque semaine, 6 séances, un axe retiré
+  d.suivi = { debut: "2026-11-02", frequence: "7", nombre: "6", duree: "60", exclus: ["autonomie"], notes: "" };
+  const p2 = U.planning(d, reg);
+  assert.equal(p2.seances.length, 6);
+  assert.equal(p2.seances[5].date, "2026-12-07");
+  assert.ok(p2.axes.every((a) => a.id !== "autonomie"));
+  const m = U.modeleSuivi(d, reg);
+  const tout = JSON.stringify(m);
+  assert.match(tout, /Plan de suivi en ergothérapie/);
+  assert.match(tout, /Exercices à faire à la maison/);
+  assert.match(tout, /échelles d'atteinte \(GAS\)/);
+  assert.equal(D.construire(m)[0], 0x50);
+  // Champs du plan gardés dans le dossier
+  assert.equal(B.normaliserDossier(JSON.parse(JSON.stringify(d))).suivi.frequence, "7");
+});

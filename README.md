@@ -9,11 +9,12 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 ## Utilisation
 
 1. Ouvrir `index.html` dans un navigateur (ordinateur, tablette ou téléphone).
-2. **Réglages**, une seule fois par appareil :
+2. Au premier lancement, chaque praticien choisit son profil : ses bilans sont signés à son nom.
+3. **Réglages**, une seule fois par appareil :
    - importer le fichier de normes du BHK (`normes-bhk-enfant.json`, fourni à part, voir plus bas) ;
    - renseigner le cabinet et les praticiens (en-tête, pied de page et signature du compte rendu) ;
    - exporter les réglages pour les réinstaller sur un autre appareil.
-3. Remplir les onglets dans l'ordre :
+4. Remplir les onglets dans l'ordre (un ✓ vert marque les onglets remplis ; chaque onglet a un encadré « Comment faire ? ») :
 
 | Onglet | Contenu |
 | --- | --- |
@@ -24,7 +25,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 | BHK | BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie. Normes (classe ou âge, selon le sexe ou ensemble ; pour l'ado, classe ou tous niveaux), cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie, résultats, observations pendant la copie, douleur (EVA) |
 | Sensoriel | Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire), synthèse ESO (roues et systèmes sensoriels), résultats du SensOT-dir, tri de cartes « Ce que je ressens » |
 | Autres bilans | Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC : scores saisis selon leur type, DS et appréciation calculées ; manipulations dans la main (Exner et Benbow) ; DCDQ (facteurs, total, seuil selon l'âge) |
-| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, texte modifiable section par section, téléchargement Word avec graphiques, aperçu ; synthèse courte pour l'école (second Word) |
+| Compte rendu | Diagnostic ergothérapique (constats personne, environnement, occupations), objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, téléchargement Word, aperçu ; synthèse courte pour l'école ; plan de suivi pour l'ergothérapeute |
 
 ### Diagnostic et préconisations
 
@@ -44,9 +45,24 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
 
+### Plan de suivi (document interne)
+
+Un troisième document Word, réservé à l'ergothérapeute : analyse approfondie du bilan (résultats classés du plus fragile au plus solide, détail du BHK, OTIPIS, réponses de l'ESO, occupations, hypothèses de travail), axes de travail justifiés par les résultats, exercices en séance avec leur progression, échelles d'atteinte des objectifs (GAS), calendrier des séances (toutes les deux semaines par défaut, jusqu'à la réévaluation) et exercices à faire à la maison. Les exercices sont des pistes générales à adapter.
+
+### Graphiques
+
+Le compte rendu présente les profils en graphiques : profil des résultats en déviations standard, score de chaque critère du BHK, MCRO, DCDQ, évolution depuis le bilan précédent, OTIPIS, Profil sensoriel 2, ESO (roues, systèmes, réponses détaillées). Ils sont visibles dans l'onglet Compte rendu et insérés dans le Word.
+
+### Ne rien perdre
+
+- Chaque dossier s'enregistre tout seul dans le navigateur, à chaque modification (« Mes dossiers », onglet Dossier) ; un nouveau dossier ne remplace jamais le précédent.
+- La **copie de sécurité** télécharge tous les dossiers (et les réglages) dans un seul fichier, à ranger ou à transférer sur un autre appareil ; un rappel s'affiche après une semaine sans copie.
+- Effacer une cotation, un tri, une photo ou un dossier peut s'annuler pendant quelques secondes (bouton « Annuler »).
+- Le navigateur est prié de ne pas effacer les données de l'outil quand l'appareil manque de place.
+
 ### Questionnaires protégés
 
-Les questions et cartes du Profil sensoriel 2, de l'ESO, du SensOT-dir, de l'OT'Hope, du DCDQ et des questionnaires d'auto-évaluation ne sont pas reproduites. L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
+Les questions et cartes du Profil sensoriel 2, de l'ESO, du SensOT-dir, de l'OT'Hope, du DCDQ et des questionnaires d'auto-évaluation ne sont pas reproduites. Pour l'ESO, les réponses se saisissent par numéro de question (0 à 10) ; l'ergothérapeute peut coller le texte de son propre exemplaire dans les réglages pour l'afficher à côté des réponses (il reste dans son navigateur). L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
 
 4. **Enregistrer le dossier** télécharge un fichier `.json` qu'on rouvre avec **Ouvrir un dossier**. Un brouillon du dossier en cours reste aussi dans le navigateur jusqu'à « Nouveau dossier » (désactivable dans les réglages, à faire sur un ordinateur partagé).
 
@@ -82,6 +98,8 @@ Les normes du BHK viennent du manuel édité par les Éditions et Applications P
 }
 ```
 
+Une version du cabinet peut aussi intégrer l'en-tête et les praticiens (variable `window.REGLAGES_INTEGRES`, avec `cabinet` et `praticiens`), utilisés tant que les réglages n'en contiennent pas.
+
 Une clé `ado` donne les normes du BHK ado : `ado.vitesse.classe` et `ado.qualite.classe` (de `6e` à `3e`), et `ado.qualite.global` pour la norme de qualité tous niveaux.
 
 Chaque valeur est `[moyenne, écart-type]` ; `F` filles, `M` garçons, `E` ensemble. Les nombres ci-dessus sont fictifs. Une clé facultative `criteres` donne, pour chaque critère de 1 à 13 et chaque classe, les normes du critère : elle sert au DS par critère.
@@ -101,7 +119,8 @@ index.html        page
 css/style.css     mise en forme (cahier Seyès, thème sombre)
 js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
-js/graphiques.js  profils en SVG (OTIPIS, Dunn 2, ESO)
+js/suivi.js       plan de suivi : axes de travail, exercices, calendrier, GAS
+js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document
 js/docx.js        génération du .docx (texte, tableaux, images)
 js/tri.js         écran de tri de cartes pour l'enfant

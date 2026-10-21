@@ -5,51 +5,96 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Outil Ergo</title>
   <meta name="claude:viewport-fit-sides" content="cover">
-  <meta name="description" content="Saisie, cotation du BHK enfant et rédaction du compte rendu de bilan en ergothérapie">
+  <meta name="description" content="Bilans en ergothérapie pédiatrique : occupations, écriture (BHK), bilan sensoriel, comptes rendus Word et plan de suivi">
   <meta name="color-scheme" content="light dark">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Playwrite+FR+Moderne:wght@300;400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fredoka:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="entete">
-    <div class="cahier">
-      <h1>Outil Ergo</h1>
-      <p class="sous-titre">Bilan en ergothérapie : occupations, écriture, BHK, bilan sensoriel et compte rendu</p>
+    <svg class="paysage" viewBox="0 0 1200 170" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+      <circle class="soleil" cx="1040" cy="58" r="34"/>
+      <g class="rayons"><path d="M1040 8v12M1040 96v12M990 58h12M1078 58h12M1005 23l8 8M1067 85l8 8M1075 23l-8 8M1013 85l-8 8"/></g>
+      <path class="nuage" d="M150 52a18 18 0 0 1 34-6 14 14 0 0 1 20 13H140a12 12 0 0 1 10-7z"/>
+      <path class="nuage" d="M760 34a14 14 0 0 1 27-4 11 11 0 0 1 16 10h-51a10 10 0 0 1 8-6z"/>
+      <path class="colline-3" d="M0 120C140 80 260 96 380 112S640 70 820 92s260 30 380 6V170H0z"/>
+      <path class="colline-2" d="M0 138c160-34 300-20 450 4s330-30 500-14 190 18 250 10V170H0z"/>
+      <path class="colline-1" d="M0 156c200-18 380-12 600 0s420-6 600-10V170H0z"/>
+      <g class="pousse" transform="translate(640 120)"><path d="M0 22V2"/><path class="feuille" d="M0 8C-10 6-15-2-14-8-5-8 0-2 0 8z"/><path class="feuille" d="M0 4C9 3 14-5 13-11 5-11 0-5 0 4z"/></g>
+      <g class="pousse" transform="translate(1160 118) scale(.8)"><path d="M0 26V2"/><path class="feuille" d="M0 10C-11 8-16-1-15-8-6-8 0-2 0 10z"/><path class="feuille" d="M0 5C10 4 15-5 14-12 5-12 0-6 0 5z"/></g>
+    </svg>
+    <div class="entete-contenu">
+      <div class="marque">
+        <svg class="logo" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="23"/><path class="logo-tige" d="M24 38V22"/><path class="logo-feuille" d="M24 26c-9-1-13-8-12-14 8 0 12 6 12 14z"/><path class="logo-feuille-2" d="M24 22c7-1 11-7 10-12-7 0-10 5-10 12z"/></svg>
+        <div><h1>Outil Ergo</h1><p class="sous-titre">Bilans en ergothérapie pour les enfants</p></div>
+      </div>
+      <div class="entete-droite">
+        <span class="indicateur" id="indicateur" role="status" aria-live="polite"></span>
+        <button type="button" class="profil" id="profil" data-action="profil" hidden>Choisir mon profil</button>
+      </div>
     </div>
   </header>
   <nav class="onglets" role="tablist" aria-label="Étapes du bilan">
-      <button type="button" role="tab" id="t-dossier" aria-controls="p-dossier" aria-selected="true">Dossier</button>
-      <button type="button" role="tab" id="t-anamnese" aria-controls="p-anamnese" aria-selected="false" tabindex="-1">Anamnèse</button>
-      <button type="button" role="tab" id="t-occupations" aria-controls="p-occupations" aria-selected="false" tabindex="-1">Occupations</button>
-      <button type="button" role="tab" id="t-ecriture" aria-controls="p-ecriture" aria-selected="false" tabindex="-1">Écriture</button>
-      <button type="button" role="tab" id="t-bhk" aria-controls="p-bhk" aria-selected="false" tabindex="-1">BHK</button>
-      <button type="button" role="tab" id="t-sensoriel" aria-controls="p-sensoriel" aria-selected="false" tabindex="-1">Sensoriel</button>
-      <button type="button" role="tab" id="t-bilans" aria-controls="p-bilans" aria-selected="false" tabindex="-1">Autres bilans</button>
-      <button type="button" role="tab" id="t-compte-rendu" aria-controls="p-compte-rendu" aria-selected="false" tabindex="-1">Compte rendu</button>
-      <button type="button" role="tab" id="t-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1">Réglages</button>
+    <button type="button" role="tab" id="t-dossier" aria-controls="p-dossier" aria-selected="true"><span class="onglet-icone" aria-hidden="true">📁</span>Dossier</button>
+    <button type="button" role="tab" id="t-anamnese" aria-controls="p-anamnese" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">💬</span>Anamnèse</button>
+    <button type="button" role="tab" id="t-occupations" aria-controls="p-occupations" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌱</span>Occupations</button>
+    <button type="button" role="tab" id="t-ecriture" aria-controls="p-ecriture" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">✏️</span>Écriture</button>
+    <button type="button" role="tab" id="t-bhk" aria-controls="p-bhk" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📝</span>BHK</button>
+    <button type="button" role="tab" id="t-sensoriel" aria-controls="p-sensoriel" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🌈</span>Sensoriel</button>
+    <button type="button" role="tab" id="t-bilans" aria-controls="p-bilans" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">🧩</span>Autres bilans</button>
+    <button type="button" role="tab" id="t-compte-rendu" aria-controls="p-compte-rendu" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📄</span>Compte rendu</button>
+    <button type="button" role="tab" id="t-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">⚙️</span>Réglages</button>
   </nav>
 
   <main>
     <!-- ============ Dossier ============ -->
     <section id="p-dossier" role="tabpanel" aria-labelledby="t-dossier" class="panneau">
-      <div class="barre-actions">
-        <button type="button" class="bouton" data-action="enregistrer">Enregistrer le dossier</button>
-        <label class="bouton bouton-second">Ouvrir un dossier
-          <input type="file" accept=".json,application/json" data-action="ouvrir" class="masque"></label>
-        <button type="button" class="bouton-lien" data-action="nouveau">Nouveau dossier</button>
-      </div>
-      <p class="note" id="note-brouillon">Rien n'est envoyé en ligne. Enregistrez le dossier sur votre appareil pour le reprendre plus tard.</p>
+      <section class="carte carte-dossiers" aria-labelledby="h-mes-dossiers">
+        <div class="carte-tete">
+          <h2 id="h-mes-dossiers">Mes dossiers <span class="discret" id="nb-dossiers"></span></h2>
+          <button type="button" class="bouton" data-action="nouveau">＋ Nouveau dossier</button>
+        </div>
+        <label class="recherche"><span class="lecteur">Chercher un dossier</span><input type="search" id="filtre-dossiers" placeholder="Chercher un enfant (prénom, nom ou classe)" autocomplete="off"></label>
+        <div id="mes-dossiers"></div>
+        <div class="rappel" id="rappel-copie" hidden>
+          <span class="rappel-icone" aria-hidden="true">💾</span>
+          <span><strong>Pensez à votre copie de sécurité.</strong> <span id="date-copie"></span> Elle garde tous vos dossiers dans un fichier, à ranger dans vos documents : utile si l'appareil est changé, perdu ou nettoyé.</span>
+          <button type="button" class="bouton bouton-petit" data-action="copie-securite">Télécharger</button>
+        </div>
+        <details class="plus-options">
+          <summary>Copies de sécurité et fichiers</summary>
+          <p class="note" id="note-brouillon"></p>
+          <div class="barre-actions">
+            <button type="button" class="bouton bouton-second" data-action="copie-securite">Copie de sécurité de tous les dossiers</button>
+            <label class="bouton bouton-second">Restaurer une copie
+              <input type="file" accept=".json,application/json" data-action="restaurer" class="masque"></label>
+            <button type="button" class="bouton bouton-second" data-action="enregistrer">Télécharger ce dossier</button>
+            <label class="bouton bouton-second">Ouvrir un fichier de dossier
+              <input type="file" accept=".json,application/json" data-action="ouvrir" class="masque"></label>
+          </div>
+        </details>
+      </section>
+
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Écrivez le prénom de l'enfant : le dossier s'enregistre tout seul sur cet appareil, à chaque modification (voir « ✓ Enregistré » en haut).</li>
+          <li>Remplissez ce que vous savez ; le reste peut attendre. Les textes gris dans les cases sont des exemples.</li>
+          <li>Passez d'un onglet à l'autre avec les boutons en bas de page. Un ✓ vert apparaît sur les onglets déjà remplis.</li>
+          <li>Pour reprendre un dossier, touchez « Ouvrir » dans Mes dossiers.</li>
+        </ol>
+      </details>
 
       <fieldset class="groupe">
         <legend>Enfant</legend>
         <div class="grille2">
-          <label class="champ"><span>Prénom</span><input type="text" data-champ="prenom" autocomplete="off"></label>
-          <label class="champ"><span>Nom</span><input type="text" data-champ="nom" autocomplete="off"></label>
+          <label class="champ"><span>Prénom</span><input type="text" data-champ="prenom" autocomplete="off" placeholder="Léa"></label>
+          <label class="champ"><span>Nom</span><input type="text" data-champ="nom" autocomplete="off" placeholder="Martin"></label>
         </div>
         <div class="champ">
-          <span id="l-sexe">Sexe (accords et normes)</span>
+          <span id="l-sexe">Fille ou garçon (pour les accords et les normes)</span>
           <div class="choix" role="radiogroup" aria-labelledby="l-sexe">
             <label><input type="radio" name="sexe" value="F" data-champ="sexe"><span>Fille</span></label>
             <label><input type="radio" name="sexe" value="M" data-champ="sexe"><span>Garçon</span></label>
@@ -61,16 +106,16 @@
         </div>
         <p class="calcule">Âge au bilan : <output id="age"></output></p>
         <div class="grille2">
-          <label class="champ"><span>Parents</span><textarea data-champ="parents" rows="2" placeholder="Un nom par ligne"></textarea></label>
-          <label class="champ"><span>Adresse</span><textarea data-champ="adresse" rows="2"></textarea></label>
+          <label class="champ"><span>Parents</span><textarea data-champ="parents" rows="2" placeholder="Mme Martin Claire&#10;M. Martin Paul"></textarea></label>
+          <label class="champ"><span>Adresse</span><textarea data-champ="adresse" rows="2" placeholder="12 rue des Lilas&#10;50200 Coutances"></textarea></label>
         </div>
       </fieldset>
 
       <fieldset class="groupe">
         <legend>Prescription et scolarité</legend>
-        <label class="champ"><span>Médecin prescripteur</span><input type="text" data-champ="prescripteur"></label>
+        <label class="champ"><span>Médecin prescripteur</span><input type="text" data-champ="prescripteur" placeholder="Dr Durand, médecin traitant"></label>
         <div class="grille2">
-          <label class="champ"><span>Établissement scolaire</span><input type="text" data-champ="etablissement"></label>
+          <label class="champ"><span>Établissement scolaire</span><input type="text" data-champ="etablissement" placeholder="École Jules Ferry, Coutances"></label>
           <label class="champ"><span>Classe</span>
             <select data-champ="groupe">
               <option value="">Choisir…</option>
@@ -83,7 +128,7 @@
 
       <fieldset class="groupe">
         <legend>Demande</legend>
-        <label class="champ"><span>Motif du bilan</span><textarea data-champ="motif" rows="3" placeholder="Bilan en ergothérapie pour difficultés graphiques (lisibilité, lenteur)"></textarea></label>
+        <label class="champ"><span>Motif du bilan</span><textarea data-champ="motif" rows="3" placeholder="Bilan en ergothérapie pour des difficultés d'écriture (lisibilité, lenteur) signalées par l'enseignante"></textarea></label>
         <label class="champ"><span>Orienté par</span><input type="text" data-champ="orientation" placeholder="l'enseignante, le médecin scolaire…"></label>
       </fieldset>
 
@@ -91,11 +136,12 @@
         <legend>Bilans utilisés</legend>
         <p class="note">Le BHK, la grille d'observation et les autres bilans réalisés s'ajoutent d'eux-mêmes à la liste.</p>
         <div class="cases" id="bilans-courants"></div>
-        <label class="champ"><span>Autres bilans (un par ligne)</span><textarea data-champ="bilansLibre" rows="2"></textarea></label>
+        <label class="champ"><span>Autres bilans (un par ligne)</span><textarea data-champ="bilansLibre" rows="2" placeholder="Figure de Rey&#10;Bilan orthoptique (compte rendu du 12/09)"></textarea></label>
       </fieldset>
+
       <fieldset class="groupe">
         <legend>Réévaluation</legend>
-        <p class="note">Pour une réévaluation, chargez le dossier du bilan précédent : le compte rendu compare les résultats (tableau d'évolution). Si ce dossier est vide, l'identité et l'anamnèse sont reprises, ainsi que les activités de la MCRO.</p>
+        <p class="note">Pour un deuxième bilan du même enfant : choisissez le fichier du bilan précédent. Le compte rendu comparera les résultats (tableau et graphique d'évolution). Si ce dossier est encore vide, l'identité, l'anamnèse et les activités de la MCRO sont reprises.</p>
         <div class="barre-actions">
           <label class="bouton bouton-second">Charger le bilan précédent
             <input type="file" accept=".json,application/json" data-action="precedent" class="masque"></label>
@@ -103,58 +149,78 @@
         </div>
         <p class="calcule" id="etat-precedent" aria-live="polite"></p>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="anamnese">Passer à l'anamnèse</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="anamnese">Suivant : anamnèse →</button></div>
     </section>
 
     <!-- ============ Anamnèse ============ -->
     <section id="p-anamnese" role="tabpanel" aria-labelledby="t-anamnese" class="panneau" hidden>
-      <p class="note">Laissez un champ vide pour écrire « RAS » dans le compte rendu.</p>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Notez ce que racontent les parents, avec leurs mots. Les textes gris sont des exemples.</li>
+          <li>Une case laissée vide devient « RAS » dans le compte rendu.</li>
+          <li>La grille d'autonomie de l'onglet Occupations complète la partie « À la maison ».</li>
+        </ol>
+      </details>
       <fieldset class="groupe">
         <legend>Développement</legend>
-        <label class="champ"><span>Trajectoire développementale</span><input type="text" data-champ="devTrajectoire" placeholder="RAS"></label>
-        <label class="champ"><span>Acquisitions motrices</span><input type="text" data-champ="devMoteur" placeholder="RAS"></label>
-        <label class="champ"><span>Développement du langage</span><input type="text" data-champ="devLangage" placeholder="RAS"></label>
+        <label class="champ"><span>Trajectoire développementale</span><input type="text" data-champ="devTrajectoire" placeholder="Grossesse et naissance sans particularité"></label>
+        <label class="champ"><span>Acquisitions motrices</span><input type="text" data-champ="devMoteur" placeholder="Marche à 14 mois, vélo sans roulettes à 7 ans"></label>
+        <label class="champ"><span>Développement du langage</span><input type="text" data-champ="devLangage" placeholder="Premiers mots vers 18 mois ; suivi orthophonique en CP"></label>
       </fieldset>
       <fieldset class="groupe">
         <legend>Environnement</legend>
-        <label class="champ"><span>Familial</span><textarea data-champ="envFamilial" rows="2"></textarea></label>
-        <label class="champ"><span>Accompagnements et suivis</span><textarea data-champ="envSuivis" rows="2" placeholder="Orthophonie, psychomotricité… (vide : « aucun »)"></textarea></label>
-        <label class="champ"><span>Parcours scolaire</span><textarea data-champ="envParcours" rows="2"></textarea></label>
+        <label class="champ"><span>Familial</span><textarea data-champ="envFamilial" rows="2" placeholder="Vit avec ses parents et sa petite sœur de 4 ans"></textarea></label>
+        <label class="champ"><span>Accompagnements et suivis</span><textarea data-champ="envSuivis" rows="2" placeholder="Orthophonie depuis 2024, psychomotricité… (vide : « aucun »)"></textarea></label>
+        <label class="champ"><span>Parcours scolaire</span><textarea data-champ="envParcours" rows="2" placeholder="Maternelle sans difficulté ; lenteur signalée dès le CP"></textarea></label>
       </fieldset>
       <fieldset class="groupe">
         <legend>À la maison</legend>
         <p class="note">La grille d'autonomie (onglet <button type="button" class="bouton-lien" data-aller="occupations">Occupations</button>) complète ces lignes dans le compte rendu.</p>
         <div class="grille2">
-          <label class="champ"><span>Sommeil</span><input type="text" data-champ="occSommeil" placeholder="RAS"></label>
-          <label class="champ"><span>Habillage</span><input type="text" data-champ="occHabillage" placeholder="RAS"></label>
-          <label class="champ"><span>Alimentation</span><input type="text" data-champ="occAlimentation" placeholder="RAS"></label>
-          <label class="champ"><span>Soins d'hygiène</span><input type="text" data-champ="occHygiene" placeholder="RAS"></label>
-          <label class="champ"><span>Loisirs</span><input type="text" data-champ="occLoisirs" placeholder="RAS"></label>
-          <label class="champ"><span>Déplacements</span><input type="text" data-champ="occDeplacements" placeholder="RAS"></label>
+          <label class="champ"><span>Sommeil</span><input type="text" data-champ="occSommeil" placeholder="Endormissement long, réveils la nuit"></label>
+          <label class="champ"><span>Habillage</span><input type="text" data-champ="occHabillage" placeholder="Lent le matin, aide pour les boutons"></label>
+          <label class="champ"><span>Alimentation</span><input type="text" data-champ="occAlimentation" placeholder="Mange seul, refuse certaines textures"></label>
+          <label class="champ"><span>Soins d'hygiène</span><input type="text" data-champ="occHygiene" placeholder="Douche avec un peu d'aide"></label>
+          <label class="champ"><span>Loisirs</span><input type="text" data-champ="occLoisirs" placeholder="Football, jeux de construction, dessin"></label>
+          <label class="champ"><span>Déplacements</span><input type="text" data-champ="occDeplacements" placeholder="Vélo sans roulettes depuis cet été"></label>
         </div>
         <label class="case"><input type="checkbox" data-champ="occIndependant"><span>Indépendant pour l'ensemble des activités quotidiennes</span></label>
-        <label class="champ"><span>Synthèse</span><textarea data-champ="occSynthese" rows="2"></textarea></label>
+        <label class="champ"><span>Synthèse</span><textarea data-champ="occSynthese" rows="2" placeholder="Les parents décrivent un enfant volontaire mais vite fatigué"></textarea></label>
       </fieldset>
       <fieldset class="groupe">
         <legend>À l'école</legend>
-        <label class="champ"><span>Aménagements en place</span><input type="text" data-champ="ecoleAmenagements" placeholder="aucun"></label>
-        <label class="champ"><span>Environnement humain</span><input type="text" data-champ="ecoleHumain" placeholder="AESH, aide en classe… (vide : RAS)"></label>
-        <label class="champ"><span>Environnement de la classe</span><input type="text" data-champ="ecoleClasse" placeholder="place en classe, tableau… (vide : RAS)"></label>
-        <label class="champ"><span>Productions réalisées en classe</span><textarea data-champ="ecoleProductions" rows="2" placeholder="Ce que montrent les cahiers"></textarea></label>
+        <label class="champ"><span>Aménagements en place</span><input type="text" data-champ="ecoleAmenagements" placeholder="aucun (ou : photocopies des leçons, tiers-temps…)"></label>
+        <label class="champ"><span>Environnement humain</span><input type="text" data-champ="ecoleHumain" placeholder="AESH 6 h par semaine, aide en classe… (vide : RAS)"></label>
+        <label class="champ"><span>Environnement de la classe</span><input type="text" data-champ="ecoleClasse" placeholder="Assis au 1er rang, près de la fenêtre… (vide : RAS)"></label>
+        <label class="champ"><span>Productions réalisées en classe</span><textarea data-champ="ecoleProductions" rows="2" placeholder="Cahiers peu soignés, leçons souvent incomplètes"></textarea></label>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="occupations">Passer aux occupations</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="occupations">Suivant : occupations →</button></div>
     </section>
 
     <!-- ============ Occupations ============ -->
     <section id="p-occupations" role="tabpanel" aria-labelledby="t-occupations" class="panneau" hidden>
-      <p class="note">Autonomie au quotidien, priorités de l'enfant et de sa famille. Touchez une réponse pour la choisir, touchez-la à nouveau pour l'effacer.</p>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Grille d'autonomie : avec les parents, touchez le niveau qui correspond à chaque activité. Touchez-le à nouveau pour l'effacer.</li>
+          <li>MCRO et OT'Hope : cochez le bilan pour ouvrir sa saisie.</li>
+          <li>Tri de cartes : cochez-le, touchez « Lancer le tri », puis tendez la tablette à l'enfant. Il range les cartes lui-même ; touchez ✕ pour arrêter.</li>
+        </ol>
+      </details>
       <div id="occupation"></div>
-      <div class="suite"><button type="button" class="bouton" data-aller="ecriture">Passer à l'observation de l'écriture</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="ecriture">Suivant : écriture →</button></div>
     </section>
 
     <!-- ============ Écriture ============ -->
     <section id="p-ecriture" role="tabpanel" aria-labelledby="t-ecriture" class="panneau" hidden>
-      <p class="note">Touchez une réponse pour la choisir, touchez-la à nouveau pour l'effacer. Seuls les éléments renseignés apparaissent dans le compte rendu.</p>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Touchez une réponse pour la choisir, touchez-la à nouveau pour l'effacer.</li>
+          <li>Seuls les éléments renseignés apparaissent dans le compte rendu : inutile de tout remplir.</li>
+        </ol>
+      </details>
       <div id="auto"></div>
       <fieldset class="groupe">
         <legend>Main et prise du crayon</legend>
@@ -174,15 +240,24 @@
       <fieldset class="groupe">
         <legend>Motivation et environnement</legend>
         <label class="champ"><span>Motivation liée à la tâche écrite</span><input type="text" data-champ="motivation" placeholder="volontaire, évite l'écrit…"></label>
-        <label class="champ"><span>Position de la feuille</span><input type="text" data-champ="envFeuille"></label>
+        <label class="champ"><span>Position de la feuille</span><input type="text" data-champ="envFeuille" placeholder="droite face à lui, sans inclinaison"></label>
         <label class="champ"><span>Outil scripteur</span><input type="text" data-champ="envOutil" placeholder="stylo bille, crayon à papier…"></label>
-        <label class="champ"><span>Lumière, bruit et installation</span><input type="text" data-champ="envLieu"></label>
+        <label class="champ"><span>Lumière, bruit et installation</span><input type="text" data-champ="envLieu" placeholder="bonne lumière, pièce calme, pieds non posés au sol"></label>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="bhk">Passer à la cotation du BHK</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="bhk">Suivant : BHK →</button></div>
     </section>
 
     <!-- ============ BHK ============ -->
     <section id="p-bhk" role="tabpanel" aria-labelledby="t-bhk" class="panneau" hidden>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Vérifiez la classe dans l'onglet Dossier : l'outil choisit le BHK enfant (CP à CM2) ou ado (6e à 3e).</li>
+          <li>Pour chaque critère, cochez les lignes où le défaut apparaît (calques du manuel). En cas de doute, ne cochez pas.</li>
+          <li>Écrivez le nombre de caractères écrits en 5 minutes : les résultats se calculent tout seuls.</li>
+          <li>Vous pouvez photographier la copie : elle sera ajoutée au compte rendu.</li>
+        </ol>
+      </details>
       <fieldset class="groupe">
         <legend>Normes de référence</legend>
         <div id="ref-enfant">
@@ -219,15 +294,15 @@
         <div id="cotation-enfant">
         <p class="note">Critères 1 et 2 : sur tout le texte. Critères 3 à 13 : une case par ligne, sur les cinq premières lignes. En cas de doute, ne cochez pas (sauf critère 9).</p>
         <div class="critere-global">
-          <div class="critere-tete"><span class="num">1</span><span class="intitule"><span class="nom">Écriture grande</span><span class="aide">Taille moyenne des lettres troncs (calque I, aide C)</span></span></div>
+          <div class="critere-tete"><span class="num">1</span><span class="intitule"><span class="nom">Écriture grande</span><span class="aide-critere">Taille moyenne des lettres troncs (calque I, aide C)</span></span></div>
           <div class="grille2">
-            <label class="champ"><span>Taille moyenne (mm)</span><input type="text" inputmode="decimal" data-champ="tailleMm" placeholder="5"></label>
+            <label class="champ"><span>Taille moyenne (mm)</span><input type="text" inputmode="decimal" data-champ="tailleMm" placeholder="ex. 4,5"></label>
             <label class="champ"><span>Points</span>
               <select data-champ="c1" id="c1"></select></label>
           </div>
         </div>
         <div class="critere-global">
-          <div class="critere-tete"><span class="num">2</span><span class="intitule"><span class="nom">Inclinaison de la marge vers la droite</span><span class="aide">Numéro de la ligne du calque atteinte par la dernière phrase (aide B)</span></span></div>
+          <div class="critere-tete"><span class="num">2</span><span class="intitule"><span class="nom">Inclinaison de la marge vers la droite</span><span class="aide-critere">Numéro de la ligne du calque atteinte par la dernière phrase (aide B)</span></span></div>
           <div class="choix echelons" role="radiogroup" aria-label="Points du critère 2" id="c2"></div>
         </div>
         <div id="criteres"></div>
@@ -244,7 +319,7 @@
       <fieldset class="groupe">
         <legend>Vitesse</legend>
         <label class="champ champ-court"><span>Caractères écrits en 5 minutes</span>
-          <input type="number" inputmode="numeric" min="0" step="1" data-champ="vitesse"></label>
+          <input type="number" inputmode="numeric" min="0" step="1" data-champ="vitesse" placeholder="ex. 160"></label>
         <p class="note">Mots, ponctuations et apostrophes ; « j' » compte pour deux caractères.</p>
       </fieldset>
 
@@ -252,7 +327,7 @@
         <legend>Photo de la copie</legend>
         <p class="note">Elle apparaît dans le compte rendu Word, sous les résultats du BHK.</p>
         <div class="barre-actions">
-          <label class="bouton bouton-second">Ajouter une photo
+          <label class="bouton bouton-second">📷 Ajouter une photo
             <input type="file" accept="image/*" capture="environment" data-action="photo" class="masque"></label>
           <button type="button" class="bouton-lien" data-action="retirer-photo" hidden>Retirer la photo</button>
         </div>
@@ -278,48 +353,72 @@
           </div>
         </div>
         <div class="grille2">
-          <label class="champ"><span>Douleur après l'épreuve (EVA sur 10)</span><input type="number" inputmode="numeric" min="0" max="10" step="1" data-champ="douleurEva"></label>
+          <label class="champ"><span>Douleur après l'épreuve (EVA sur 10)</span><input type="number" inputmode="numeric" min="0" max="10" step="1" data-champ="douleurEva" placeholder="0 à 10"></label>
           <label class="champ"><span>Précision sur la douleur</span><input type="text" data-champ="douleurDetail" placeholder="à la main, crampe…"></label>
         </div>
-        <label class="champ champ-court"><span>Fautes d'orthographe et corrections (5 premières lignes)</span><input type="number" inputmode="numeric" min="0" step="1" data-champ="fautes"></label>
+        <label class="champ champ-court"><span>Fautes d'orthographe et corrections (5 premières lignes)</span><input type="number" inputmode="numeric" min="0" step="1" data-champ="fautes" placeholder="ex. 3"></label>
         <div class="champ"><span>Remarques non cotées</span><div class="cases" id="remarques"></div></div>
-        <label class="champ"><span>Autres observations sur le BHK</span><textarea data-champ="bhkNotes" rows="2"></textarea></label>
+        <label class="champ"><span>Autres observations sur le BHK</span><textarea data-champ="bhkNotes" rows="2" placeholder="Se fatigue en fin d'épreuve, secoue la main"></textarea></label>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Passer au bilan sensoriel</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Suivant : sensoriel →</button></div>
       <div class="recap" id="recap" aria-live="polite"></div>
     </section>
 
-
     <!-- ============ Sensoriel ============ -->
     <section id="p-sensoriel" role="tabpanel" aria-labelledby="t-sensoriel" class="panneau" hidden>
-      <p class="note">Cochez chaque bilan réalisé. Les questionnaires protégés (Profil sensoriel 2, ESO, SensOT-dir) se saisissent avec les scores, classifications et résultats de leurs feuilles de cotation.</p>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Cochez chaque bilan réalisé pour ouvrir sa saisie.</li>
+          <li>Les questionnaires (Profil sensoriel 2, ESO, SensOT-dir) se saisissent avec les scores et classifications de leurs feuilles de cotation.</li>
+          <li>Les graphiques des profils se dessinent au fur et à mesure et sont repris dans le compte rendu.</li>
+        </ol>
+      </details>
       <div id="sensoriel"></div>
       <div id="cartes-sensoriel"></div>
-      <div class="suite"><button type="button" class="bouton" data-aller="bilans">Passer aux autres bilans</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="bilans">Suivant : autres bilans →</button></div>
     </section>
 
     <!-- ============ Autres bilans ============ -->
     <section id="p-bilans" role="tabpanel" aria-labelledby="t-bilans" class="panneau" hidden>
-      <p class="note">Cochez les bilans réalisés et saisissez les scores donnés par leurs manuels. La déviation standard et l'appréciation se calculent selon le type de score.</p>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Cochez les bilans réalisés et saisissez les scores donnés par leurs manuels.</li>
+          <li>Choisissez le type de score (déviation standard, note standard, percentile…) : l'appréciation se calcule seule.</li>
+        </ol>
+      </details>
       <div id="tests"></div>
       <div id="manip"></div>
       <div id="dcdq"></div>
-      <div class="suite"><button type="button" class="bouton" data-aller="compte-rendu">Voir le compte rendu</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="compte-rendu">Suivant : compte rendu →</button></div>
     </section>
 
     <!-- ============ Compte rendu ============ -->
     <section id="p-compte-rendu" role="tabpanel" aria-labelledby="t-compte-rendu" class="panneau" hidden>
-      <div class="barre-actions">
-        <button type="button" class="bouton" data-action="word">Télécharger le Word</button>
-        <button type="button" class="bouton bouton-second" data-action="apercu">Aperçu</button>
-        <button type="button" class="bouton bouton-second" data-action="imprimer">Imprimer ou PDF</button>
-        <button type="button" class="bouton-lien" data-action="copier">Copier le texte</button>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Cochez les occupations en difficulté, puis les préconisations : celles que l'outil propose d'après les résultats sont en tête, avec leur raison.</li>
+          <li>Relisez le texte plus bas : les passages [entre crochets] sont à compléter.</li>
+          <li>Téléchargez le compte rendu Word. La synthèse pour l'école et le plan de suivi (pour vous) se téléchargent aussi ici.</li>
+        </ol>
+      </details>
+      <div class="carte carte-exports">
+        <div class="barre-actions">
+          <button type="button" class="bouton" data-action="word">⬇ Compte rendu (Word)</button>
+          <button type="button" class="bouton bouton-second" data-action="apercu">Aperçu</button>
+          <button type="button" class="bouton bouton-second" data-action="imprimer">Imprimer ou PDF</button>
+          <button type="button" class="bouton-lien" data-action="copier">Copier le texte</button>
+        </div>
+        <div class="barre-actions">
+          <button type="button" class="bouton bouton-second" data-action="word-ecole">⬇ Synthèse pour l'école</button>
+          <button type="button" class="bouton-lien" data-action="apercu-ecole">Aperçu de la synthèse</button>
+          <button type="button" class="bouton bouton-second" data-action="word-suivi">⬇ Plan de suivi (pour vous)</button>
+          <button type="button" class="bouton-lien" data-action="apercu-suivi">Aperçu du plan</button>
+        </div>
+        <p class="note" id="a-completer"></p>
       </div>
-      <div class="barre-actions">
-        <button type="button" class="bouton bouton-second" data-action="word-ecole">Synthèse pour l'école (Word)</button>
-        <button type="button" class="bouton-lien" data-action="apercu-ecole">Aperçu de la synthèse</button>
-      </div>
-      <p class="note" id="a-completer"></p>
 
       <fieldset class="groupe">
         <legend>Diagnostic ergothérapique</legend>
@@ -330,23 +429,47 @@
           <label class="champ"><span>Facilitateurs dans l'environnement</span><textarea data-champ="envFacilitateurs" rows="2" placeholder="enseignante attentive, parents disponibles…"></textarea></label>
         </div>
         <label class="champ"><span>Contexte (après la présentation de l'enfant)</span><textarea data-champ="conclusionContexte" rows="2" placeholder="Difficultés présentes depuis le CP, sans aménagement jusqu'ici…"></textarea></label>
-        <label class="champ"><span>Autres constats (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2"></textarea></label>
+        <label class="champ"><span>Autres constats (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2" placeholder="fatigabilité importante en fin de journée"></textarea></label>
         <label class="champ"><span>Points d'appui</span><input type="text" data-champ="conclusionForces" placeholder="volontaire, bonne compréhension des consignes…"></label>
       </fieldset>
 
       <fieldset class="groupe">
         <legend>Objectifs et préconisations</legend>
-        <label class="champ"><span>Objectifs d'intervention (un par ligne)</span><textarea data-champ="objectifsLibre" rows="2" placeholder="Améliorer la lisibilité de l'écriture en classe…"></textarea></label>
-        <p class="note">L'outil propose en premier, dans chaque rubrique, les préconisations justifiées par les résultats saisis. Cochez celles que vous retenez : le compte rendu indique le constat qui les justifie.</p>
+        <label class="champ"><span>Objectifs d'intervention (un par ligne)</span><textarea data-champ="objectifsLibre" rows="2" placeholder="Améliorer la lisibilité de l'écriture en classe&#10;Faire ses lacets seul"></textarea></label>
+        <p class="note">L'outil propose en premier, dans chaque rubrique, les préconisations justifiées par les résultats saisis (bordure verte). Cochez celles que vous retenez : le compte rendu indique le constat qui les justifie.</p>
         <div id="preconisations"></div>
         <label class="champ champ-court"><span>Dispositif scolaire</span>
           <select data-champ="dispositif"><option value="">Non précisé</option><option>PAP</option><option>PPRE</option><option>PPS</option></select></label>
-        <label class="champ"><span>Autres aménagements scolaires (un par ligne)</span><textarea data-champ="amenagementsLibre" rows="2"></textarea></label>
-        <label class="champ"><span>Modalités de l'accompagnement</span><input type="text" data-champ="reeducationObjet" placeholder="1 séance par semaine pendant 6 mois"></label>
+        <label class="champ"><span>Autres aménagements scolaires (un par ligne)</span><textarea data-champ="amenagementsLibre" rows="2" placeholder="Leçons photocopiées&#10;Cahier à grands carreaux"></textarea></label>
+        <label class="champ"><span>Modalités de l'accompagnement</span><input type="text" data-champ="reeducationObjet" placeholder="1 séance toutes les deux semaines pendant 6 mois"></label>
         <label class="champ champ-court"><span>Réévaluation</span>
           <select data-champ="reevaluation"><option value="">Non précisée</option><option value="3 mois">Dans 3 mois</option><option value="6 mois">Dans 6 mois</option><option value="un an">Dans un an</option></select></label>
-        <label class="champ"><span>Autres préconisations (une par ligne)</span><textarea data-champ="precoLibre" rows="2"></textarea></label>
+        <label class="champ"><span>Autres préconisations (une par ligne)</span><textarea data-champ="precoLibre" rows="2" placeholder="Bilan orthoptique conseillé"></textarea></label>
       </fieldset>
+
+      <fieldset class="groupe" id="bloc-suivi">
+        <legend>Plan de suivi (document pour vous)</legend>
+        <p class="note">Le plan de suivi reprend une analyse détaillée du bilan, les axes de travail justifiés, des exercices pour les séances et pour la maison, les échelles d'objectifs (GAS) et le calendrier des séances.</p>
+        <div class="grille2">
+          <label class="champ"><span>Première séance</span><input type="date" data-chemin="suivi.debut"></label>
+          <label class="champ"><span>Fréquence</span>
+            <select data-chemin="suivi.frequence"><option value="7">Chaque semaine</option><option value="14">Toutes les deux semaines</option><option value="21">Toutes les trois semaines</option><option value="28">Toutes les quatre semaines</option></select></label>
+          <label class="champ"><span>Nombre de séances</span><input type="text" inputmode="numeric" data-chemin="suivi.nombre" placeholder="vide : jusqu'à la réévaluation"></label>
+          <label class="champ"><span>Durée d'une séance</span>
+            <select data-chemin="suivi.duree"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 heure</option></select></label>
+        </div>
+        <p class="calcule" id="resume-suivi" aria-live="polite"></p>
+        <div class="champ"><span>Axes de travail (proposés d'après le bilan)</span><div id="axes-suivi"></div></div>
+        <label class="champ"><span>Notes pour le suivi</span><textarea data-chemin="suivi.notes" rows="2" placeholder="Prévoir un échange avec l'enseignante avant les vacances"></textarea></label>
+        <div class="barre-actions">
+          <button type="button" class="bouton" data-action="word-suivi">⬇ Plan de suivi (Word)</button>
+          <button type="button" class="bouton-lien" data-action="apercu-suivi">Aperçu du plan</button>
+        </div>
+      </fieldset>
+
+      <h2>Graphiques du compte rendu</h2>
+      <p class="note">Ils sont ajoutés au Word, chacun à sa place.</p>
+      <div class="galerie" id="galerie"></div>
 
       <h2>Texte du compte rendu</h2>
       <p class="note">Le texte suit la saisie. Une section modifiée à la main ne suit plus la saisie, sauf si vous la rétablissez. Les passages entre crochets sont surlignés dans le Word.</p>
@@ -362,11 +485,12 @@
       <p class="note">Les réglages restent dans ce navigateur. Exportez-les pour les installer sur un autre appareil.</p>
       <fieldset class="groupe">
         <legend>Cabinet (en-tête du compte rendu)</legend>
-        <label class="champ"><span>Nom du cabinet</span><input type="text" data-reg="cabinet.nom"></label>
-        <label class="champ"><span>Adresse</span><textarea data-reg="cabinet.adresse" rows="3"></textarea></label>
+        <label class="champ"><span>Nom du cabinet</span><input type="text" data-reg="cabinet.nom" placeholder="Cabinet d'ergothérapie"></label>
+        <label class="champ"><span>Adresse</span><textarea data-reg="cabinet.adresse" rows="3" placeholder="11 rue des Écoles&#10;50200 Coutances"></textarea></label>
       </fieldset>
       <fieldset class="groupe">
         <legend>Praticiens</legend>
+        <p class="note">Chaque praticien peut choisir son profil (en haut de la page) : ses bilans sont signés à son nom.</p>
         <div id="praticiens"></div>
         <button type="button" class="bouton bouton-second" data-action="ajouter-praticien">Ajouter un praticien</button>
       </fieldset>
@@ -386,6 +510,16 @@
         <div id="questions-auto"></div>
       </fieldset>
       <fieldset class="groupe">
+        <legend>Questionnaire ESO : texte des questions</legend>
+        <p class="note">L'outil ne contient pas le texte du questionnaire (reproduction interdite par son éditeur). Pour l'afficher à côté de chaque réponse, copiez-le depuis votre propre exemplaire : ouvrez le PDF, sélectionnez tout (Ctrl + A, ou Cmd + A sur Mac), copiez, puis collez ci-dessous. Il reste uniquement dans ce navigateur.</p>
+        <label class="champ"><span>Texte copié du questionnaire</span><textarea id="eso-coller" rows="3" placeholder="Collez ici tout le texte du questionnaire, titres compris (SOINS PERSONNELS, TRAVAIL SCOLAIRE, LOISIRS)"></textarea></label>
+        <div class="barre-actions">
+          <button type="button" class="bouton bouton-second" data-action="lire-eso">Lire les questions</button>
+          <button type="button" class="bouton-lien" data-action="effacer-eso" hidden>Effacer le texte enregistré</button>
+        </div>
+        <p class="calcule" id="etat-eso-libelles"></p>
+      </fieldset>
+      <fieldset class="groupe">
         <legend>Tri de cartes : cartes personnelles</legend>
         <p class="note">Ajoutez vos propres cartes (une activité, une situation), avec une photo si vous le souhaitez. Elles s'ajoutent aux cartes de l'outil pour tous les enfants et restent dans ce navigateur.</p>
         <div id="cartes-perso"></div>
@@ -394,7 +528,7 @@
           <label class="champ"><span>Texte de la carte (lu par l'enfant)</span><input type="text" id="carte-texte" maxlength="80" placeholder="Jouer du piano"></label>
         </div>
         <div class="barre-actions">
-          <label class="bouton bouton-second">Photo (facultative)
+          <label class="bouton bouton-second">📷 Photo (facultative)
             <input type="file" accept="image/*" data-action="photo-carte" class="masque"></label>
           <span class="note" id="carte-photo-etat"></span>
           <button type="button" class="bouton" data-action="ajouter-carte">Ajouter la carte</button>
@@ -409,7 +543,7 @@
       </fieldset>
       <fieldset class="groupe">
         <legend>Sur cet appareil</legend>
-        <label class="case"><input type="checkbox" data-reg-bool="brouillon"><span>Garder un brouillon du dossier en cours dans ce navigateur (à désactiver sur un ordinateur partagé)</span></label>
+        <label class="case"><input type="checkbox" data-reg-bool="brouillon"><span>Enregistrer automatiquement les dossiers dans ce navigateur (à désactiver seulement sur un ordinateur partagé)</span></label>
         <div class="barre-actions">
           <button type="button" class="bouton bouton-second" data-action="exporter-reglages">Exporter les réglages</button>
           <label class="bouton bouton-second">Importer des réglages
@@ -427,6 +561,7 @@
     <div class="apercu-page doc" id="apercu-page"></div>
   </div>
 
+  <div class="annulation" id="annulation" role="status" hidden><span class="annulation-texte"></span><button type="button" class="bouton bouton-petit" data-annuler>Annuler</button></div>
   <div class="statut" id="statut" role="status" aria-live="polite"></div>
   <div class="impression doc" id="impression"></div>
 
@@ -434,6 +569,7 @@
   <script src="js/graphiques.js"></script>
   <script src="js/occupation.js"></script>
   <script src="js/bhk.js"></script>
+  <script src="js/suivi.js"></script>
   <script src="js/docx.js"></script>
   <script src="js/tri.js"></script>
   <script src="js/app.js"></script>

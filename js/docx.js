@@ -117,7 +117,9 @@
     if (o.couleur) pr += '<w:color w:val="' + o.couleur + '"/>';
     if (o.taille) pr += '<w:sz w:val="' + o.taille + '"/><w:szCs w:val="' + o.taille + '"/>';
     if (o.surligne) pr += '<w:highlight w:val="yellow"/>';
-    return "<w:r>" + (pr ? "<w:rPr>" + pr + "</w:rPr>" : "") + '<w:t xml:space="preserve">' + x(o.t) + "</w:t></w:r>";
+    // Un saut de ligne dans le texte devient un retour à la ligne Word.
+    const corps = String(o.t).split("\n").map((t) => '<w:t xml:space="preserve">' + x(t) + "</w:t>").join("<w:br/>");
+    return "<w:r>" + (pr ? "<w:rPr>" + pr + "</w:rPr>" : "") + corps + "</w:r>";
   }
 
   function para(runs, opts) {

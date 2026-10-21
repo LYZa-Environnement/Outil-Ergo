@@ -180,6 +180,173 @@
     return { svg: svg(L, H, c, "Systèmes sensoriels du profil ESO"), l: L, h: H };
   }
 
+  /* ---------- Graphiques calculés à partir des résultats (données préparées par bhk.js) ---------- */
+
+  const NIVEAUX = {
+    patho: ["#F4CCCC", "#C0392B"], inferieur: ["#FCE5CD", "#C77B12"], moyenne: ["#DDEBD7", "#2E7D4F"], superieur: ["#D5E4F2", "#23408E"],
+  };
+  const VERT = "#2E7D4F", VERT_CLAIR = "#A9D3B8", AMBRE = "#C77B12", CORAIL = "#C0392B";
+  function fr(v, d) { return (d === undefined ? String(Math.round(v * 100) / 100) : v.toFixed(d)).replace(".", ","); }
+  function signeDS(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + fr(Math.abs(v), 2); }
+  function coupe(t, max) { t = String(t); return t.length > max ? t.slice(0, max - 1) + "…" : t; }
+
+  // Échelle de DS commune : zones d'interprétation en fond.
+  function axeDS(X, haut, bas, s, vmin, vmax) {
+    let c = "";
+    const zone = (a, b, couleur) => {
+      const x1 = X(Math.max(vmin, a)), x2 = X(Math.min(vmax, b));
+      if (x2 > x1) c += `<rect x="${n(x1)}" y="${haut}" width="${n(x2 - x1)}" height="${bas - haut}" fill="${couleur}" fill-opacity="0.75"/>`;
+    };
+    zone(vmin, -s.patho, NIVEAUX.patho[0]); zone(-s.patho, -s.inferieur, NIVEAUX.inferieur[0]);
+    zone(-s.inferieur, s.superieur, NIVEAUX.moyenne[0]); zone(s.superieur, vmax, NIVEAUX.superieur[0]);
+    for (let v = vmin; v <= vmax; v++) {
+      c += `<line x1="${n(X(v))}" x2="${n(X(v))}" y1="${haut}" y2="${bas}" stroke="${v === 0 ? "#555" : "#FFFFFF"}" stroke-width="${v === 0 ? 1.4 : 1}"/>`;
+      c += `<text x="${n(X(v))}" y="${bas + 16}" font-size="11" fill="#444" text-anchor="middle">${v > 0 ? "+" + v : v < 0 ? "−" + -v : "0"}</text>`;
+    }
+    return c;
+  }
+
+  function profilDS(d) {
+    const lignes = d.lignes, s = d.seuils, vmin = -4, vmax = 3;
+    const lab = 270, larg = 380, L = lab + larg + 90, h = 30, haut = 58;
+    const H = haut + lignes.length * h + 46;
+    const X = (v) => lab + ((Math.max(vmin, Math.min(vmax, v)) - vmin) / (vmax - vmin)) * larg;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">Profil des résultats (déviations standard)</text>`;
+    c += `<text x="${L / 2}" y="44" font-size="11" fill="#555" text-anchor="middle">À gauche de 0 : en dessous de la moyenne des enfants du même âge ou de la même classe</text>`;
+    c += axeDS(X, haut, haut + lignes.length * h, s, vmin, vmax);
+    lignes.forEach((r, i) => {
+      const y = haut + i * h + h / 2;
+      c += `<text x="${lab - 10}" y="${y + 4}" font-size="12" fill="#222" text-anchor="end"><tspan font-weight="700">${x(r.bilan)}</tspan> ${x(coupe(r.epreuve, 30))}</text>`;
+      if (i) c += `<line x1="${lab}" x2="${lab + larg}" y1="${haut + i * h}" y2="${haut + i * h}" stroke="#FFFFFF" stroke-width="1"/>`;
+      const col = (NIVEAUX[r.niveau] || ["", "#555"])[1];
+      c += `<line x1="${n(X(0))}" x2="${n(X(r.ds))}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="3" stroke-opacity="0.55"/>`;
+      c += `<circle cx="${n(X(r.ds))}" cy="${y}" r="7" fill="${col}" stroke="#FFFFFF" stroke-width="1.5"/>`;
+      if (r.ds < vmin || r.ds > vmax) c += `<text x="${n(X(r.ds) + (r.ds < vmin ? -12 : 12))}" y="${y + 4}" font-size="12" fill="${col}" text-anchor="middle">${r.ds < vmin ? "◀" : "▶"}</text>`;
+      c += `<text x="${lab + larg + 10}" y="${y + 4}" font-size="12" font-weight="700" fill="${col}">${signeDS(r.ds)}</text>`;
+    });
+    return { svg: svg(L, H, c, "Profil des résultats en déviations standard"), l: L, h: H };
+  }
+
+  function criteresBHK(d) {
+    const lab = 300, larg = 300, L = lab + larg + 110, h = 26, haut = 46;
+    const H = haut + d.criteres.length * h + 34;
+    const X = (v) => lab + (v / 5) * larg;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">${x(d.titre)}</text>`;
+    for (let v = 0; v <= 5; v++) {
+      c += `<line x1="${X(v)}" x2="${X(v)}" y1="${haut - 4}" y2="${haut + d.criteres.length * h}" stroke="#E1E5EC" stroke-width="1"/>`;
+      c += `<text x="${X(v)}" y="${haut + d.criteres.length * h + 16}" font-size="11" fill="#555" text-anchor="middle">${v}</text>`;
+    }
+    d.criteres.forEach((k, i) => {
+      const y = haut + i * h;
+      c += `<text x="${lab - 10}" y="${y + 17}" font-size="12" fill="#222" text-anchor="end"><tspan font-weight="700">${x(k.id)}</tspan> ${x(coupe(k.nom, 38))}</text>`;
+      const col = k.niveau ? NIVEAUX[k.niveau][1] : k.score === 0 ? VERT : k.score <= 2 ? AMBRE : CORAIL;
+      if (k.score > 0) c += `<rect x="${lab}" y="${y + 5}" width="${n(X(k.score) - lab)}" height="${h - 10}" rx="3" fill="${col}" fill-opacity="0.8"/>`;
+      else c += `<circle cx="${lab + 5}" cy="${y + h / 2}" r="4" fill="${VERT}"/>`;
+      c += `<text x="${n(X(Math.max(k.score, 0.15)) + 8)}" y="${y + 17}" font-size="12" font-weight="700" fill="${col}">${k.score}/5${k.ds !== null && k.ds !== undefined ? "  (DS " + signeDS(k.ds) + ")" : ""}</text>`;
+    });
+    return { svg: svg(L, H, c, d.titre), l: L, h: H };
+  }
+
+  function mcro(d) {
+    const lab = 250, larg = 360, L = lab + larg + 40, hBloc = d.reeval ? 50 : 32, haut = d.reeval ? 80 : 66;
+    const H = haut + d.problemes.length * hBloc + 40;
+    const X = (v) => lab + (v / 10) * larg;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">MCRO : rendement et satisfaction (sur 10)</text>`;
+    const legende = [["Rendement", "#2E7D4F"], ["Satisfaction", "#E0A106"]];
+    legende.forEach((lg, k) => {
+      c += `<rect x="${L / 2 - 110 + k * 130}" y="36" width="14" height="14" rx="3" fill="${lg[1]}"/><text x="${L / 2 - 90 + k * 130}" y="48" font-size="12" fill="#333">${lg[0]}</text>`;
+    });
+    if (d.reeval) c += `<text x="${L / 2}" y="64" font-size="11" fill="#555" text-anchor="middle">Barres claires : bilan initial ; barres foncées : réévaluation</text>`;
+    for (let v = 0; v <= 10; v += 2) {
+      c += `<line x1="${X(v)}" x2="${X(v)}" y1="${haut - 4}" y2="${haut + d.problemes.length * hBloc}" stroke="#E1E5EC" stroke-width="1"/>`;
+      c += `<text x="${X(v)}" y="${haut + d.problemes.length * hBloc + 16}" font-size="11" fill="#555" text-anchor="middle">${v}</text>`;
+    }
+    d.problemes.forEach((p, i) => {
+      const y = haut + i * hBloc;
+      c += `<text x="${lab - 10}" y="${y + hBloc / 2 + 4}" font-size="12" fill="#222" text-anchor="end">${x(coupe(p.activite, 34))}</text>`;
+      const barre = (v, yy, couleur, op) => (v === null ? "" : `<rect x="${lab}" y="${yy}" width="${n(X(v) - lab)}" height="7" rx="2" fill="${couleur}" fill-opacity="${op}"/>`);
+      if (d.reeval) {
+        c += barre(p.r1, y + 6, "#2E7D4F", 0.35) + barre(p.r2, y + 14, "#2E7D4F", 0.95) + barre(p.s1, y + 26, "#E0A106", 0.35) + barre(p.s2, y + 34, "#E0A106", 0.95);
+      } else {
+        c += barre(p.r1, y + 7, "#2E7D4F", 0.9) + barre(p.s1, y + 17, "#E0A106", 0.9);
+      }
+    });
+    return { svg: svg(L, H, c, "Graphique de la MCRO"), l: L, h: H };
+  }
+
+  function dcdq(d) {
+    const lab = 260, larg = 340, L = lab + larg + 90, h = 34, haut = 46;
+    const lignes = d.facteurs.concat([{ nom: "Score total", total: d.total, max: 75, min: 15, seuil: d.seuil }]);
+    const H = haut + lignes.length * h + 34;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">DCDQ : scores par facteur</text>`;
+    lignes.forEach((f, i) => {
+      const y = haut + i * h, mn = f.min || 0, X = (v) => lab + ((v - mn) / (f.max - mn)) * larg;
+      const total = i === lignes.length - 1;
+      c += `<text x="${lab - 10}" y="${y + 21}" font-size="12.5" ${total ? 'font-weight="700"' : ""} fill="#222" text-anchor="end">${x(f.nom.charAt(0).toUpperCase() + f.nom.slice(1))}</text>`;
+      c += `<rect x="${lab}" y="${y + 8}" width="${larg}" height="18" rx="4" fill="#EEF1F5"/>`;
+      c += `<rect x="${lab}" y="${y + 8}" width="${n(Math.max(0, X(f.total) - lab))}" height="18" rx="4" fill="${total ? (d.indication ? CORAIL : VERT) : "#5B8DB8"}" fill-opacity="0.85"/>`;
+      if (f.seuil) {
+        c += `<line x1="${n(X(f.seuil))}" x2="${n(X(f.seuil))}" y1="${y + 2}" y2="${y + 32}" stroke="#C0392B" stroke-width="2" stroke-dasharray="4 3"/>`;
+        c += `<text x="${n(X(f.seuil))}" y="${y + h + 10}" font-size="10.5" fill="#C0392B" text-anchor="middle">seuil ${f.seuil}</text>`;
+      }
+      c += `<text x="${lab + larg + 8}" y="${y + 21}" font-size="12.5" font-weight="700" fill="#222">${f.total}/${f.max}</text>`;
+    });
+    c += `<text x="${L / 2}" y="${H - 6}" font-size="10.5" fill="#555" text-anchor="middle">Un score plus bas signale plus de difficultés de coordination rapportées.</text>`;
+    return { svg: svg(L, H, c, "Graphique du DCDQ"), l: L, h: H };
+  }
+
+  function evolution(d) {
+    const lignes = d.lignes, s = d.seuils, vmin = -4, vmax = 3;
+    const lab = 250, larg = 380, L = lab + larg + 40, h = 30, haut = 70;
+    const H = haut + lignes.length * h + 40;
+    const X = (v) => lab + ((Math.max(vmin, Math.min(vmax, v)) - vmin) / (vmax - vmin)) * larg;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">Évolution depuis le bilan du ${x(d.date)}</text>`;
+    c += `<circle cx="${L / 2 - 120}" cy="46" r="6" fill="#9AA3AF"/><text x="${L / 2 - 108}" y="50" font-size="12" fill="#333">Bilan précédent</text>`;
+    c += `<circle cx="${L / 2 + 30}" cy="46" r="6" fill="${ENCRE}"/><text x="${L / 2 + 42}" y="50" font-size="12" fill="#333">Ce bilan</text>`;
+    c += axeDS(X, haut, haut + lignes.length * h, s, vmin, vmax);
+    lignes.forEach((r, i) => {
+      const y = haut + i * h + h / 2;
+      c += `<text x="${lab - 10}" y="${y + 4}" font-size="12" fill="#222" text-anchor="end"><tspan font-weight="700">${x(r.bilan)}</tspan> ${x(coupe(r.epreuve, 26))}</text>`;
+      const x1 = X(r.avant), x2 = X(r.apres);
+      if (Math.abs(x2 - x1) > 10) c += `<path d="M${n(x1)} ${y} L${n(x2 + (x2 > x1 ? -9 : 9))} ${y}" stroke="${ENCRE}" stroke-width="2.2" fill="none"/><path d="M${n(x2 + (x2 > x1 ? -10 : 10))} ${y - 5} L${n(x2 + (x2 > x1 ? -3 : 3))} ${y} L${n(x2 + (x2 > x1 ? -10 : 10))} ${y + 5}" fill="${ENCRE}"/>`;
+      c += `<circle cx="${n(x1)}" cy="${y}" r="6" fill="#9AA3AF"/><circle cx="${n(x2)}" cy="${y}" r="7" fill="${ENCRE}" stroke="#FFFFFF" stroke-width="1.5"/>`;
+    });
+    return { svg: svg(L, H, c, "Évolution des résultats"), l: L, h: H };
+  }
+
+  function itemsEso(d) {
+    const L = 760, hPanneau = 120, haut = 40, H = haut + d.domaines.length * hPanneau + 10;
+    const gx = 40, larg = L - gx - 16, pas = larg / 36;
+    let c = `<text x="${L / 2}" y="24" font-size="16" font-weight="700" fill="#111" text-anchor="middle">ESO : réponses détaillées (0 à 10)</text>`;
+    d.domaines.forEach((dm, k) => {
+      const y0 = haut + k * hPanneau, hb = 72, base = y0 + 22 + hb;
+      c += `<text x="${gx}" y="${y0 + 14}" font-size="13" font-weight="700" fill="#1F3A5F">${x(dm.nom)}${dm.moyenne !== null ? ` <tspan font-weight="400" fill="#555">(moyenne ${fr(dm.moyenne, 1)})</tspan>` : ""}</text>`;
+      [0, 5, 10].forEach((v) => {
+        const yy = base - (v / 10) * hb;
+        c += `<line x1="${gx}" x2="${gx + larg}" y1="${n(yy)}" y2="${n(yy)}" stroke="#E1E5EC" stroke-width="1"/><text x="${gx - 6}" y="${n(yy + 4)}" font-size="10" fill="#666" text-anchor="end">${v}</text>`;
+      });
+      dm.valeurs.forEach((v, i) => {
+        const xx = gx + i * pas + 1.5;
+        if (v !== null) c += `<rect x="${n(xx)}" y="${n(base - (v / 10) * hb)}" width="${n(pas - 3)}" height="${n((v / 10) * hb)}" fill="${v >= 8 ? CORAIL : v <= 2 ? "#5B8DB8" : VERT_CLAIR}"/>`;
+        if ((i + 1) % 5 === 0 || i === 0) c += `<text x="${n(xx + (pas - 3) / 2)}" y="${base + 12}" font-size="9.5" fill="#666" text-anchor="middle">${i + 1}</text>`;
+      });
+    });
+    return { svg: svg(L, H, c, "Réponses détaillées de l'ESO"), l: L, h: H };
+  }
+
+  function dessiner(id, donnees) {
+    if (!donnees) return null;
+    switch (id) {
+      case "profil-ds": return donnees.lignes && donnees.lignes.length ? profilDS(donnees) : null;
+      case "bhk-criteres": return criteresBHK(donnees);
+      case "mcro": return mcro(donnees);
+      case "dcdq": return dcdq(donnees);
+      case "evolution": return donnees.lignes && donnees.lignes.length ? evolution(donnees) : null;
+      case "eso-items": return itemsEso(donnees);
+    }
+    return null;
+  }
+
   /* ---------- Accès ---------- */
 
   const TITRES = {
@@ -188,6 +355,7 @@
     "dunn-scolaire": "Profil sensoriel 2 de Dunn, compagnon scolaire",
     "eso-roues": "Profil ESO par domaine d'occupation",
     "eso-systemes": "Systèmes sensoriels (ESO)",
+    "eso-items": "ESO : réponses détaillées",
   };
 
   function graphique(id, senso) {
@@ -199,9 +367,13 @@
       case "dunn-scolaire": return profilDunn("scolaire", s.dunnScolaire);
       case "eso-roues": return rouesEso(s.eso);
       case "eso-systemes": return systemesEso(s.eso);
+      case "eso-items": return itemsEso({ domaines: S.itemsEso(s.eso) });
     }
     return null;
   }
 
-  return { graphique: graphique, TITRES: TITRES };
+  // Bloc « graphique » du modèle de document : données préparées, ou graphique du bilan sensoriel.
+  function deBloc(b, senso) { return b.donnees ? dessiner(b.id, b.donnees) : graphique(b.id, senso); }
+
+  return { graphique: graphique, dessiner: dessiner, deBloc: deBloc, TITRES: TITRES };
 });

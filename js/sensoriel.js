@@ -125,6 +125,10 @@
     ["proprio", "Proprioception", 36], ["vestib", "Vestibulaire", 36], ["intero", "Intéroception", 27],
   ].map((x) => ({ id: x[0], nom: x[1], max: x[2] }));
   const REPERE_ESO = 50;
+  // Réponses détaillées : 36 questions par domaine, cotées de 0 (jamais) à 10 (toujours).
+  // Les libellés ne sont pas reproduits : l'ergothérapeute peut coller ceux de son exemplaire (réglages, stockés localement).
+  const NB_ITEMS_ESO = 36;
+  const DOMAINES_ITEMS_ESO = [["sp", "Soins personnels", /SOINS\s+PERSONNELS/i], ["p", "Travail scolaire", /TRAVAIL\s+SCOLAIRE|PRODUCTIVIT/i], ["l", "Loisirs", /LOISIRS/i]];
 
   /* ================= SensOT-dir ================= */
 
@@ -141,7 +145,7 @@
       otipis: { fait: "", parent: "", main: "", oeil: "", pied: "", scores: {}, notes: {}, temps20: "", temps22: "", erreursMD: "", erreursMG: "", autres: "", comportement: "", discussion: "" },
       dunnEnfant: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       dunnScolaire: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
-      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, notes: "" },
+      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "" },
       sensot: { fait: "", date: "", themes: {}, priorites: [], notes: "" },
     };
     return s;
@@ -178,6 +182,13 @@
     SYSTEMES_ESO.forEach((sy) => {
       const v = e.systemes && e.systemes[sy.id];
       if (v) s.eso.systemes[sy.id] = { sp: texte(v.sp), p: texte(v.p), l: texte(v.l) };
+    });
+    DOMAINES_ITEMS_ESO.forEach((dm) => {
+      const src = (e.items && e.items[dm[0]]) || {};
+      Object.keys(src).forEach((k) => {
+        const v = nombre(src[k]);
+        if (/^\d+$/.test(k) && +k >= 1 && +k <= NB_ITEMS_ESO && v !== null && v >= 0 && v <= 10) s.eso.items[dm[0]][k] = Math.round(v);
+      });
     });
     const t = src.sensot || {};
     copierTexte(s.sensot, t, ["fait", "date", "notes"]);
@@ -241,6 +252,48 @@
     return out;
   }
 
+  // Réponses détaillées de l'ESO par domaine : valeurs, moyenne, réponses les plus fortes et les plus faibles.
+  function itemsEso(e, libelles) {
+    return DOMAINES_ITEMS_ESO.map((dm) => {
+      const src = (e.items && e.items[dm[0]]) || {};
+      const libs = (libelles && libelles[dm[0]]) || [];
+      const valeurs = Array.from({ length: NB_ITEMS_ESO }, (_, i) => { const v = nombre(src[i + 1]); return v === null ? null : v; });
+      const rep = valeurs.map((v, i) => ({ num: i + 1, v: v, libelle: texte(libs[i]).trim() })).filter((x) => x.v !== null);
+      return {
+        id: dm[0], nom: dm[1], valeurs: valeurs, n: rep.length,
+        moyenne: rep.length ? rep.reduce((a, x) => a + x.v, 0) / rep.length : null,
+        forts: rep.filter((x) => x.v >= 8), faibles: rep.filter((x) => x.v <= 2),
+      };
+    });
+  }
+
+  // Lit les libellés collés depuis l'exemplaire de l'ergothérapeute (texte copié du PDF) : 36 questions par domaine.
+  function lireLibellesEso(brut) {
+    const out = { sp: [], p: [], l: [] };
+    const lignes = texte(brut).replace(/\r/g, "").split("\n");
+    let dom = null, courant = null, attente = null;
+    const propre = (t) => t.replace(/(\s+\d{1,2}){8,11}\s*$/, "").replace(/\s+/g, " ").trim();
+    lignes.forEach((l0) => {
+      const l = l0.trim();
+      if (!l) return;
+      const d = DOMAINES_ITEMS_ESO.find((x) => x[2].test(l) && l.length < 40);
+      if (d) { dom = d[0]; courant = null; attente = null; return; }
+      if (!dom || /propri[ée]t[ée] intellectuelle|reproduction|^pour compl[ée]ter|^0\s*=|^(\d{1,2}\s*){8,11}$/i.test(l)) return;
+      // Numéro seul sur sa ligne (copie depuis certains lecteurs PDF) : le libellé suit.
+      if (/^\d{1,2}$/.test(l) && +l === out[dom].length + 1) { attente = +l; courant = null; return; }
+      if (attente && !/^(\d{1,2}\s*)+$/.test(l)) { courant = attente - 1; out[dom][courant] = propre(l); attente = null; return; }
+      const m = /^(\d{1,2})[\s.)-]+(.+)$/.exec(l);
+      if (m && +m[1] >= 1 && +m[1] <= NB_ITEMS_ESO && +m[1] === out[dom].length + 1) {
+        courant = +m[1] - 1;
+        out[dom][courant] = propre(m[2]);
+      } else if (courant !== null && !/^(\d{1,2}\s*)+$/.test(l)) {
+        out[dom][courant] = propre(out[dom][courant] + " " + l);
+      }
+    });
+    Object.keys(out).forEach((k) => { out[k] = out[k].map((t) => texte(t).slice(0, 300)); });
+    return out;
+  }
+
   function themesSensot(t) {
     return THEMES_SENSOT.map((th) => {
       const v = t.themes[th.id] || {};
@@ -255,6 +308,7 @@
       case "dunn-scolaire": return s.dunnScolaire.fait === "oui" && lignesDunn("scolaire", s.dunnScolaire).some((l) => l.classe);
       case "eso-roues": return s.eso.fait === "oui" && DOMAINES_ESO.some((dm) => SECTEURS_ESO.some((sc) => nombre(s.eso.roues[dm[0]][sc]) !== null));
       case "eso-systemes": return s.eso.fait === "oui" && systemesEso(s.eso).some((x) => x.rempli);
+      case "eso-items": return s.eso.fait === "oui" && itemsEso(s.eso).some((x) => x.n > 0);
     }
     return false;
   }
@@ -338,7 +392,9 @@
       if (hauts.length) l.push("– Au-dessus du repère de " + REPERE_ESO + " % : " + joindre(hauts.map((x) => min(x.nom))) + ".");
     }
     if (aDesDonnees({ eso: e }, "eso-roues")) l.push("– Roues par domaine d'occupation (soins personnels, productivité, loisirs) : voir la figure.");
-    if (!sys.length && !aDesDonnees({ eso: e }, "eso-roues")) l.push("[Synthèse ESO à saisir.]");
+    const items = itemsEso(e).filter((x) => x.n > 0);
+    if (items.length) l.push("– Réponses détaillées : " + items.map((x) => min(x.nom) + " " + x.n + "/" + NB_ITEMS_ESO + " réponses (moyenne " + fmt(x.moyenne, 1) + "/10)").join(", ") + ".");
+    if (!sys.length && !aDesDonnees({ eso: e }, "eso-roues") && !items.length) l.push("[Synthèse ESO à saisir.]");
     if (e.notes.trim()) l.push(point(maj(e.notes.trim())));
     return l.join("\n");
   }
@@ -452,7 +508,7 @@
 
   return {
     DOMAINES_OC, OTIPIS, ORDRE_PROFIL, CLASSIFICATIONS, QUADRANTS, FORMES_DUNN,
-    DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
+    DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
     vide, normaliser, syntheseOtipis, lignesDunn, systemesEso, valeursRoues, themesSensot, aDesDonnees, rediger, constats,
   };
 });

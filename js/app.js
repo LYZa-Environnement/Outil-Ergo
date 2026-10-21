@@ -36,6 +36,13 @@
   // Version personnelle : les normes du manuel sont intégrées au fichier (window.NORMES_INTEGREES).
   function avecNormesIntegrees(r) {
     if (!B.normesPresentes(r.normes) && window.NORMES_INTEGREES) r.normes = B.normaliserNormes(window.NORMES_INTEGREES);
+    // Version du cabinet : en-tête et praticiens préremplis tant que les réglages n'en ont pas.
+    const integres = window.REGLAGES_INTEGRES;
+    if (integres && !r.praticiens.some((p) => p.nom.trim())) {
+      const base = B.normaliserReglages(Object.assign({}, r, { cabinet: integres.cabinet, praticiens: integres.praticiens }));
+      r.cabinet = base.cabinet;
+      r.praticiens = base.praticiens;
+    }
     return r;
   }
   function chargerReglages() { return avecNormesIntegrees(B.normaliserReglages(lireStockage(CLE_REGLAGES))); }
@@ -45,8 +52,10 @@
   function sauverBrouillon() {
     clearTimeout(minuteurBrouillon);
     minuteurBrouillon = setTimeout(() => {
-      if (reglages.brouillon) ecrireStockage(CLE_BROUILLON, { dossier: dossier, compteRendu: cr, le: new Date().toISOString() });
-    }, 400);
+      if (!reglages.brouillon) return;
+      ecrireStockage(CLE_BROUILLON, { dossier: dossier, compteRendu: cr, le: new Date().toISOString() });
+      enregistrerDansMesDossiers();
+    }, 500);
   }
 
   let minuteurStatut = null;
@@ -201,7 +210,7 @@
       if (!cs.length) return "";
       return `<div class="domaine"><h3>${esc(B.maj(dom.nom))}</h3>` + cs.map((c) =>
         `<fieldset class="critere-ligne">
-          <legend class="critere-tete"><span class="num">${c.id}</span><span class="intitule"><span class="nom">${esc(c.nom)}</span><span class="aide">${esc(c.aide)}</span></span></legend>
+          <legend class="critere-tete"><span class="num">${c.id}</span><span class="intitule"><span class="nom">${esc(c.nom)}</span><span class="aide-critere">${esc(c.aide)}</span></span></legend>
           <div class="cases-lignes">
             ${[0, 1, 2, 3, 4].map((i) => `<label><input type="checkbox" data-ligne="${c.id}:${i}" aria-label="${esc(c.nom)}, ligne ${i + 1}"><span>L${i + 1}</span></label>`).join("")}
             <output class="score-critere" id="sc-${c.id}">0</output>
@@ -288,8 +297,17 @@
       <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Système</th><th scope="col">Soins pers.</th><th scope="col">Productivité</th><th scope="col">Loisirs</th><th scope="col">%</th></tr></thead><tbody>
       ${S.SYSTEMES_ESO.map((sy) => `<tr><th scope="row">${esc(sy.nom)}</th>${["sp", "p", "l"].map((k) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.systemes.${sy.id}.${k}" aria-label="${esc(sy.nom)}, ${k}"></td>`).join("")}<td><output id="eso-pct-${sy.id}"></output></td></tr>`).join("")}
       </tbody></table></div>
+      <h4 class="sous-groupe">Réponses détaillées au questionnaire (facultatif)</h4>
+      <p class="note">Reportez le chiffre entouré par les parents pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
+        ${reglages.esoLibelles.sp.length ? "" : `Pour voir ici le texte des questions, collez-le une fois depuis votre exemplaire dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
+      ${S.DOMAINES_ITEMS_ESO.map((dm) => `<details class="eso-domaine"><summary>${esc(dm[1])} <span class="eso-compte" id="eso-n-${dm[0]}"></span></summary>
+        <div class="eso-items${(reglages.esoLibelles[dm[0]] || []).length ? " avec-libelles" : ""}">${Array.from({ length: S.NB_ITEMS_ESO }, (_, i) => {
+          const lib = (reglages.esoLibelles[dm[0]] || [])[i] || "";
+          return `<label class="eso-item"><span class="eso-num">${i + 1}</span>${lib ? `<span class="eso-lib">${esc(lib)}</span>` : ""}
+            <input type="text" inputmode="numeric" maxlength="2" placeholder="0-10" data-chemin="${c}.items.${dm[0]}.${i + 1}" data-note10 aria-label="${esc(dm[1])}, question ${i + 1}"></label>`;
+        }).join("")}</div></details>`).join("")}
       ${champZone("Observations", c + ".notes")}
-      <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div>`;
+      <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div><div class="graphique" id="g-eso-items" hidden></div>`;
     return h;
   }
 
@@ -520,7 +538,7 @@
       const cs = B.CRITERES_ADO.filter((c) => c.domaine === dom.id);
       return `<div class="domaine"><h3>${esc(B.maj(dom.nom))}</h3>` + cs.map((c) =>
         `<fieldset class="critere-ligne">
-          <legend class="critere-tete"><span class="num">${c.id}</span><span class="intitule"><span class="nom">${esc(c.nom)}</span><span class="aide">${esc(c.aide)}</span></span></legend>
+          <legend class="critere-tete"><span class="num">${c.id}</span><span class="intitule"><span class="nom">${esc(c.nom)}</span><span class="aide-critere">${esc(c.aide)}</span></span></legend>
           <div class="cases-lignes">
             ${[0, 1, 2, 3, 4].map((i) => `<label><input type="checkbox" data-ligne="${c.id}:${i}" aria-label="${esc(c.nom)}, phrase ${i + 1}"><span>P${i + 1}</span></label>`).join("")}
             <output class="score-critere" id="sc-${c.id}">0</output>
@@ -647,9 +665,16 @@
     construirePraticiens();
     construireNormes();
     construireCartesPerso();
+    const lib = reglages.esoLibelles;
+    const nEso = lib.sp.length + lib.p.length + lib.l.length;
+    $("#etat-eso-libelles").textContent = nEso
+      ? "Texte enregistré dans ce navigateur : " + lib.sp.length + " questions (soins personnels), " + lib.p.length + " (travail scolaire), " + lib.l.length + " (loisirs)."
+      : "Aucun texte enregistré : la saisie se fait par numéro de question.";
+    $("[data-action='effacer-eso']").hidden = !nEso;
+    if ($("#profil")) majProfil();
     $("#note-brouillon").textContent = reglages.brouillon
-      ? "Rien n'est envoyé en ligne. Un brouillon du dossier en cours reste dans ce navigateur jusqu'à « Nouveau dossier » ; enregistrez le dossier pour le garder."
-      : "Rien n'est envoyé en ligne. Enregistrez le dossier sur votre appareil pour le reprendre plus tard.";
+      ? "Rien n'est envoyé en ligne : les dossiers restent dans ce navigateur, sur cet appareil. La copie de sécurité les met dans un fichier que vous pouvez ranger ou transférer sur un autre appareil."
+      : "Enregistrement automatique désactivé (Réglages) : téléchargez chaque dossier pour le garder.";
   }
 
   function surSaisieReglages(e) {
@@ -757,6 +782,20 @@
     if (!el.dataset) return;
     if (el.closest("#p-reglages")) { surSaisieReglages(e); return; }
 
+    if (el.id === "filtre-dossiers") { filtreDossiers = el.value; afficherMesDossiers(); return; }
+    if (el.dataset.axe) {
+      if (e.type !== "change") return;
+      const ex = new Set(dossier.suivi.exclus || []);
+      if (el.checked) ex.delete(el.dataset.axe); else ex.add(el.dataset.axe);
+      dossier.suivi.exclus = Array.from(ex);
+      nonEnregistre = true; majTout();
+      return;
+    }
+    if (el.dataset.note10 !== undefined) {
+      const v = el.value.trim();
+      const ok = v === "" || (/^\d{1,2}$/.test(v) && +v <= 10);
+      if (ok) el.removeAttribute("aria-invalid"); else el.setAttribute("aria-invalid", "true");
+    }
     if (el.dataset.chemin) {
       if (el.type === "radio" && !el.checked) return;
       if (el.tagName === "SELECT" && el.value === "" && el.dataset.chemin.indexOf("manip.") === 0) effacerChemin(dossier, el.dataset.chemin);
@@ -942,7 +981,7 @@
     });
 
     // Bilan sensoriel : graphiques et pourcentages ESO
-    ["otipis", "dunn-enfant", "dunn-scolaire", "eso-roues", "eso-systemes"].forEach((id) => {
+    ["otipis", "dunn-enfant", "dunn-scolaire", "eso-roues", "eso-systemes", "eso-items"].forEach((id) => {
       const zone = $("#g-" + id);
       if (!zone) return;
       const g = window.Graph.graphique(id, dossier.senso);
@@ -955,6 +994,10 @@
     });
     majPreconisations();
     majOccupation();
+    majSuivi();
+    majEtapes();
+    const items = S.itemsEso(S.normaliser(dossier.senso).eso);
+    items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
 
     // Réévaluation
     const p = dossier.precedent;
@@ -974,6 +1017,7 @@
       $(`[data-retablir="${s.id}"]`).hidden = !cr[s.id].modifie;
     });
     majACompleter();
+    majGalerie();
     sauverBrouillon();
   }
 
@@ -1008,7 +1052,7 @@
       else if (b.type === "puces") h += `<ul>${b.items.map((it) => `<li>${htmlRuns(it)}</li>`).join("")}</ul>`;
       else if (b.type === "signature") h += `<p class="doc-signature">${esc(b.texte)}</p>`;
       else if (b.type === "graphique") {
-        const g = window.Graph.graphique(b.id, dossier.senso);
+        const g = window.Graph.deBloc(b, dossier.senso);
         if (g) h += `<figure class="doc-figure">${g.svg}<figcaption>${esc(b.alt)}</figcaption></figure>`;
       } else if (b.type === "photo") h += `<figure class="doc-figure"><img src="${esc(b.donnees)}" alt="${esc(b.alt)}"><figcaption>${esc(b.alt)}</figcaption></figure>`;
       else if (b.type === "tableau") {
@@ -1062,11 +1106,11 @@
     });
   }
 
-  async function modeleAvecImages() {
-    const m = modele();
+  async function modeleAvecImages() { return avecImages(modele()); }
+  async function avecImages(m) {
     for (const b of m.blocs) {
       if (b.type !== "graphique" || !window.Graph) continue;
-      const g = window.Graph.graphique(b.id, dossier.senso);
+      const g = window.Graph.deBloc(b, dossier.senso);
       if (!g) continue;
       try {
         b.png = await svgVersPng(g.svg, g.l, g.h);
@@ -1132,6 +1176,300 @@
     else secours();
   }
 
+  /* ================= Mes dossiers : enregistrement automatique sur l'appareil ================= */
+
+  // Base locale (IndexedDB, ou stockage du navigateur à défaut) : chaque dossier est gardé à chaque modification.
+  const Base = (function () {
+    const CLE = "outil-ergo:dossiers";
+    const pret = new Promise((ok) => {
+      try {
+        const req = indexedDB.open("outil-ergo", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("dossiers", { keyPath: "id" });
+        req.onsuccess = () => ok(req.result);
+        req.onerror = () => ok(null);
+        req.onblocked = () => ok(null);
+      } catch (e) { ok(null); }
+    });
+    const ls = () => lireStockage(CLE) || {};
+    const demande = (mode, f) => pret.then((db) => new Promise((ok, ko) => {
+      if (!db) return ko(new Error("sans base"));
+      try {
+        const t = db.transaction("dossiers", mode);
+        const r = f(t.objectStore("dossiers"));
+        t.oncomplete = () => ok(r && r.result);
+        t.onerror = () => ko(t.error);
+        t.onabort = () => ko(t.error);
+      } catch (e) { ko(e); }
+    }));
+    return {
+      tous: () => demande("readonly", (st) => st.getAll()).then((l) => l || []).catch(() => Object.values(ls())),
+      lire: (id) => demande("readonly", (st) => st.get(id)).catch(() => ls()[id]),
+      mettre: (x) => demande("readwrite", (st) => st.put(x)).catch(() => { const t = ls(); t[x.id] = x; ecrireStockage(CLE, t); }),
+      retirer: (id) => demande("readwrite", (st) => st.delete(id)).catch(() => { const t = ls(); delete t[id]; ecrireStockage(CLE, t); }),
+    };
+  })();
+
+  function nouvelId() { return "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function assurerId() {
+    if (!dossier.id) dossier.id = nouvelId();
+    if (!dossier.creeLe) dossier.creeLe = new Date().toISOString();
+    if (!dossier.auteur && profilActif()) dossier.auteur = profilActif();
+  }
+  function dossierVierge() { return !dossier.prenom.trim() && !dossier.nom.trim() && !nonEnregistre; }
+
+  let dernierEnregistrement = null;
+  function enregistrerDansMesDossiers() {
+    if (!reglages.brouillon || dossierVierge()) return;
+    assurerId();
+    const entree = {
+      id: dossier.id, prenom: dossier.prenom, nom: dossier.nom, groupe: dossier.groupe, passation: dossier.passation, auteur: dossier.auteur,
+      modifieLe: new Date().toISOString(), dossier: dossier, compteRendu: cr,
+    };
+    Base.mettre(JSON.parse(JSON.stringify(entree))).then(() => {
+      dernierEnregistrement = new Date();
+      majIndicateur();
+      if ($("#p-dossier") && !$("#p-dossier").hidden) afficherMesDossiers();
+    }).catch(() => majIndicateur(true));
+  }
+
+  function heure(d) { return String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0"); }
+  function majIndicateur(erreur) {
+    const el = $("#indicateur");
+    if (!el) return;
+    if (!reglages.brouillon) { el.textContent = "Enregistrement automatique désactivé"; el.className = "indicateur alerte"; return; }
+    if (erreur) { el.textContent = "Enregistrement impossible : téléchargez le dossier"; el.className = "indicateur alerte"; return; }
+    el.textContent = dernierEnregistrement ? "✓ Enregistré à " + heure(dernierEnregistrement) : "✓ Enregistrement automatique";
+    el.className = "indicateur";
+  }
+
+  function quand(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const j = new Date(); j.setHours(0, 0, 0, 0);
+    const jour = new Date(d); jour.setHours(0, 0, 0, 0);
+    const ecart = Math.round((j - jour) / 864e5);
+    return (ecart === 0 ? "aujourd'hui" : ecart === 1 ? "hier" : "le " + B.dateCourte(d.toISOString().slice(0, 10))) + " à " + heure(d);
+  }
+
+  let filtreDossiers = "";
+  function afficherMesDossiers() {
+    const zone = $("#mes-dossiers");
+    if (!zone) return;
+    Base.tous().then((l) => {
+      l.sort((a, b) => String(b.modifieLe).localeCompare(String(a.modifieLe)));
+      const f = filtreDossiers.trim().toLowerCase();
+      const vus = l.filter((x) => !f || (x.prenom + " " + x.nom + " " + (x.groupe || "")).toLowerCase().indexOf(f) >= 0);
+      $("#nb-dossiers").textContent = l.length ? "(" + l.length + ")" : "";
+      zone.innerHTML = !l.length
+        ? `<p class="vide">Aucun dossier pour l'instant. Commencez par écrire le prénom de l'enfant ci-dessous : le dossier s'enregistre tout seul.</p>`
+        : !vus.length ? `<p class="vide">Aucun dossier ne correspond à « ${esc(filtreDossiers)} ».</p>`
+        : `<ul class="liste-dossiers">${vus.slice(0, 60).map((x) => {
+          const nom = [x.prenom, (x.nom || "").toUpperCase()].filter((t) => t && t.trim()).join(" ") || "Sans nom";
+          const actuel = x.id === dossier.id;
+          return `<li class="${actuel ? "actuel" : ""}">
+            <span class="dossier-avatar" aria-hidden="true">${esc((x.prenom || "?").trim().charAt(0).toUpperCase() || "?")}</span>
+            <span class="dossier-infos"><strong>${esc(nom)}</strong>
+              <small>${[x.groupe, x.passation ? "bilan du " + B.dateCourte(x.passation) : "", x.auteur ? "par " + x.auteur : ""].filter(Boolean).map(esc).join(" · ")}</small>
+              <small>Modifié ${esc(quand(x.modifieLe))}</small></span>
+            ${actuel ? `<span class="badge">En cours</span>` : `<button type="button" class="bouton bouton-petit" data-ouvrir-dossier="${esc(x.id)}">Ouvrir</button>`}
+            <button type="button" class="bouton-icone" data-suppr-dossier="${esc(x.id)}" aria-label="Supprimer le dossier de ${esc(nom)}" title="Supprimer">🗑</button>
+          </li>`;
+        }).join("")}</ul>`;
+    });
+    majRappelSauvegarde();
+  }
+
+  async function ouvrirDeMesDossiers(id) {
+    const x = await Base.lire(id);
+    if (!x || !x.dossier) { annoncer("Ce dossier est introuvable."); return; }
+    enregistrerDansMesDossiers();
+    charger({ dossier: x.dossier, compteRendu: x.compteRendu });
+    nonEnregistre = false;
+    afficherOnglet("dossier");
+    afficherMesDossiers();
+    annoncer("Dossier de " + (x.prenom || "l'enfant") + " ouvert");
+  }
+
+  async function supprimerDeMesDossiers(id) {
+    const x = await Base.lire(id);
+    if (!x) return;
+    const nom = [x.prenom, x.nom].filter(Boolean).join(" ") || "ce dossier";
+    if (!(await demander("Supprimer le dossier de " + nom + " de cet appareil ?", "Supprimer"))) return;
+    await Base.retirer(id);
+    if (id === dossier.id) { charger({ dossier: B.dossierVide() }); nonEnregistre = false; ecrireStockage(CLE_BROUILLON, null); }
+    afficherMesDossiers();
+    proposerAnnulation("Dossier de " + nom + " supprimé.", () => Base.mettre(x).then(afficherMesDossiers));
+  }
+
+  /* ---------- Copie de sécurité ---------- */
+
+  const CLE_COPIE = "outil-ergo:derniere-copie";
+  async function telechargerCopie() {
+    enregistrerDansMesDossiers();
+    const l = await Base.tous();
+    const donnees = { type: "outil-ergo-sauvegarde", version: 1, le: new Date().toISOString(), dossiers: l, reglages: reglages };
+    const ok = await telecharger("Sauvegarde_Outil_Ergo_" + B.aujourdhui() + ".json", JSON.stringify(donnees), "application/json",
+      "Copie de sécurité téléchargée (" + l.length + " dossier" + (l.length > 1 ? "s" : "") + ")");
+    if (ok) { ecrireStockage(CLE_COPIE, new Date().toISOString()); majRappelSauvegarde(); }
+  }
+
+  async function restaurerCopie(obj) {
+    if (obj && (obj.type === "bilan-ergo-dossier" || obj.type === "bhk-dossier")) { ouvrir(obj); return; }
+    if (!obj || obj.type !== "outil-ergo-sauvegarde" || !Array.isArray(obj.dossiers)) throw new Error("Ce fichier n'est pas une copie de sécurité de l'outil.");
+    const existants = {};
+    (await Base.tous()).forEach((x) => { existants[x.id] = x; });
+    let n = 0;
+    for (const x of obj.dossiers) {
+      if (!x || !x.id || !x.dossier) continue;
+      const deja = existants[x.id];
+      if (!deja || String(x.modifieLe) > String(deja.modifieLe)) { await Base.mettre(x); n++; }
+    }
+    if (obj.reglages && !reglages.praticiens.some((p) => p.nom.trim())) {
+      reglages = avecNormesIntegrees(B.normaliserReglages(obj.reglages));
+      sauverReglages(); remplirReglages(); construireAuto(); construireSenso(); rafraichirListesCartes(); remplirFormulaire(); majTout();
+    }
+    afficherMesDossiers();
+    annoncer(n ? n + " dossier" + (n > 1 ? "s" : "") + " restauré" + (n > 1 ? "s" : "") : "Tous ces dossiers étaient déjà à jour");
+  }
+
+  function majRappelSauvegarde() {
+    const el = $("#rappel-copie");
+    if (!el) return;
+    const der = lireStockage(CLE_COPIE);
+    Base.tous().then((l) => {
+      const vieux = !der || Date.now() - new Date(der).getTime() > 7 * 864e5;
+      const modifies = l.some((x) => !der || String(x.modifieLe) > String(der));
+      el.hidden = !(l.length && vieux && modifies);
+      $("#date-copie").textContent = der ? "Dernière copie de sécurité : " + quand(der) + "." : "Aucune copie de sécurité pour l'instant.";
+    });
+  }
+
+  /* ---------- Annuler la dernière action ---------- */
+
+  let annulation = null, minuteurAnnulation = null;
+  function proposerAnnulation(message, restaurer) {
+    const el = $("#annulation");
+    el.querySelector(".annulation-texte").textContent = message;
+    el.hidden = false;
+    annulation = restaurer;
+    clearTimeout(minuteurAnnulation);
+    minuteurAnnulation = setTimeout(() => { el.hidden = true; annulation = null; }, 10000);
+  }
+  function instantane() { return JSON.parse(JSON.stringify({ dossier: dossier, compteRendu: cr })); }
+  function restaurerInstantane(x) {
+    return () => { charger(x); nonEnregistre = true; sauverBrouillon(); };
+  }
+
+  /* ---------- Profils ---------- */
+
+  const CLE_PROFIL = "outil-ergo:profil";
+  function initiales(nom) { return nom.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m.charAt(0).toUpperCase()).join(""); }
+  function profilActif() {
+    const nom = lireStockage(CLE_PROFIL);
+    return nom && reglages.praticiens.some((p) => p.nom === nom) ? nom : "";
+  }
+  function majProfil() {
+    const b = $("#profil");
+    const nom = profilActif();
+    b.hidden = !reglages.praticiens.some((p) => p.nom.trim());
+    b.innerHTML = nom ? `<span class="profil-rond" aria-hidden="true">${esc(initiales(nom))}</span><span class="profil-nom">${esc(nom)}</span>` : "Choisir mon profil";
+  }
+  function choisirProfil(i) {
+    const p = reglages.praticiens[i];
+    if (!p) return;
+    ecrireStockage(CLE_PROFIL, p.nom);
+    reglages.signataire = i;
+    sauverReglages();
+    if (!dossier.auteur) dossier.auteur = p.nom;
+    remplirReglages();
+    majProfil();
+    majTout();
+    annoncer("Bonjour " + p.nom.split(" ")[0] + " !");
+  }
+  function ouvrirChoixProfil() {
+    const avecNom = reglages.praticiens.map((p, i) => [p, i]).filter((x) => x[0].nom.trim());
+    if (!avecNom.length) { afficherOnglet("reglages"); annoncer("Ajoutez d'abord votre nom dans les réglages (Praticiens)."); return; }
+    const fond = document.createElement("div");
+    fond.className = "demande";
+    fond.setAttribute("role", "dialog");
+    fond.setAttribute("aria-modal", "true");
+    fond.setAttribute("aria-labelledby", "titre-profil");
+    fond.innerHTML = `<div class="demande-boite boite-profil"><p class="profil-titre" id="titre-profil">Bonjour ! Qui utilise l'outil ?</p>
+      <p class="note">Vos bilans seront signés à votre nom. Vous pourrez changer en touchant votre nom, en haut de la page.</p>
+      <div class="profils">${avecNom.map(([p, i]) => `<button type="button" class="carte-profil" data-profil="${i}"><span class="profil-rond grand" aria-hidden="true">${esc(initiales(p.nom))}</span><strong>${esc(p.nom)}</strong><small>${esc(p.titre)}</small></button>`).join("")}</div>
+      <div class="barre-actions"><button type="button" class="bouton-lien" data-profil="plus-tard">Plus tard</button></div></div>`;
+    const fermer = () => { fond.remove(); document.removeEventListener("keydown", clavier, true); };
+    const clavier = (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(); } };
+    fond.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-profil]");
+      if (!b) { if (e.target === fond) fermer(); return; }
+      if (b.dataset.profil !== "plus-tard") choisirProfil(Number(b.dataset.profil));
+      fermer();
+    });
+    document.addEventListener("keydown", clavier, true);
+    document.body.appendChild(fond);
+    fond.querySelector("[data-profil]").focus();
+  }
+
+  /* ---------- Plan de suivi ---------- */
+
+  const U = window.Suivi;
+  let signatureAxes = "";
+  function majSuivi() {
+    if (!U) return;
+    const d = B.normaliserDossier(dossier);
+    const plan = U.planning(d, reglages);
+    const p = plan.parametres;
+    const freq = U.FREQUENCES.find((f) => f[0] === p.frequence)[1].toLowerCase();
+    const derniere = plan.seances.length ? plan.seances[plan.seances.length - 1].date : p.debut;
+    $("#resume-suivi").textContent = p.nombre + " séances de " + p.duree + " minutes, " + freq + ", du " + B.dateCourte(p.debut) + " au " + B.dateCourte(derniere) +
+      (dossier.suivi.debut ? "." : " (première séance proposée deux semaines après le bilan).");
+    const sig = JSON.stringify(plan.proposes.map((a) => [a.id, a.poids, a.raisons[0] || ""]).concat([p.s.exclus]));
+    if (sig === signatureAxes) return;
+    signatureAxes = sig;
+    $("#axes-suivi").innerHTML = plan.proposes.map((a) => `<label class="preco${a.poids ? " proposee" : ""}"><input type="checkbox" data-axe="${a.id}"${p.s.exclus.indexOf(a.id) < 0 && (a.poids || plan.axes.some((x) => x.id === a.id)) ? " checked" : ""}>
+      <span class="preco-texte"><span class="preco-label">${esc(a.titre)}</span>${a.raisons.length ? `<span class="preco-raison">Proposé : ${esc(a.raisons[0])}</span>` : ""}</span></label>`).join("");
+  }
+
+  function modeleSuivi() { return U.modeleSuivi(dossier, reglages); }
+  async function wordSuivi() {
+    let octets;
+    try { octets = W.construire(await avecImages(modeleSuivi())); } catch (e) { annoncer("Le plan de suivi n'a pas pu être créé : " + e.message); return; }
+    await telecharger(nomFichier("Plan_suivi", "docx"), octets, MIME_DOCX, "Plan de suivi téléchargé");
+  }
+
+  /* ---------- Graphiques du compte rendu ---------- */
+
+  let minuteurGalerie = null;
+  function majGalerie() {
+    clearTimeout(minuteurGalerie);
+    minuteurGalerie = setTimeout(() => {
+      const zone = $("#galerie");
+      if (!zone || $("#p-compte-rendu").hidden) return;
+      const blocs = modele().blocs.filter((b) => b.type === "graphique");
+      const figures = blocs.map((b) => { const g = window.Graph.deBloc(b, dossier.senso); return g ? `<figure class="vignette-graphique">${g.svg}<figcaption>${esc(b.alt)}</figcaption></figure>` : ""; }).join("");
+      zone.innerHTML = figures || `<p class="vide">Les graphiques apparaissent ici dès que les résultats sont saisis (BHK, autres bilans, MCRO, DCDQ, bilan sensoriel).</p>`;
+    }, 250);
+  }
+
+  /* ---------- Étapes remplies (onglets) ---------- */
+
+  function majEtapes() {
+    const d = B.normaliserDossier(dossier);
+    const t = (k) => String(d[k] || "").trim();
+    const etat = {
+      dossier: !!(t("prenom") || t("nom")),
+      anamnese: ["devTrajectoire", "devMoteur", "devLangage", "envFamilial", "envSuivis", "envParcours", "occSommeil", "occHabillage", "occAlimentation", "ecoleAmenagements"].some(t),
+      occupations: O.commence(d),
+      ecriture: Object.keys(d.grille).length > 0 || d.auto.fait === "oui" || !!t("prise"),
+      bhk: !!t("vitesse") || Object.keys(d.lignes).length > 0,
+      sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui") || d.cartes.sensoriel.fait === "oui",
+      bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui",
+      "compte-rendu": d.amenagements.length > 0,
+    };
+    Object.keys(etat).forEach((k) => { const b = $("#t-" + k); if (b) b.classList.toggle("rempli", etat[k]); });
+  }
+
   /* ================= Dossier : enregistrer, ouvrir, nouveau ================= */
 
   function enregistrer() {
@@ -1154,7 +1492,9 @@
 
   function ouvrir(obj) {
     if (!obj || !obj.dossier || (obj.type !== "bilan-ergo-dossier" && obj.type !== "bhk-dossier")) throw new Error("Ce fichier n'est pas un dossier de bilan.");
+    enregistrerDansMesDossiers();
     charger(obj);
+    if (reglages.brouillon) { nonEnregistre = true; sauverBrouillon(); }
     nonEnregistre = false;
     afficherOnglet("dossier");
     annoncer("Dossier ouvert");
@@ -1190,12 +1530,17 @@
   }
 
   async function nouveau() {
-    if (nonEnregistre && !(await demander("Le dossier en cours n'est pas enregistré. Commencer un nouveau dossier ?", "Commencer un nouveau dossier"))) return;
+    if (!reglages.brouillon && nonEnregistre && !(await demander("Le dossier en cours n'est pas enregistré. Commencer un nouveau dossier ?", "Commencer un nouveau dossier"))) return;
+    const ancien = dossierVierge() ? "" : (dossier.prenom || "").trim();
+    enregistrerDansMesDossiers();
     ecrireStockage(CLE_BROUILLON, null);
     charger({ dossier: B.dossierVide() });
     nonEnregistre = false;
     afficherOnglet("dossier");
-    annoncer("Nouveau dossier");
+    afficherMesDossiers();
+    annoncer(reglages.brouillon && ancien ? "Nouveau dossier. Celui de " + ancien + " reste dans « Mes dossiers »." : "Nouveau dossier");
+    const champ = $("[data-champ='prenom']");
+    if (champ) champ.focus();
   }
 
   /* ================= Onglets ================= */
@@ -1209,7 +1554,8 @@
     });
     $$("[role=tabpanel]").forEach((p) => { p.hidden = p.id !== "p-" + nom; });
     window.scrollTo(0, 0);
-    if (nom === "compte-rendu") $$("[data-section]").forEach(ajuster);
+    if (nom === "compte-rendu") { $$("[data-section]").forEach(ajuster); majGalerie(); }
+    if (nom === "dossier") afficherMesDossiers();
   }
 
   function initOnglets() {
@@ -1231,8 +1577,19 @@
     const el = e.target.closest("button");
     if (!el) return;
     if (el.dataset.aller) return afficherOnglet(el.dataset.aller);
+    if (el.dataset.ouvrirDossier) return ouvrirDeMesDossiers(el.dataset.ouvrirDossier);
+    if (el.dataset.supprDossier) return supprimerDeMesDossiers(el.dataset.supprDossier);
+    if (el.dataset.annuler !== undefined) {
+      const f = annulation;
+      annulation = null;
+      $("#annulation").hidden = true;
+      if (f) { f(); annoncer("C'est annulé"); }
+      return;
+    }
     if (el.dataset.retablir) {
       const id = el.dataset.retablir;
+      const avant = instantane();
+      proposerAnnulation("Texte généré rétabli.", restaurerInstantane(avant));
       cr[id] = { texte: genere[id], modifie: false };
       const ta = $(`[data-section="${id}"]`);
       ta.value = genere[id];
@@ -1285,13 +1642,13 @@
       case "apercu": return apercu();
       case "apercu-ecole": return apercu(modeleEcole(), "Aperçu de la synthèse pour l'école");
       case "lancer-tri": return lancerTri(el.dataset.jeu);
-      case "effacer-tri":
-        demander("Effacer les résultats de ce tri ?", "Effacer").then((ok) => {
-          if (!ok) return;
-          Object.assign(dossier.cartes[el.dataset.jeu], { resultats: [], choix: [], date: "" });
-          nonEnregistre = true; majTout();
-        });
+      case "effacer-tri": {
+        const avant = instantane();
+        Object.assign(dossier.cartes[el.dataset.jeu], { resultats: [], choix: [], date: "" });
+        nonEnregistre = true; majTout();
+        proposerAnnulation("Résultats du tri effacés.", restaurerInstantane(avant));
         return;
+      }
       case "othope-lignes": {
         const n = Math.min(O.MAX_OTHOPE - dossier.othope.items.length, 4);
         for (let i = 0; i < n; i++) dossier.othope.items.push({ activite: "", niveau: "", objectif: "" });
@@ -1301,13 +1658,13 @@
         if (champ) champ.focus();
         return;
       }
-      case "retirer-precedent":
-        demander("Retirer la comparaison avec le bilan précédent ?", "Retirer").then((ok) => {
-          if (!ok) return;
-          dossier.precedent = null;
-          nonEnregistre = true; majTout();
-        });
+      case "retirer-precedent": {
+        const avant = instantane();
+        dossier.precedent = null;
+        nonEnregistre = true; majTout();
+        proposerAnnulation("Comparaison retirée.", restaurerInstantane(avant));
         return;
+      }
       case "ajouter-carte": {
         const t = $("#carte-texte").value.trim();
         if (!t) { annoncer("Écrivez le texte de la carte."); $("#carte-texte").focus(); return; }
@@ -1323,13 +1680,13 @@
       case "fermer-apercu": return fermerApercu();
       case "imprimer": $("#impression").innerHTML = htmlModele(modele()); return window.print();
       case "copier": return copier();
-      case "effacer-cotation":
-        demander("Effacer la cotation des 13 critères ?", "Effacer la cotation").then((ok) => {
-          if (!ok) return;
-          dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = ""; dossier.adoTermine = "";
-          remplirFormulaire(); nonEnregistre = true; majTout();
-        });
+      case "effacer-cotation": {
+        const avant = instantane();
+        dossier.lignes = {}; dossier.c1 = ""; dossier.c2 = ""; dossier.tailleMm = ""; dossier.adoTermine = "";
+        remplirFormulaire(); nonEnregistre = true; majTout();
+        proposerAnnulation("Cotation effacée.", restaurerInstantane(avant));
         return;
+      }
       case "ajouter-praticien":
         if (reglages.praticiens.length >= 4) return annoncer("Quatre praticiens au plus dans l'en-tête.");
         reglages.praticiens.push(B.praticienVide());
@@ -1345,9 +1702,31 @@
         reglages.autoQuestions.pop();
         sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
         return;
-      case "retirer-photo":
+      case "retirer-photo": {
+        const avant = instantane();
         dossier.photoCopie = ""; dossier.photoL = ""; dossier.photoH = "";
         majPhoto(); nonEnregistre = true; majTout();
+        proposerAnnulation("Photo retirée.", restaurerInstantane(avant));
+        return;
+      }
+      case "copie-securite": return telechargerCopie();
+      case "profil": return ouvrirChoixProfil();
+      case "word-suivi": return wordSuivi();
+      case "apercu-suivi": return apercu(modeleSuivi(), "Aperçu du plan de suivi");
+      case "lire-eso": {
+        const l = S.lireLibellesEso($("#eso-coller").value);
+        const n = l.sp.length + l.p.length + l.l.length;
+        if (!n) { annoncer("Aucune question trouvée : copiez tout le texte du questionnaire, titres compris."); return; }
+        reglages.esoLibelles = l;
+        $("#eso-coller").value = "";
+        sauverReglages(); remplirReglages(); construireSenso(); remplirFormulaire(); majTout();
+        annoncer(n + " questions enregistrées dans ce navigateur");
+        return;
+      }
+      case "effacer-eso":
+        reglages.esoLibelles = { sp: [], p: [], l: [] };
+        sauverReglages(); remplirReglages(); construireSenso(); remplirFormulaire(); majTout();
+        annoncer("Texte des questions effacé de ce navigateur");
         return;
       case "exporter-reglages":
         return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
@@ -1360,7 +1739,7 @@
     if (action === "ouvrir") {
       const champ = e.target;
       const suite = () => lireFichier(champ).then(ouvrir).catch((err) => annoncer(err.message));
-      if (!nonEnregistre) suite();
+      if (!nonEnregistre || reglages.brouillon) suite();
       else demander("Le dossier en cours n'est pas enregistré. Ouvrir l'autre dossier quand même ?", "Ouvrir le dossier")
         .then((ok) => { if (ok) suite(); else champ.value = ""; });
     } else if (action === "photo") {
@@ -1371,6 +1750,8 @@
         majPhoto(); nonEnregistre = true; majTout();
         annoncer("Photo ajoutée");
       }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "restaurer") {
+      lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {
       lireFichier(e.target).then(chargerPrecedent).catch((err) => annoncer(err.message));
     } else if (action === "photo-carte") {
@@ -1420,11 +1801,22 @@
     const brouillon = reglages.brouillon ? lireStockage(CLE_BROUILLON) : null;
     if (brouillon && brouillon.dossier) {
       charger(brouillon);
-      annoncer("Brouillon repris");
+      if (brouillon.dossier.prenom) annoncer("Vous reprenez le dossier de " + brouillon.dossier.prenom);
     } else {
       remplirFormulaire();
       majTout();
     }
+    majIndicateur();
+    afficherMesDossiers();
+    majProfil();
+    // Demande au navigateur de ne pas effacer les données de l'outil quand l'appareil manque de place.
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) { /* rien */ }
+    if (!profilActif() && reglages.praticiens.filter((p) => p.nom.trim()).length > 1) setTimeout(ouvrirChoixProfil, 400);
+    else if (!profilActif()) { const seul = reglages.praticiens.findIndex((p) => p.nom.trim()); if (seul >= 0) ecrireStockage(CLE_PROFIL, reglages.praticiens[seul].nom); majProfil(); }
+    // Enregistrement immédiat quand on quitte la page ou qu'on change d'application.
+    const toutDeSuite = () => { clearTimeout(minuteurBrouillon); if (reglages.brouillon) { ecrireStockage(CLE_BROUILLON, { dossier: dossier, compteRendu: cr, le: new Date().toISOString() }); enregistrerDansMesDossiers(); } };
+    window.addEventListener("pagehide", toutDeSuite);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") toutDeSuite(); });
 
     document.addEventListener("input", surSaisie);
     document.addEventListener("change", (e) => { if (!surFichier(e)) surSaisie(e); });
