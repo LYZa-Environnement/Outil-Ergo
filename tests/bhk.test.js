@@ -801,3 +801,33 @@ test("EViC : mots par minute, comparaison avec la main, compte rendu et préconi
   // Saisies invalides écartées.
   assert.deepEqual(Object.keys(Cl.normaliser({ essais: { copie: { mots: "abc" }, dictee: { mots: "-3" } } }).essais), []);
 });
+
+test("EViC guidé : ordre des épreuves, relevés de la passation, observation et parole de l'enfant", () => {
+  assert.deepEqual(Cl.etapesPassation(["dictee", "copie", "main-repetition"]), ["main-repetition", "copie", "dictee"]);
+  assert.match(Cl.consigneEnfant("repetition", "bateau"), /Tape le mot « bateau » puis un espace/);
+  assert.match(Cl.consigneEnfant("repetition", ""), /que ton ergothérapeute t'a donné/);
+  assert.deepEqual(Cl.usage("Élise a vu, le bateau."), { majuscules: 1, accents: 1, ponctuation: 2 });
+  assert.equal(Cl.repetitionsCorrectes("bateau Bateau, bateu bateau", "bateau"), 3);
+  assert.equal(Cl.repetitionsCorrectes("bateau", ""), null);
+  assert.deepEqual(Cl.parMinute([6, 13, 19, 22]), [6, 7, 6, 3]);
+  assert.equal(Cl.baisseEnFin([6, 7, 6, 3]), true);
+  assert.equal(Cl.baisseEnFin([6, 7, 6, 6]), false);
+  const e = Cl.essaiChronometre("bateau bateau bateu", 180, 2, "2026-10-21", { instantanes: [1, 2, 3], pauses: 1, pauseMax: 5.6, interruptions: 1, mot: "bateau" });
+  assert.deepEqual([e.motsCorrects, e.mot, e.parMinute.join(","), e.pauses, e.pauseMax, e.interruptions], [2, "bateau", "1,1,1", 1, 6, 1]);
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.clavier = { fait: "oui", mot: "bateau", passation: "2026-10-21",
+    essais: { repetition: e, copie: Cl.essaiChronometre("Le chat dort. Il a vu la tête", 300, 4, "2026-10-21", { instantanes: [3, 6, 8, 9, 9], pauses: 3, pauseMax: 12 }) },
+    obs: { mains: "deux", recherche: "cherche", fatigue: "fin", modele: "lettres", inconnu: "x" }, attitude: { concentre: "oui", precipite: "", autre: "oui" },
+    enfant: { ressenti: "difficile", prefere: "clavier" } };
+  const n = Cl.normaliser(d.clavier);
+  assert.deepEqual(n.obs, { mains: "deux", recherche: "cherche", fatigue: "fin", modele: "lettres" });
+  assert.deepEqual(n.attitude, { concentre: "oui" });
+  const v = Cl.fonctionsVues(n);
+  assert.deepEqual(v.vues, ["majuscule", "accents", "ponctuation", "effacer"]);
+  const txt = B.rediger(d, reg).clavier;
+  assert.match(txt, /Copie : 1,6 mots par minute au clavier ; minute par minute : 3, 3, 2, 1, 0 mots, vitesse en baisse en fin d'épreuve ; 4 corrections ; 3 arrêts de plus de 3 secondes \(le plus long : 12 s\)\./);
+  assert.match(txt, /mot tapé correctement 2 fois sur 3/);
+  assert.match(txt, /utilise les deux mains ; cherche souvent les touches ; se fatigue en fin d'épreuve ; en copie, revient au modèle lettre par lettre ; reste concentrée/);
+  assert.match(txt, /À la fin des épreuves, Léa dit avoir trouvé les épreuves difficiles et préférer écrire au clavier\./);
+});

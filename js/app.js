@@ -461,27 +461,61 @@
   }
 
 
-  /* ---------- Frappe au clavier (EViC) ---------- */
+  /* ---------- Frappe au clavier (EViC) : passation guidée, l'enfant passe les épreuves seul ---------- */
 
   const C = window.Clavier;
-  let frappe = null;
+  let evic = null;        // passation en cours
+  let sonEvic = null;     // signal sonore de fin d'épreuve
+  let veilleEvic = null;  // écran gardé allumé pendant la passation
+  let appuiEvic = null;   // appui long en cours (bouton réservé à l'adulte)
+  const DUREE_APPUI = 900;
+  let minuteurIndice = null;
+
+  function nomEtape(id) {
+    if (id === "main-repetition") return "Répétition du mot à la main";
+    const e = C.EPREUVES.find((x) => x.id === id);
+    return e ? e.nom + " au clavier" : id;
+  }
 
   function construireClavier() {
-    $("#epreuves-clavier").innerHTML = C.EPREUVES.map((e) => `<div class="epreuve-clavier">
+    const maj1 = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    $("#epreuves-clavier").innerHTML = C.EPREUVES.map((e) => `<div class="epreuve-clavier" id="epreuve-${e.id}">
         <div class="epreuve-clavier-tete"><strong>${esc(e.nom)}</strong><span class="discret">${e.duree / 60} min</span></div>
         <p class="note">${esc(e.consigne)}</p>
+        <output class="resultat-epreuve" id="res-clavier-${e.id}"></output>
+        <div class="details-epreuve" id="det-clavier-${e.id}"></div>
         <div class="epreuve-clavier-actions">
-          <button type="button" class="bouton bouton-petit" data-lancer-frappe="${e.id}"><span aria-hidden="true">⏱️</span> Lancer l'épreuve</button>
+          <button type="button" class="bouton bouton-second bouton-petit" data-preparer-evic="${e.id}"><span aria-hidden="true">▶️</span> Faire passer cette épreuve</button>
           <label class="champ champ-court"><span>Mots tapés en ${e.duree / 60} min</span><input type="text" inputmode="numeric" data-chemin="clavier.essais.${e.id}.mots" placeholder="ex. 25"></label>
         </div>
-        <output class="resultat-epreuve" id="res-clavier-${e.id}"></output>
       </div>`).join("");
-    $("#manuscrit-clavier").innerHTML = C.MANUSCRIT.map((m) => `<label class="champ"><span>${esc(m.nom)} : mots écrits en ${m.duree / 60} min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.${m.id}" placeholder="ex. 60"></label>`).join("");
-    const maj1 = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    $("#manuscrit-clavier").innerHTML = `<label class="champ"><span>Copie du BHK à la main : mots écrits en 5 min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.copie" placeholder="ex. 60"><small class="note">Comptez les mots sur la copie du BHK.</small></label>
+      <label class="champ"><span>Répétition du mot à la main : mots écrits en 5 min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.repetition" placeholder="ex. 60"><small class="note"><button type="button" class="bouton-lien" data-preparer-evic="main-repetition">▶️ Chronométrer avec l'enfant</button></small></label>`;
     $("#materiel-clavier").innerHTML = pastilles("clavier-materiel", "clavier.materiel", C.MATERIELS);
     $("#doigte-clavier").innerHTML = pastilles("clavier-doigte", "clavier.doigte", C.DOIGTES.map((x) => [x[0], maj1(x[1])]));
+    $("#mains-clavier").innerHTML = pastilles("clavier-o-mains", "clavier.obs.mains", C.OBSERVATIONS[0].valeurs.map((v) => [v[0], v[2]]));
     $("#regard-clavier").innerHTML = pastilles("clavier-regard", "clavier.regard", C.REGARDS.map((x) => [x[0], maj1(x[1])]));
+    $("#obs-clavier").innerHTML = C.OBSERVATIONS.slice(1).map((o) => `<div class="champ"><span>${esc(o.titre)}</span>${pastilles("clavier-o-" + o.id, "clavier.obs." + o.id, o.valeurs.map((v) => [v[0], v[2]]))}</div>`).join("") +
+      `<div class="champ"><span>Attitude <small class="discret">(plusieurs choix possibles)</small></span><div class="choix">${C.ATTITUDES.map((a) => `<label><input type="checkbox" data-chemin="clavier.attitude.${a[0]}"><span>${esc(a[2])}</span></label>`).join("")}</div></div>`;
     $("#fonctions-clavier").innerHTML = C.FONCTIONS.map((f) => `<div class="item-grille"><span class="item-label">${esc(f[2])}</span>${pastilles("clavier-f-" + f[0], "clavier.fonctions." + f[0], [["oui", "Connaît"], ["non", "À apprendre"]])}</div>`).join("");
+    $("#enfant-clavier").innerHTML = `<div class="champ"><span>Les épreuves étaient…</span>${pastilles("clavier-ressenti", "clavier.enfant.ressenti", C.RESSENTIS.map((r) => [r[0], r[1] + " " + r[2]]))}</div>
+      <div class="champ"><span>Pour écrire, préfère…</span>${pastilles("clavier-prefere", "clavier.enfant.prefere", C.PREFERENCES.map((r) => [r[0], r[1] + " " + r[2]]))}</div>`;
+  }
+
+  function htmlDetailsEpreuve(x, s) {
+    const pm = s.parMinute || [];
+    const max = Math.max.apply(null, [1].concat(pm));
+    const infos = [];
+    if (s.motsCorrects !== null && s.motsCorrects !== undefined) infos.push(`« ${esc(s.mot)} » tapé sans erreur ${s.motsCorrects} fois sur ${esc(s.mots)} mots`);
+    if (x.duree < x.dureePrevue - 1) infos.push("arrêtée au bout de " + tempsTexte(x.duree));
+    if (s.corrections !== null) infos.push(s.corrections ? s.corrections + " correction" + (s.corrections > 1 ? "s" : "") : "aucune correction");
+    if (s.pauses !== null) infos.push(s.pauses ? s.pauses + " arrêt" + (s.pauses > 1 ? "s" : "") + " de plus de " + C.SEUIL_PAUSE + " s (le plus long : " + s.pauseMax + " s)" : "aucun arrêt de plus de " + C.SEUIL_PAUSE + " s");
+    if (x.id !== "repetition" && s.majuscules !== null) infos.push(`majuscules : ${s.majuscules} · accents : ${s.accents} · ponctuation : ${s.ponctuation}`);
+    if (s.interruptions) infos.push(s.interruptions + " pause" + (s.interruptions > 1 ? "s" : "") + " demandée" + (s.interruptions > 1 ? "s" : "") + " par l'adulte");
+    return (pm.length ? `<div class="minutes" role="img" aria-label="Mots tapés à chaque minute : ${pm.join(", ")}">${pm.map((n, i) => `<span class="minute"><span class="minute-barre"><b style="height:${Math.round(n / max * 100)}%"></b></span><strong>${n}</strong><small>${i + 1}<sup>${i ? "e" : "re"}</sup> min</small></span>`).join("")}</div>` +
+      (x.baisse ? `<p class="note alerte-douce">Vitesse en baisse en fin d'épreuve.</p>` : "") : "") +
+      (infos.length ? `<p class="note">${infos.join(" · ")}</p>` : "") +
+      (s.texte ? `<details class="texte-tape"><summary>Texte tapé par l'enfant</summary><p>${esc(s.texte)}</p></details>` : "");
   }
 
   function majClavier() {
@@ -493,91 +527,356 @@
       o.className = "resultat-epreuve" + (x.ratio === null ? "" : x.ratio >= 1 ? " niveau-moyenne" : " niveau-inferieur");
       o.innerHTML = x.mpm === null ? "" : `<strong>${esc(C.fmt(x.mpm))} mots par minute</strong>` +
         (x.ratio !== null ? ` · ${Math.round(x.ratio * 100)} % de la vitesse à la main` : "") +
-        (x.outil ? ` · chronométré dans l'outil${x.corrections !== null ? ", " + x.corrections + " correction" + (x.corrections > 1 ? "s" : "") : ""}` : "");
+        (x.outil ? ` · passée dans l'outil` : "");
+      const s = d.clavier.essais[x.id];
+      $("#det-clavier-" + x.id).innerHTML = s && s.outil ? htmlDetailsEpreuve(x, s) : "";
     });
     const ind = C.indicateur(d.clavier);
     $("#resultats-clavier").textContent = !r.faites.length ? "" : !ind ? "Notez aussi les mots écrits à la main pour comparer les deux vitesses."
       : ind.cle === "clavierEfficace" ? "Équivalence personnelle atteinte : au clavier, l'enfant est au moins aussi rapide qu'à la main."
       : "Équivalence personnelle non atteinte : au clavier, l'enfant reste plus lent qu'à la main.";
+    const vu = C.fonctionsVues(d.clavier);
+    const noms = { majuscule: "majuscules", accents: "accents", ponctuation: "ponctuation", effacer: "effacement" };
+    const pasVu = ["majuscule", "accents", "ponctuation"].filter((k) => vu.vues.indexOf(k) < 0);
+    $("#fonctions-vues").textContent = !vu.motsTexte ? "" : (vu.vues.length ? "Vu pendant la passation : " + vu.vues.map((k) => noms[k] + " (" + vu.comptes[k] + ")").join(", ") + ". " : "") +
+      (pasVu.length && vu.motsTexte >= 10 ? "Pas utilisé en copie ni en dictée : " + pasVu.map((k) => noms[k]).join(", ") + " (à vérifier)." : "");
+    const faites = C.EPREUVES.filter((e) => d.clavier.essais[e.id] && d.clavier.essais[e.id].outil).map((e) => e.nom.toLowerCase());
+    $("#etat-passation-evic").textContent = d.clavier.passation ? "Dernière passation : " + B.dateCourte(d.clavier.passation) + (faites.length ? " (" + faites.join(", ") + ")" : "") + "." : "";
   }
 
-  function minutesTexte(sec) { const m = Math.floor(sec / 60), s2 = Math.round(sec % 60); return m + ":" + String(s2).padStart(2, "0"); }
-
-  async function lancerFrappe(id) {
-    const e = C.EPREUVES.find((x) => x.id === id);
-    if (!e) return;
-    const ancien = dossier.clavier && dossier.clavier.essais && dossier.clavier.essais[id];
-    if (ancien && ancien.mots !== "" && ancien.mots !== undefined && !(await demander("Un résultat est déjà noté pour « " + e.nom + " ». Refaire l'épreuve ?", "Refaire l'épreuve"))) return;
-    lancerFrappeSansQuestion(id);
+  /* Préparation par l'ergothérapeute */
+  async function preparerEvic(seule) {
+    if (evic) return;
+    const c = C.normaliser(dossier.clavier);
+    const deja = (id) => id === "main-repetition" ? c.manuscrit.repetition !== "" : !!c.essais[id];
+    const cochees = seule ? [seule] : C.ORDRE.slice();
+    let choix = null;
+    const v = await ouvrirDialogue({
+      titre: "Faire passer l'EViC", classe: "boite-evic",
+      html: `<p class="note">L'enfant passe les épreuves seul sur cet appareil : consignes en grand, chronomètre, arrêt automatique avec un petit signal sonore. Il ne voit pas ses résultats.</p>
+        <fieldset class="champ evic-choix"><legend>Épreuves, dans l'ordre</legend>${C.ORDRE.map((id) => {
+          const e = C.ENFANT[id];
+          return `<label class="case"><input type="checkbox" name="etape" value="${id}"${cochees.indexOf(id) >= 0 ? " checked" : ""}><span><span aria-hidden="true">${e.emoji}</span> ${esc(nomEtape(id))} <small class="discret">${e.duree / 60} min${deja(id) ? " · résultat déjà noté, il sera remplacé" : ""}</small></span></label>`;
+        }).join("")}</fieldset>
+        <label class="champ"><span>Mot à répéter (celui de votre feuille de passation)</span><input type="text" name="mot" value="${esc(c.mot)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="40"></label>
+        <div class="champ"><span>Matériel</span><div class="choix">${C.MATERIELS.map((m) => `<label><input type="radio" name="materiel" value="${m[0]}"${c.materiel === m[0] ? " checked" : ""}><span>${esc(m[1])}</span></label>`).join("")}</div></div>
+        <details class="evic-preparer"><summary>À préparer avant de commencer</summary><ul>
+          <li>Le texte du BHK sur papier, à côté de l'écran (copie) ; votre exemplaire pour la dictée.</li>
+          <li>Une feuille et le crayon habituel (répétition à la main).</li>
+          <li>Sur tablette : correction automatique et prédiction désactivées (Réglages › Général › Clavier), pour garder la frappe de l'enfant telle quelle.</li>
+          <li>Le son de l'appareil allumé : un signal marque la fin de chaque épreuve.</li>
+          <li>Pour vous : maintenez appuyé le bouton « Adulte », en haut à droite (ou touche Échap), pour faire une pause, terminer, recommencer ou passer une épreuve.</li>
+        </ul></details>`,
+      boutons: [{ valeur: "go", libelle: "Passer la main à l'enfant ▶" }, { valeur: "annuler", libelle: "Annuler" }],
+      valider: (fond) => {
+        const etapes = $$("input[name=etape]:checked", fond).map((x) => x.value);
+        const mot = $("input[name=mot]", fond).value.trim();
+        if (!etapes.length) return "Choisissez au moins une épreuve.";
+        if (etapes.some((id) => /repetition/.test(id)) && !mot) return "Indiquez le mot à répéter.";
+        const m = $("input[name=materiel]:checked", fond);
+        choix = { etapes: etapes, mot: mot, materiel: m ? m.value : "" };
+        preparerSon(); // dans le geste : autorise le signal sonore sur tablette
+        return "";
+      },
+    });
+    if (v === "go" && choix) demarrerPassation(choix);
   }
-  function lancerFrappeSansQuestion(id) {
-    const e = C.EPREUVES.find((x) => x.id === id);
-    frappe = { e: e, debut: 0, corrections: 0, minuteur: null, essai: null };
-    $("#titre-frappe").textContent = "⌨️ " + e.nom;
-    $("#frappe-consigne").textContent = e.consigne + " Le chronomètre démarre à la première touche.";
-    $("#frappe-temps").textContent = minutesTexte(e.duree);
-    $("#ecran-frappe [data-action='arreter-frappe']").hidden = false;
-    const z = $("#zone-frappe");
-    z.value = ""; z.readOnly = false;
-    $("#frappe-pied").innerHTML = `<button type="button" class="bouton-lien" data-action="fermer-frappe">Annuler</button>`;
+
+  function demarrerPassation(choix) {
+    if (!dossier.clavier || typeof dossier.clavier !== "object") dossier.clavier = C.vide();
+    const k = dossier.clavier;
+    k.fait = "oui"; k.mot = choix.mot; k.passation = B.aujourdhui();
+    if (choix.materiel) k.materiel = choix.materiel;
+    if (!k.essais || typeof k.essais !== "object") k.essais = {};
+    nonEnregistre = true; sauverBrouillon();
+    evic = { etapes: C.etapesPassation(choix.etapes), i: 0, phase: "intro", mot: choix.mot, t: null, faites: [] };
+    fermerPhrases();
+    $("#evic-menu").hidden = true;
     $("#ecran-frappe").hidden = false;
-    document.body.classList.add("sans-defilement");
-    z.focus();
+    document.body.classList.add("sans-defilement", "mode-enfant");
+    garderEcranAllume();
+    try { history.pushState({ onglet: panneauCourant(), evic: true }, ""); } catch (e) { /* page partagée */ }
+    rendreEvic();
   }
-  function ticFrappe() {
-    if (!frappe || !frappe.debut) return;
-    const ecoule = (performance.now() - frappe.debut) / 1000;
-    const reste = Math.max(0, frappe.e.duree - ecoule);
-    $("#frappe-temps").textContent = minutesTexte(Math.ceil(reste));
-    if (reste <= 0) terminerFrappe(frappe.e.duree);
+
+  function etapeEvic() { return evic ? evic.etapes[evic.i] : null; }
+
+  function rendreEvic() {
+    if (!evic) return;
+    const id = etapeEvic(), e = C.ENFANT[id] || {};
+    const fini = evic.phase === "questions" || evic.phase === "fin";
+    $("#evic-etapes").innerHTML = evic.etapes.map((x, k) => `<li class="${k < evic.i || (fini && k === evic.i) ? "faite" : k === evic.i ? "en-cours" : ""}" title="${esc(C.ENFANT[x].titre)}"><span aria-hidden="true">${C.ENFANT[x].emoji}</span></li>`).join("");
+    const clavier = evic.phase === "frappe" && !e.papier;
+    $("#evic-frappe").hidden = !clavier;
+    $("#evic-ecran").hidden = clavier;
+    $("#evic-temps").hidden = evic.phase !== "frappe";
+    if (evic.phase !== "frappe") $("#evic-temps span").style.width = "0";
+    const mot = (id || "").indexOf("repetition") >= 0 && evic.mot ? `<p class="evic-mot">${esc(evic.mot)}</p>` : "";
+    let h = "";
+    if (evic.phase === "intro") {
+      h = `<p class="evic-num">Épreuve ${evic.i + 1} sur ${evic.etapes.length}</p>
+        <p class="evic-emoji" aria-hidden="true">${e.emoji}</p>
+        <h2 id="titre-evic">${esc(e.titre)}</h2>${mot}
+        <p class="evic-consigne">${esc(C.consigneEnfant(id, evic.mot))}</p>
+        <p class="evic-depart">${esc(e.depart)}</p>
+        <button type="button" class="bouton evic-grand" data-evic="pret">C'est parti !</button>
+        <p class="evic-adulte-note">Pour l'adulte : ${esc(e.adulte)} Durée : ${e.duree / 60} minutes.</p>`;
+    } else if (evic.phase === "frappe") {
+      if (e.papier) h = `<p class="evic-emoji" aria-hidden="true">✍️</p><h2 id="titre-evic">Écris sur ta feuille</h2>${mot}<p class="evic-consigne">Le plus de fois possible, jusqu'au signal.</p>`;
+      $("#evic-rappel").innerHTML = id === "repetition" ? `Tape <strong>${esc(evic.mot)}</strong> puis un espace, encore et encore.` : id === "dictee" ? "Tape ce que tu entends." : "Recopie le texte de ta feuille.";
+    } else if (evic.phase === "fin-epreuve") {
+      const suivante = evic.etapes[evic.i + 1];
+      h = `<p class="evic-emoji" aria-hidden="true">🎉</p><h2 id="titre-evic">Bravo !</h2>
+        <p class="evic-consigne">${e.papier ? "Stop ! Tu peux poser ton crayon." : "C'est fini pour cette épreuve."}</p>
+        ${suivante ? `<p class="evic-depart">Tu peux secouer un peu les mains. Ensuite : ${esc(C.ENFANT[suivante].titre.toLowerCase())}.</p>` : ""}
+        <button type="button" class="bouton evic-grand" data-evic="suite">Continuer</button>`;
+    } else if (evic.phase === "questions") {
+      const k = dossier.clavier.enfant || {};
+      h = `<p class="evic-emoji" aria-hidden="true">💬</p><h2 id="titre-evic">Deux petites questions</h2>
+        <p class="evic-question">C'était comment ?</p>
+        <div class="evic-reponses">${C.RESSENTIS.map((r) => `<button type="button" class="evic-reponse" data-evic-ressenti="${r[0]}" aria-pressed="${k.ressenti === r[0]}"><span class="evic-emoji-petit" aria-hidden="true">${r[1]}</span>${esc(r[2])}</button>`).join("")}</div>
+        <p class="evic-question">Pour écrire, tu préfères…</p>
+        <div class="evic-reponses">${C.PREFERENCES.map((r) => `<button type="button" class="evic-reponse" data-evic-prefere="${r[0]}" aria-pressed="${k.prefere === r[0]}"><span class="evic-emoji-petit" aria-hidden="true">${r[1]}</span>${esc(r[2])}</button>`).join("")}</div>
+        <button type="button" class="bouton evic-grand" data-evic="fini">J'ai fini</button>`;
+    } else if (evic.phase === "fin") {
+      h = `<p class="evic-emoji" aria-hidden="true">🌟</p><h2 id="titre-evic">Tu as fini, bravo !</h2>
+        <p class="evic-consigne">Merci. Tu peux rendre l'appareil à ton ergothérapeute.</p>
+        <button type="button" class="bouton bouton-second evic-maintenir" data-maintenir="ergo"><span class="evic-jauge" aria-hidden="true"></span>Ergothérapeute : maintenir appuyé</button>`;
+    }
+    $("#evic-ecran").innerHTML = h ? `<div class="evic-carte">${h}</div>` : "";
   }
-  function terminerFrappe(duree) {
-    if (!frappe) return;
-    clearInterval(frappe.minuteur);
+
+  function evicPret() {
+    const id = etapeEvic(), e = C.ENFANT[id];
+    evic.t = { lance: false, actif: false, debut: 0, cumul: 0, derniereA: 0, pauses: 0, pauseMax: 0, corrections: 0, instantanes: [], interruptions: 0, minuteur: null };
+    evic.phase = "frappe";
+    const z = $("#zone-frappe");
+    z.value = ""; z.readOnly = !!e.papier;
+    rendreEvic();
+    if (e.papier) { lancerChrono(); return; }
+    z.focus(); // dans le geste : le clavier de la tablette s'ouvre
+  }
+  function lancerChrono() {
+    const t = evic.t;
+    t.lance = true; t.actif = true; t.debut = performance.now();
+    clearInterval(t.minuteur);
+    t.minuteur = setInterval(ticEvic, 200);
+  }
+  function ecouleEvic() { const t = evic.t; return (t.cumul + (t.actif ? performance.now() - t.debut : 0)) / 1000; }
+  function ticEvic() {
+    if (!evic || !evic.t || !evic.t.actif) return;
+    const e = C.ENFANT[etapeEvic()];
+    const s = ecouleEvic();
+    $("#evic-temps span").style.width = Math.min(100, s / e.duree * 100) + "%";
+    if (!e.papier) {
+      const z = $("#zone-frappe");
+      while (evic.t.instantanes.length < Math.min(Math.floor(s / 60), Math.floor(e.duree / 60))) evic.t.instantanes.push(C.compterMots(z.value));
+    }
+    if (s >= e.duree) finirEpreuve(e.duree);
+  }
+
+  function finirEpreuve(duree) {
+    const id = etapeEvic(), e = C.ENFANT[id], t = evic.t;
+    clearInterval(t.minuteur);
+    if (t.actif) { t.cumul += performance.now() - t.debut; t.actif = false; }
+    const z = $("#zone-frappe");
+    z.readOnly = true; z.blur();
+    const d = Math.max(1, Math.min(duree, t.cumul / 1000 || duree));
+    if (!e.papier && t.lance) {
+      const fin = d - t.derniereA;
+      if (fin > C.SEUIL_PAUSE) { t.pauses++; t.pauseMax = Math.max(t.pauseMax, fin); }
+      while (t.instantanes.length < Math.floor(d / 60)) t.instantanes.push(C.compterMots(z.value));
+      dossier.clavier.essais[id] = C.essaiChronometre(z.value, d, t.corrections, B.aujourdhui(),
+        { instantanes: t.instantanes, pauses: t.pauses, pauseMax: t.pauseMax, interruptions: t.interruptions, mot: id === "repetition" ? evic.mot : "" });
+    }
+    if (t.lance && evic.faites.indexOf(id) < 0) evic.faites.push(id);
+    nonEnregistre = true; sauverBrouillon();
+    bip();
+    evic.phase = "fin-epreuve";
+    rendreEvic();
+  }
+
+  function suiteEvic() {
+    evic.i++;
+    evic.t = null;
+    evic.phase = evic.i >= evic.etapes.length ? "questions" : "intro";
+    rendreEvic();
+  }
+
+  /* Menu de l'adulte : appui long sur « Adulte » ou touche Échap */
+  function ouvrirMenuEvic() {
+    if (!evic) return;
+    const t = evic.t, e = C.ENFANT[etapeEvic()] || {};
+    if (t && t.actif) { t.cumul += performance.now() - t.debut; t.actif = false; t.interruptions++; }
     const z = $("#zone-frappe");
     z.readOnly = true;
-    frappe.essai = C.essaiChronometre(z.value, duree, frappe.corrections, B.aujourdhui());
-    const mpm = Number(frappe.essai.mots) / (frappe.essai.duree / 60);
-    $("#frappe-temps").textContent = "Terminé";
-    $("#ecran-frappe [data-action='arreter-frappe']").hidden = true;
-    $("#frappe-pied").innerHTML = `<p><strong>${frappe.essai.mots} mot${Number(frappe.essai.mots) > 1 ? "s" : ""}</strong> en ${esc(minutesTexte(frappe.essai.duree))} : <strong>${esc(C.fmt(mpm))} mots par minute</strong> · ${frappe.essai.caracteres} caractères · ${frappe.essai.corrections} correction${frappe.essai.corrections > 1 ? "s" : ""}</p>
-      <div class="barre-actions"><button type="button" class="bouton" data-action="garder-frappe">Enregistrer</button><button type="button" class="bouton bouton-second" data-action="refaire-frappe">Recommencer</button><button type="button" class="bouton-lien" data-action="fermer-frappe">Annuler</button></div>`;
+    const enCours = evic.phase === "frappe" && t;
+    const assez = enCours && t.lance && ecouleEvic() >= 30; // un résultat sur moins de 30 secondes ne serait pas fiable
+    clearTimeout(minuteurIndice); $("#evic-indice").textContent = "";
+    $("#evic-menu-etat").textContent = enCours
+      ? e.titre + " : " + tempsTexte(ecouleEvic()) + " sur " + tempsTexte(e.duree) + (e.papier ? "" : " · " + C.compterMots(z.value) + " mots") + (t.lance ? " · chronomètre en pause" : " · pas encore commencé")
+      : evic.phase === "questions" || evic.phase === "fin" ? "Épreuves terminées." : (e.titre || "") + " : pas encore commencé.";
+    $$("#evic-menu [data-evic]").forEach((b) => {
+      const a = b.dataset.evic;
+      b.hidden = (a === "terminer" && !assez) || (a === "recommencer" && !(enCours || evic.phase === "fin-epreuve")) || (a === "passer" && !(evic.phase === "intro" || evic.phase === "frappe"));
+    });
+    $("#evic-menu").hidden = false;
+    $("#evic-menu [data-evic='reprendre']").focus();
   }
-  function fermerFrappe() {
-    if (frappe) clearInterval(frappe.minuteur);
-    frappe = null;
+  function fermerMenuEvic() {
+    $("#evic-menu").hidden = true;
+    if (!evic || evic.phase !== "frappe" || !evic.t) return;
+    const t = evic.t, e = C.ENFANT[etapeEvic()];
+    if (t.lance) { t.debut = performance.now(); t.actif = true; }
+    if (!e.papier) { const z = $("#zone-frappe"); z.readOnly = false; z.focus(); }
+  }
+  function tempsTexte(sec) { const s = Math.max(0, Math.round(sec)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+
+  function surClicEvic(e) {
+    const b = e.target.closest("button");
+    if (!b || !evic) return;
+    if (b.dataset.evicRessenti || b.dataset.evicPrefere) {
+      const k = dossier.clavier.enfant && typeof dossier.clavier.enfant === "object" ? dossier.clavier.enfant : (dossier.clavier.enfant = {});
+      if (b.dataset.evicRessenti) k.ressenti = b.dataset.evicRessenti; else k.prefere = b.dataset.evicPrefere;
+      nonEnregistre = true; sauverBrouillon();
+      rendreEvic();
+      return;
+    }
+    if (b.dataset.maintenir) { if (!b.classList.contains("fait")) indiceAppui(b); return; }
+    switch (b.dataset.evic) {
+      case "pret": return evicPret();
+      case "suite": return suiteEvic();
+      case "fini": evic.phase = "fin"; return rendreEvic();
+      case "reprendre": return fermerMenuEvic();
+      case "terminer": $("#evic-menu").hidden = true; return finirEpreuve(ecouleEvic());
+      case "recommencer": {
+        if (evic.t) clearInterval(evic.t.minuteur);
+        evic.faites = evic.faites.filter((x) => x !== etapeEvic());
+        evic.t = null; evic.phase = "intro";
+        $("#evic-menu").hidden = true;
+        return rendreEvic();
+      }
+      case "passer": {
+        if (evic.t) clearInterval(evic.t.minuteur);
+        $("#evic-menu").hidden = true;
+        return suiteEvic();
+      }
+      case "arreter": return quitterPassation();
+    }
+  }
+
+  // Un simple toucher sur un bouton réservé à l'adulte rappelle qu'il faut maintenir appuyé.
+  function indiceAppui(b) {
+    b.classList.add("indice");
+    setTimeout(() => b.classList.remove("indice"), 1200);
+    $("#evic-indice").textContent = b.dataset.maintenir === "ergo" ? "Ergothérapeute : gardez le doigt appuyé sur le bouton." : "Ce bouton est pour l'adulte : gardez le doigt appuyé.";
+    clearTimeout(minuteurIndice);
+    minuteurIndice = setTimeout(() => { $("#evic-indice").textContent = ""; }, 2500);
+  }
+  function debutAppui(e) {
+    const b = e.target.closest && e.target.closest("[data-maintenir]");
+    if (!b || !evic) return;
+    finAppui();
+    b.classList.add("appui");
+    appuiEvic = { b: b, minuteur: setTimeout(() => {
+      b.classList.remove("appui");
+      b.classList.add("fait");
+      setTimeout(() => b.classList.remove("fait"), 400);
+      appuiEvic = null;
+      if (b.dataset.maintenir === "ergo") quitterPassation(); else ouvrirMenuEvic();
+    }, DUREE_APPUI) };
+  }
+  function finAppui() {
+    if (!appuiEvic) return;
+    clearTimeout(appuiEvic.minuteur);
+    appuiEvic.b.classList.remove("appui");
+    appuiEvic = null;
+  }
+
+  function quitterPassation() {
+    if (!evic) return;
+    if (evic.t) clearInterval(evic.t.minuteur);
+    const papier = evic.faites.indexOf("main-repetition") >= 0;
+    evic = null;
+    finAppui();
+    $("#evic-menu").hidden = true;
     $("#ecran-frappe").hidden = true;
-    document.body.classList.remove("sans-defilement");
-  }
-  function garderFrappe() {
-    if (!frappe || !frappe.essai) return;
-    const id = frappe.e.id;
-    if (!dossier.clavier || typeof dossier.clavier !== "object") dossier.clavier = C.vide();
-    if (!dossier.clavier.essais) dossier.clavier.essais = {};
-    dossier.clavier.essais[id] = frappe.essai;
-    dossier.clavier.fait = "oui";
-    fermerFrappe();
-    const c = $('[data-chemin="clavier.fait"]');
-    if (c) { c.checked = true; $("#corps-clavier").hidden = false; }
-    const champ = $(`[data-chemin="clavier.essais.${id}.mots"]`);
-    if (champ) champ.value = dossier.clavier.essais[id].mots;
+    $("#zone-frappe").value = "";
+    document.body.classList.remove("sans-defilement", "mode-enfant");
+    lacherEcran();
+    // Fonctions du clavier vues pendant la passation : pré-cochées « Connaît », à confirmer par l'ergothérapeute.
+    const k = dossier.clavier;
+    if (!k.fonctions || typeof k.fonctions !== "object") k.fonctions = {};
+    C.fonctionsVues(k).vues.forEach((f) => { if (!k.fonctions[f]) k.fonctions[f] = "oui"; });
     nonEnregistre = true;
+    remplirFormulaire();
     majTout();
-    annoncer("Épreuve enregistrée");
+    afficherOnglet("clavier");
+    $("#corps-clavier").hidden = false;
+    $("#bandeau-passation").hidden = false;
+    $("#bandeau-passation").innerHTML = papier && !(k.manuscrit && String(k.manuscrit.repetition || "").trim())
+      ? "✅ Passation terminée. Notez d'abord les <strong>mots écrits à la main</strong>, puis complétez votre observation."
+      : "✅ Passation terminée. Complétez votre observation ci-dessous.";
+    const cible = papier ? $('[data-chemin="clavier.manuscrit.repetition"]') : $("#titre-obs-clavier");
+    setTimeout(() => { if (cible) cible.scrollIntoView({ block: "center" }); }, 60);
+    annoncer("Passation enregistrée");
+    if (verrouActif()) verrouiller();
   }
+
+  /* Son et écran */
+  function preparerSon() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      sonEvic = sonEvic || new AC();
+      if (sonEvic.state === "suspended") sonEvic.resume();
+    } catch (e) { sonEvic = null; }
+  }
+  function bip() {
+    if (!sonEvic) return;
+    try {
+      [0, 0.28].forEach((d, i) => {
+        const o = sonEvic.createOscillator(), g = sonEvic.createGain(), t0 = sonEvic.currentTime + d;
+        o.type = "sine"; o.frequency.value = i ? 1046 : 784;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+        o.connect(g); g.connect(sonEvic.destination); o.start(t0); o.stop(t0 + 0.55);
+      });
+    } catch (e) { /* sans son */ }
+  }
+  async function garderEcranAllume() {
+    try { if (navigator.wakeLock && navigator.wakeLock.request) veilleEvic = await navigator.wakeLock.request("screen"); } catch (e) { veilleEvic = null; }
+  }
+  function lacherEcran() { try { if (veilleEvic) veilleEvic.release(); } catch (e) { /* rien */ } veilleEvic = null; }
+
   function initFrappe() {
     const z = $("#zone-frappe");
-    const demarrer = () => {
-      if (!frappe || frappe.debut || z.readOnly) return;
-      frappe.debut = performance.now();
-      frappe.minuteur = setInterval(ticFrappe, 200);
-      $("#frappe-pied").innerHTML = `<p class="note">Le chronomètre tourne.</p>`;
-    };
-    z.addEventListener("input", () => { if (z.value.length) demarrer(); });
-    if ("onbeforeinput" in z) z.addEventListener("beforeinput", (e) => { if (frappe && frappe.debut && /^delete/.test(e.inputType || "")) frappe.corrections++; });
-    else z.addEventListener("keydown", (e) => { if (frappe && frappe.debut && (e.key === "Backspace" || e.key === "Delete")) frappe.corrections++; });
+    z.addEventListener("input", () => {
+      if (!evic || evic.phase !== "frappe" || !evic.t || z.readOnly) return;
+      const t = evic.t;
+      if (!t.lance) { if (z.value.length) { lancerChrono(); t.derniereA = 0; } return; }
+      if (!t.actif) return;
+      const a = ecouleEvic();
+      if (a - t.derniereA > C.SEUIL_PAUSE) { t.pauses++; t.pauseMax = Math.max(t.pauseMax, a - t.derniereA); }
+      t.derniereA = a;
+    });
+    const effacement = (e) => { if (evic && evic.t && evic.t.lance && evic.t.actif) evic.t.corrections++; };
+    if ("onbeforeinput" in z) z.addEventListener("beforeinput", (e) => { if (/^delete/.test(e.inputType || "")) effacement(e); });
+    else z.addEventListener("keydown", (e) => { if (e.key === "Backspace" || e.key === "Delete") effacement(e); });
     z.addEventListener("paste", (e) => e.preventDefault());
     z.addEventListener("drop", (e) => e.preventDefault());
+    const ec = $("#ecran-frappe");
+    ec.addEventListener("click", surClicEvic);
+    ec.addEventListener("pointerdown", debutAppui);
+    ["pointerup", "pointercancel", "pointerleave"].forEach((t) => ec.addEventListener(t, finAppui));
+    ec.addEventListener("contextmenu", (e) => { if (e.target.closest("[data-maintenir]")) e.preventDefault(); });
+    // Échap : menu de l'adulte (ordinateur ou clavier externe).
+    document.addEventListener("keydown", (e) => {
+      if (!evic || e.key !== "Escape") return;
+      e.preventDefault(); e.stopPropagation();
+      if ($("#evic-menu").hidden) ouvrirMenuEvic(); else fermerMenuEvic();
+    }, true);
+    window.addEventListener("beforeunload", (e) => { if (evic) { e.preventDefault(); e.returnValue = ""; } });
+    document.addEventListener("visibilitychange", () => { if (evic && document.visibilityState === "visible") garderEcranAllume(); });
   }
 
   /* ---------- Accueil adapté, journal des séances, plateforme TND ---------- */
@@ -2994,7 +3293,7 @@
       return;
     }
     if (el.dataset.phrase !== undefined) return insererPhrase(reglages.phrases[+el.dataset.phrase]);
-    if (el.dataset.lancerFrappe) return lancerFrappe(el.dataset.lancerFrappe);
+    if (el.dataset.preparerEvic) return preparerEvic(el.dataset.preparerEvic);
     if (el.dataset.ouvrirSeance) return ouvrirEditeur(el.dataset.ouvrirSeance, true);
     if (el.dataset.statutRapide) return statutRapide(el.dataset.cle, el.dataset.statutRapide);
     if (el.dataset.retirerSeance) return retirerSeance(el.dataset.retirerSeance);
@@ -3148,12 +3447,7 @@
       case "nouvelle-seance": return ouvrirFormSeance();
       case "choisir-enfant": return ouvrirChoixEnfant();
       case "infos-enregistrement": return ouvrirInfosEnregistrement();
-      case "arreter-frappe":
-        if (frappe && frappe.debut && !frappe.essai) return terminerFrappe((performance.now() - frappe.debut) / 1000);
-        return fermerFrappe();
-      case "fermer-frappe": return fermerFrappe();
-      case "garder-frappe": return garderFrappe();
-      case "refaire-frappe": { const id = frappe && frappe.e.id; fermerFrappe(); if (id) { frappe = null; lancerFrappeSansQuestion(id); } return; }
+      case "preparer-evic": return preparerEvic();
       case "nouveau-bilan": return nouveau();
       case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
       case "voir-planning": return afficherOnglet("seances");
@@ -3320,13 +3614,15 @@
     // Verrouillage après un temps sans utilisation, et au retour dans l'application.
     ["pointerdown", "keydown", "input", "wheel", "touchstart"].forEach((t) => document.addEventListener(t, () => { derniereActivite = Date.now(); }, { passive: true, capture: true }));
     setInterval(() => {
-      if (verrouActif() && verrou.delai && !document.body.classList.contains("verrouille") && Date.now() - derniereActivite > verrou.delai * 60000) verrouiller();
+      if (verrouActif() && verrou.delai && !evic && !document.body.classList.contains("verrouille") && Date.now() - derniereActivite > verrou.delai * 60000) verrouiller();
     }, 15000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") cacheLe = Date.now();
       else if (verrouActif() && verrou.delai && cacheLe && Date.now() - cacheLe > verrou.delai * 60000) verrouiller();
     });
     window.addEventListener("popstate", (e) => {
+      // Pendant la passation de l'EViC, le geste « retour » ne fait pas sortir l'enfant.
+      if (evic) { try { history.pushState({ onglet: panneauCourant(), evic: true }, ""); } catch (er) { /* rien */ } return; }
       if (!$("#apercu").hidden) { fermerApercu(); return; }
       if (e.state && e.state.onglet) afficherOnglet(e.state.onglet, { historique: false });
     });

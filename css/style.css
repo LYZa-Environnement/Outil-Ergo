@@ -1044,14 +1044,74 @@ body.verrouille { overflow: hidden; }
 .resultat-epreuve.niveau-moyenne { background: var(--vert-fond); }
 .resultat-epreuve.niveau-inferieur { background: var(--ambre-fond); }
 .fonctions-clavier .item-grille { padding: 4px 0; }
-.ecran-frappe { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; gap: 10px; padding: calc(12px + env(safe-area-inset-top, 0px)) var(--gouttiere-d) calc(12px + env(safe-area-inset-bottom, 0px)) var(--gouttiere-g); background: var(--fond); }
-.frappe-tete { display: flex; align-items: center; gap: 12px; }
-.frappe-tete strong { flex: 1 1 auto; font: 600 1.3rem var(--police-titre); color: var(--encre-fonce); }
-.frappe-temps { font: 600 2rem var(--police-titre); color: var(--encre); font-variant-numeric: tabular-nums; }
-.frappe-consigne { margin: 0; color: var(--gris); }
-#zone-frappe { flex: 1 1 auto; width: 100%; min-height: 40vh; padding: 14px; font: 1.35rem/1.6 var(--police); resize: none; border: 2px solid var(--encre); border-radius: var(--rayon-carte); background: var(--papier); color: var(--graphite); }
+/* ---------- EViC : passation guidée par l'enfant ---------- */
+body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
+.ecran-evic { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) var(--gouttiere-d) calc(12px + env(safe-area-inset-bottom, 0px)) var(--gouttiere-g); background: var(--fond); }
+.ecran-evic[hidden] { display: none; }
+.evic-haut { display: flex; align-items: center; gap: 12px; }
+.evic-etapes { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.evic-etapes li { width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid var(--seyes); border-radius: 50%; background: var(--papier); font-size: 1.3rem; opacity: .55; }
+.evic-etapes li.en-cours { opacity: 1; border-color: var(--encre); box-shadow: 0 0 0 4px var(--vert-fond); }
+.evic-etapes li.faite { opacity: 1; border-color: var(--vert); background: var(--vert-fond); }
+.evic-adulte, .evic-maintenir { position: relative; isolation: isolate; overflow: hidden; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; }
+.evic-adulte { flex: 0 0 auto; min-height: 44px; padding: 6px 14px; border: 1.5px dashed var(--seyes); border-radius: 999px; background: transparent; color: var(--gris); font: 600 .9rem var(--police); cursor: pointer; }
+.evic-jauge { position: absolute; inset: 0; z-index: -1; background: var(--vert-fond); transform: scaleX(0); transform-origin: left; }
+.appui > .evic-jauge { transform: scaleX(1); transition: transform .9s linear; }
+.indice { animation: indice-appui 1.2s ease; }
+.evic-indice { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 62; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0; padding: 10px 16px; border-radius: 999px; background: var(--graphite); color: var(--papier); font-weight: 600; text-align: center; }
+.evic-indice:empty { display: none; }
+@keyframes indice-appui { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
+.evic-adulte.indice { border-color: var(--encre); color: var(--encre-fonce); }
+.evic-temps { height: 12px; border: 1px solid var(--seyes); border-radius: 999px; background: var(--papier); overflow: hidden; }
+.evic-temps[hidden] { display: none; }
+.evic-temps span { display: block; width: 0; height: 100%; background: var(--vert); transition: width .2s linear; }
+.evic-ecran { flex: 1 1 auto; display: grid; place-items: center; }
+.evic-ecran[hidden] { display: none; }
+.evic-carte { width: min(680px, 100%); padding: 22px 18px; border: 1px solid var(--seyes); border-radius: var(--rayon-carte); background: var(--papier); text-align: center; }
+.evic-num { margin: 0; color: var(--gris); font-weight: 700; }
+.evic-emoji { margin: .2rem 0; font-size: 3.4rem; line-height: 1.1; }
+.evic-carte h2 { margin: .2rem 0 .6rem; font: 600 clamp(1.6rem, 5vw, 2.3rem)/1.15 var(--police-titre); color: var(--encre-fonce); }
+.evic-mot { display: inline-block; margin: .1rem 0 .6rem; padding: 6px 24px; border-radius: var(--rayon); background: var(--vert-fond); font: 700 clamp(1.8rem, 6vw, 2.6rem) var(--police); letter-spacing: .04em; color: var(--encre-fonce); }
+.evic-consigne { max-width: 30em; margin: .4rem auto; font-size: clamp(1.2rem, 3.6vw, 1.5rem); line-height: 1.5; }
+.evic-depart { margin: .4rem auto; color: var(--gris); font-size: 1.05rem; }
+.evic-grand { min-height: 60px; margin-top: .8rem; padding: 12px 34px; font-size: 1.3rem; }
+.evic-maintenir { min-height: 56px; margin-top: 1rem; padding: 10px 24px; font-size: 1.05rem; }
+.evic-adulte-note { margin: 1.2rem 0 0; padding-top: .8rem; border-top: 1px dashed var(--seyes); color: var(--gris); font-size: .9rem; }
+.evic-frappe { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.evic-frappe[hidden] { display: none; }
+.evic-rappel { margin: 0; color: var(--encre-fonce); font-size: 1.2rem; }
+#zone-frappe { flex: 1 1 auto; width: 100%; min-height: 35vh; padding: 16px; font: 1.5rem/1.6 var(--police); resize: none; border: 2px solid var(--encre); border-radius: var(--rayon-carte); background: var(--papier); color: var(--graphite); }
 #zone-frappe[readonly] { border-color: var(--seyes); }
-.frappe-pied p { margin: 0 0 6px; }
+.evic-question { margin: 1rem 0 .5rem; font-size: 1.3rem; font-weight: 700; }
+.evic-reponses { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.evic-reponse { min-width: 112px; min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 14px; border: 2px solid var(--seyes); border-radius: var(--rayon-carte); background: var(--fond); color: var(--encre-fonce); font: 700 1.05rem var(--police); cursor: pointer; }
+.evic-reponse[aria-pressed="true"] { border-color: var(--encre); background: var(--vert-fond); box-shadow: 0 0 0 3px var(--vert-fond); }
+.evic-emoji-petit { font-size: 2.2rem; line-height: 1; }
+.evic-menu { position: fixed; inset: 0; z-index: 61; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / .45); }
+.evic-menu[hidden] { display: none; }
+.evic-menu-boite { width: min(440px, 100%); display: grid; gap: 8px; padding: 18px; border-radius: var(--rayon-carte); background: var(--papier); }
+.evic-menu-boite [hidden] { display: none; }
+.boite-evic { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; text-align: left; }
+.boite-evic .profil-titre { text-align: center; }
+.evic-choix { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; border: 0; }
+.evic-choix legend { margin-bottom: 4px; font-weight: 700; }
+.evic-preparer summary { cursor: pointer; font-weight: 700; color: var(--encre-fonce); }
+.evic-preparer ul { margin: .4rem 0 0; padding-left: 1.2rem; font-weight: 400; }
+.carte-passation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 0 0 14px; padding: 14px 16px; border: 1.5px solid var(--vert); border-radius: var(--rayon-carte); background: var(--vert-fond); }
+.carte-passation-texte { display: grid; gap: 2px; flex: 1 1 260px; }
+.carte-passation-texte .note:empty { display: none; }
+.bandeau-passation { margin: 0 0 10px; padding: 10px 12px; border-radius: var(--rayon); background: var(--vert-fond); font-weight: 600; }
+.details-epreuve:empty { display: none; }
+.details-epreuve .note { margin: .3rem 0; }
+.minutes { display: flex; align-items: flex-end; gap: 8px; margin: 8px 0 4px; }
+.minute { display: grid; justify-items: center; gap: 2px; min-width: 40px; font-size: .85rem; }
+.minute-barre { display: flex; align-items: flex-end; width: 26px; height: 56px; border-radius: 6px; background: var(--papier-2, var(--fond)); overflow: hidden; }
+.minute-barre b { display: block; width: 100%; background: var(--vert); border-radius: 6px 6px 0 0; }
+.minute small { color: var(--gris); }
+.alerte-douce { color: var(--marge); }
+.texte-tape summary { cursor: pointer; color: var(--encre-fonce); font-weight: 600; }
+.texte-tape p { margin: .4rem 0; padding: 8px 10px; border-radius: var(--rayon); background: var(--papier); white-space: pre-wrap; word-break: break-word; font-weight: 400; }
 .boite-programmer { width: min(560px, 100%); text-align: left; }
 .boite-programmer .profil-titre { text-align: center; }
 .apercu-programme { padding: 8px 10px; border-radius: var(--rayon); background: var(--encre-claire); font-weight: 700; }

@@ -554,26 +554,36 @@
       <details class="aide">
         <summary>Comment faire ?</summary>
         <ol>
-          <li>Installez l'enfant devant le matériel qu'il utiliserait en classe, le texte du BHK sur papier à côté de l'écran (sur un ordinateur, le chronomètre de l'outil peut servir directement).</li>
-          <li>Touchez « Lancer l'épreuve » : le chronomètre démarre à la première touche et s'arrête seul. L'outil compte les mots, les caractères et les corrections.</li>
-          <li>Notez aussi les mots écrits à la main (copie du BHK et répétition, 5 minutes chacune) : l'outil compare les deux vitesses.</li>
-          <li>Épreuve faite ailleurs ? Écrivez directement le nombre de mots tapés.</li>
+          <li>Touchez « Faire passer l'EViC » : choisissez les épreuves, le mot à répéter et le matériel.</li>
+          <li>Passez la main à l'enfant : l'outil lui donne chaque consigne en grand, chronomètre, et s'arrête seul avec un petit signal sonore. L'enfant ne voit pas ses résultats.</li>
+          <li>Pendant ce temps, vous observez. Pour faire une pause, terminer, recommencer ou passer une épreuve : maintenez appuyé le bouton « Adulte », en haut à droite (ou touche Échap).</li>
+          <li>À la fin, l'enfant répond à deux petites questions et vous rend l'appareil : les résultats sont là, complétez votre observation.</li>
+          <li>Épreuve faite ailleurs ? Écrivez directement le nombre de mots.</li>
         </ol>
       </details>
       <div class="ajout"><strong>EViC</strong> : protocole gratuit créé par des ergothérapeutes (Lefèvere et Galbiati, 2007). Au clavier : copie (5 min), répétition d'un mot (3 min), dictée (5 min) ; à la main : copie du BHK et répétition (5 min). Les vitesses sont en mots par minute. Ses repères par classe sont indicatifs (petits effectifs) : l'outil compare surtout l'enfant à lui-même. <a href="http://www.geppe.free.fr/IMG/pdf/2007_02_-_LEFEVERE_GWENAELLE_-_EViC_consignes_et_feuille_passation.pdf" target="_blank" rel="noopener">Consignes et feuille de passation</a></div>
+      <div class="carte-passation">
+        <div class="carte-passation-texte"><strong>⌨️ Passation guidée</strong><span>L'enfant passe les épreuves seul sur l'appareil ; vous observez, puis vous complétez.</span><span class="note" id="etat-passation-evic"></span></div>
+        <button type="button" class="bouton" data-action="preparer-evic"><span aria-hidden="true">▶️</span> Faire passer l'EViC</button>
+      </div>
       <fieldset class="groupe test" id="bloc-clavier">
         <legend><label class="case case-titre"><input type="checkbox" data-chemin="clavier.fait" data-bascule="#corps-clavier"><span>⌨️ EViC : vitesse de frappe au clavier</span></label></legend>
         <div class="test-corps" id="corps-clavier" hidden>
+          <p class="bandeau-passation" id="bandeau-passation" role="status" hidden></p>
           <h3>Au clavier</h3>
           <div id="epreuves-clavier"></div>
           <h3>À la main</h3>
           <div class="grille2" id="manuscrit-clavier"></div>
           <p class="calcule" id="resultats-clavier" aria-live="polite"></p>
-          <h3>Observation de la frappe</h3>
+          <h3 id="titre-obs-clavier">Observation de la frappe</h3>
           <div class="champ"><span>Matériel</span><div id="materiel-clavier"></div></div>
           <div class="champ"><span>Doigts utilisés</span><div id="doigte-clavier"></div></div>
+          <div class="champ"><span>Mains</span><div id="mains-clavier"></div></div>
           <div class="champ"><span>Regard</span><div id="regard-clavier"></div></div>
-          <div class="champ"><span>Fonctions du clavier</span><div id="fonctions-clavier" class="fonctions-clavier"></div></div>
+          <div id="obs-clavier"></div>
+          <div class="champ"><span>Fonctions du clavier</span><p class="note" id="fonctions-vues"></p><div id="fonctions-clavier" class="fonctions-clavier"></div></div>
+          <h3>Ce qu'en dit l'enfant</h3>
+          <div id="enfant-clavier"></div>
           <label class="champ"><span>Apprentissage déjà fait</span><input type="text" data-chemin="clavier.experience" placeholder="logiciel en séance depuis septembre, environ 10 heures"></label>
           <label class="champ"><span>Observations</span><textarea data-chemin="clavier.notes" rows="2" placeholder="se fatigue vite, cherche longtemps les touches"></textarea></label>
         </div>
@@ -885,11 +895,29 @@
       <form id="form-phrase" class="form-phrase"><input type="text" id="nouvelle-phrase" placeholder="Nouvelle phrase" aria-label="Nouvelle phrase favorite"><button type="submit" class="bouton bouton-petit">Ajouter</button></form>
     </div>
   </div>
-  <div class="ecran-frappe" id="ecran-frappe" role="dialog" aria-modal="true" aria-labelledby="titre-frappe" hidden>
-    <div class="frappe-tete"><strong id="titre-frappe"></strong><span class="frappe-temps" id="frappe-temps"></span><button type="button" class="bouton bouton-second bouton-petit" data-action="arreter-frappe">Arrêter</button></div>
-    <p class="frappe-consigne" id="frappe-consigne"></p>
-    <textarea id="zone-frappe" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Zone de frappe"></textarea>
-    <div class="frappe-pied" id="frappe-pied" aria-live="polite"></div>
+  <div class="ecran-frappe ecran-evic" id="ecran-frappe" role="dialog" aria-modal="true" aria-label="EViC : épreuves de frappe" hidden>
+    <div class="evic-haut">
+      <ol class="evic-etapes" id="evic-etapes" aria-label="Épreuves"></ol>
+      <button type="button" class="evic-adulte" data-maintenir="menu" aria-label="Menu de l'adulte : maintenir appuyé, ou touche Échap"><span class="evic-jauge" aria-hidden="true"></span><span aria-hidden="true">⋯</span> Adulte</button>
+    </div>
+    <div class="evic-temps" id="evic-temps" aria-hidden="true" hidden><span></span></div>
+    <div class="evic-ecran" id="evic-ecran" aria-live="polite"></div>
+    <div class="evic-frappe" id="evic-frappe" hidden>
+      <p class="evic-rappel" id="evic-rappel"></p>
+      <textarea id="zone-frappe" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Zone de frappe" placeholder="Tape ici…"></textarea>
+    </div>
+    <p class="evic-indice" id="evic-indice" role="status"></p>
+    <div class="evic-menu" id="evic-menu" role="dialog" aria-modal="true" aria-labelledby="evic-menu-titre" hidden>
+      <div class="evic-menu-boite">
+        <p class="profil-titre" id="evic-menu-titre">Menu de l'adulte</p>
+        <p class="note" id="evic-menu-etat"></p>
+        <button type="button" class="bouton" data-evic="reprendre">Reprendre</button>
+        <button type="button" class="bouton bouton-second" data-evic="terminer">Terminer l'épreuve maintenant</button>
+        <button type="button" class="bouton bouton-second" data-evic="recommencer">Recommencer cette épreuve</button>
+        <button type="button" class="bouton bouton-second" data-evic="passer">Passer cette épreuve</button>
+        <button type="button" class="bouton-lien" data-evic="arreter">Arrêter la passation (les épreuves finies sont gardées)</button>
+      </div>
+    </div>
   </div>
   <div class="verrou" id="verrou" role="dialog" aria-modal="true" aria-labelledby="titre-verrou" hidden>
     <div class="verrou-boite">
