@@ -35,12 +35,15 @@
       <div class="entete-droite">
         <span class="indicateur" id="indicateur" role="status" aria-live="polite"></span>
         <button type="button" class="profil" id="profil" data-action="profil">Créer mon profil</button>
+        <button type="button" class="bouton-rond" id="bouton-verrou" data-action="verrouiller" aria-label="Verrouiller l'outil" title="Verrouiller" hidden>🔒</button>
         <button type="button" class="bouton-rond" id="theme" data-action="theme" aria-label="Passer en mode nuit" title="Mode jour ou nuit">🌙</button>
         <button type="button" class="bouton-rond" id="bouton-reglages" data-aller="reglages" aria-label="Réglages" title="Réglages">⚙️</button>
       </div>
     </div>
   </header>
   <div class="barre-onglets">
+    <div class="barre-haut">
+    <button type="button" class="bouton-maison" data-accueil aria-label="Accueil" title="Accueil"><span aria-hidden="true">🏠</span></button>
     <nav class="onglets" role="tablist" aria-label="Étapes du bilan">
       <button type="button" role="tab" id="g-dossier" aria-selected="true"><span class="onglet-icone" aria-hidden="true">📁</span>Dossier</button>
       <button type="button" role="tab" id="g-entretien" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">💬</span>Entretien</button>
@@ -49,10 +52,38 @@
       <button type="button" role="tab" id="g-compte-rendu" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📄</span>Compte rendu</button>
       <button type="button" role="tab" id="g-seances" aria-selected="false" tabindex="-1"><span class="onglet-icone" aria-hidden="true">📅</span>Séances</button>
     </nav>
+    <button type="button" class="enfant-courant" id="enfant-courant" data-action="choisir-enfant" aria-haspopup="dialog" title="Changer d'enfant">
+      <span class="enfant-avatar" aria-hidden="true"></span><span class="enfant-nom"></span><span class="enfant-fleche" aria-hidden="true">▾</span>
+    </button>
+    </div>
     <nav class="sous-onglets" id="sous-onglets" aria-label="Parties de l'étape" hidden></nav>
   </div>
 
   <main>
+    <!-- ============ Accueil ============ -->
+    <section id="p-tableau" role="tabpanel" aria-label="Accueil" class="panneau" hidden>
+      <div class="accueil-tete">
+        <h2 id="bonjour">Bonjour</h2>
+        <p class="discret" id="date-du-jour"></p>
+      </div>
+      <div class="accueil-actions">
+        <button type="button" class="bouton bouton-grand" data-action="nouveau-bilan"><span aria-hidden="true">＋</span> Nouveau bilan</button>
+        <button type="button" class="bouton bouton-grand bouton-second" data-action="noter-seance"><span aria-hidden="true">📅</span> Noter une séance</button>
+      </div>
+      <section class="carte" aria-labelledby="h-aujourdhui">
+        <div class="carte-tete"><h2 id="h-aujourdhui">Aujourd'hui</h2><button type="button" class="bouton-lien" data-action="voir-planning">Tout le planning →</button></div>
+        <div id="accueil-jour"></div>
+      </section>
+      <section class="carte" id="carte-rappels" aria-labelledby="h-rappels" hidden>
+        <h2 id="h-rappels">À ne pas oublier</h2>
+        <ul class="rappels" id="accueil-rappels"></ul>
+      </section>
+      <section class="carte" aria-labelledby="h-recents">
+        <div class="carte-tete"><h2 id="h-recents">Dossiers récents</h2><button type="button" class="bouton-lien" data-action="tous-dossiers">Tous mes dossiers →</button></div>
+        <div id="accueil-recents"></div>
+      </section>
+    </section>
+
     <!-- ============ Dossier ============ -->
     <section id="p-dossier" role="tabpanel" aria-label="Dossier" class="panneau">
       <section class="carte carte-dossiers" aria-labelledby="h-mes-dossiers">
@@ -66,6 +97,11 @@
           <span class="rappel-icone" aria-hidden="true">💾</span>
           <span><strong>Pensez à votre copie de sécurité.</strong> <span id="date-copie"></span> Elle garde tous vos dossiers dans un fichier, à ranger dans vos documents : utile si l'appareil est changé, perdu ou nettoyé.</span>
           <button type="button" class="bouton bouton-petit" data-action="copie-securite">Télécharger</button>
+        </div>
+        <div class="barre-actions partage-actions">
+          <button type="button" class="bouton bouton-second bouton-petit" data-action="envoyer-partage">📤 Envoyer à une collègue</button>
+          <label class="bouton bouton-second bouton-petit">📥 Recevoir d'une collègue
+            <input type="file" accept=".json,application/json" data-action="recevoir-partage" class="masque"></label>
         </div>
         <details class="plus-options">
           <summary>Copies de sécurité et fichiers</summary>
@@ -758,6 +794,23 @@
           <input type="file" accept=".json,application/json" data-action="importer-normes" class="masque"></label>
         <div id="tableau-normes"></div>
       </fieldset>
+      <fieldset class="groupe" id="reglages-verrou">
+        <legend>🔒 Code de verrouillage</legend>
+        <p class="note">Le code est demandé à l'ouverture de l'outil et après un temps sans l'utiliser. Il reste sur cet appareil. Il empêche d'ouvrir l'outil, mais ne chiffre pas les données : gardez aussi le code de la tablette ou du téléphone.</p>
+        <div id="verrou-etat"></div>
+        <div class="grille2" id="verrou-formulaire">
+          <label class="champ"><span>Nouveau code (4 à 8 chiffres)</span><input type="password" id="verrou-code" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password"></label>
+          <label class="champ"><span>Le même code, une seconde fois</span><input type="password" id="verrou-code-2" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password"></label>
+        </div>
+        <label class="champ champ-court"><span>Verrouiller après</span><select id="verrou-delai" data-verrou-delai></select></label>
+        <div class="barre-actions" id="verrou-actions"></div>
+      </fieldset>
+      <fieldset class="groupe">
+        <legend>★ Phrases favorites</legend>
+        <p class="note">Une phrase par ligne. Dans les notes et les observations, le bouton ★ les insère d'un appui. Elles restent dans ce navigateur.</p>
+        <label class="champ"><span>Mes phrases</span><textarea id="phrases-reglages" data-reg-phrases rows="8"></textarea></label>
+        <button type="button" class="bouton-lien" data-action="phrases-exemples">Ajouter les phrases d'exemple</button>
+      </fieldset>
       <fieldset class="groupe">
         <legend>Sur cet appareil</legend>
         <label class="case"><input type="checkbox" data-reg-bool="brouillon"><span>Enregistrer automatiquement les dossiers dans ce navigateur (à désactiver seulement sur un ordinateur partagé)</span></label>
@@ -784,6 +837,38 @@
 
   <div class="annulation" id="annulation" role="status" hidden><span class="annulation-texte"></span><button type="button" class="bouton bouton-petit" data-annuler>Annuler</button></div>
   <div class="statut" id="statut" role="status" aria-live="polite"></div>
+  <button type="button" class="bouton-phrases" id="bouton-phrases" hidden aria-label="Insérer une phrase favorite" title="Phrases favorites">★</button>
+  <div class="panneau-phrases" id="panneau-phrases" role="dialog" aria-modal="false" aria-labelledby="titre-phrases" hidden>
+    <div class="panneau-phrases-tete"><strong id="titre-phrases">★ Phrases favorites</strong><button type="button" class="bouton-lien" data-action="fermer-phrases">Fermer</button></div>
+    <input type="search" id="filtre-phrases" placeholder="Chercher une phrase" autocomplete="off" aria-label="Chercher une phrase">
+    <ul class="liste-phrases" id="liste-phrases"></ul>
+    <div class="panneau-phrases-pied">
+      <button type="button" class="bouton-lien" id="ajouter-selection" data-action="ajouter-selection" hidden>＋ Garder le texte sélectionné</button>
+      <form id="form-phrase" class="form-phrase"><input type="text" id="nouvelle-phrase" placeholder="Nouvelle phrase" aria-label="Nouvelle phrase favorite"><button type="submit" class="bouton bouton-petit">Ajouter</button></form>
+    </div>
+  </div>
+  <div class="verrou" id="verrou" role="dialog" aria-modal="true" aria-labelledby="titre-verrou" hidden>
+    <div class="verrou-boite">
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="23"/><path class="logo-tige" d="M24 38V22"/><path class="logo-feuille" d="M24 26c-9-1-13-8-12-14 8 0 12 6 12 14z"/><path class="logo-feuille-2" d="M24 22c7-1 11-7 10-12-7 0-10 5-10 12z"/></svg>
+      <p class="verrou-titre" id="titre-verrou">Outil Ergo est verrouillé</p>
+      <form id="form-verrou" class="verrou-form" autocomplete="off">
+        <input type="password" id="code-verrou" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" aria-label="Code" placeholder="Code">
+        <div class="pave" aria-hidden="true">
+          <button type="button" data-chiffre="1">1</button><button type="button" data-chiffre="2">2</button><button type="button" data-chiffre="3">3</button>
+          <button type="button" data-chiffre="4">4</button><button type="button" data-chiffre="5">5</button><button type="button" data-chiffre="6">6</button>
+          <button type="button" data-chiffre="7">7</button><button type="button" data-chiffre="8">8</button><button type="button" data-chiffre="9">9</button>
+          <button type="button" data-chiffre="effacer" aria-label="Effacer">⌫</button><button type="button" data-chiffre="0">0</button><button type="submit" class="pave-ok">OK</button>
+        </div>
+      </form>
+      <p class="verrou-message" id="verrou-message" role="alert"></p>
+      <details class="verrou-oubli">
+        <summary>Code oublié ?</summary>
+        <p>Sans le code, il faut effacer les dossiers de cet appareil, puis les remettre avec une copie de sécurité ou un partage d'une collègue. Les réglages sont gardés.</p>
+        <label class="champ"><span>Écrivez EFFACER pour confirmer</span><input type="text" id="confirmer-effacement" autocomplete="off"></label>
+        <button type="button" class="bouton bouton-danger" data-action="effacer-appareil">Effacer les dossiers de cet appareil</button>
+      </details>
+    </div>
+  </div>
   <div class="impression doc" id="impression"></div>
 
   <script src="js/sensoriel.js"></script>
@@ -791,6 +876,7 @@
   <script src="js/occupation.js"></script>
   <script src="js/accueil.js"></script>
   <script src="js/seances.js"></script>
+  <script src="js/partage.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/suivi.js"></script>
   <script src="js/docx.js"></script>

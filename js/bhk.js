@@ -402,6 +402,26 @@
 
   function praticienVide() { return { nom: "", titre: "Ergothérapeute D.E.", tel: "", email: "", adresse: "", siret: "", adeli: "" }; }
 
+  // Phrases favorites proposées au départ (modifiables dans les réglages).
+  const PHRASES_EXEMPLES = [
+    "Bonne coopération tout au long du bilan.",
+    "Bon investissement, envie de progresser.",
+    "Se fatigue en fin d'épreuve et ralentit.",
+    "Secoue la main après l'écriture.",
+    "Prise tridigitale dynamique, pression adaptée.",
+    "Appui fort sur l'outil scripteur, traits marqués.",
+    "Posture enroulée, tête proche de la feuille.",
+    "Bonne prise d'informations visuelles en copie.",
+    "Se perd dans le modèle et revient souvent au début de la ligne.",
+    "Attention fluctuante, besoin de relances verbales.",
+    "Recherche de mouvement pendant les tâches assises.",
+    "Gêné par les bruits de l'environnement.",
+    "Lettres bien formées, mais lenteur importante.",
+    "Espaces entre les mots irréguliers.",
+    "Verbalise ses stratégies et se corrige seul.",
+    "Séance écourtée en raison de la fatigue.",
+  ];
+
   function reglagesParDefaut() {
     return {
       type: "bhk-reglages", version: 1,
@@ -416,6 +436,7 @@
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
       photoCabinet: null,
+      phrases: PHRASES_EXEMPLES.slice(),
       normes: normesVides(),
     };
   }
@@ -445,6 +466,7 @@
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
     out.photoCabinet = Accueil.normaliserPhoto(r.photoCabinet);
+    if (Array.isArray(r.phrases)) out.phrases = r.phrases.map((t) => texte(t).trim().slice(0, 400)).filter(Boolean).slice(0, 300);
     if (r.normes) out.normes = normaliserNormes(r.normes);
     return out;
   }
@@ -1816,6 +1838,6 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
-    reperesTdc, SOURCE_TDC, ETATS_TDC, repartition,
+    reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });

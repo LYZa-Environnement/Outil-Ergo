@@ -14,7 +14,9 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
    - importer le fichier de normes du BHK (`normes-bhk-enfant.json`, fourni à part, voir plus bas) ;
    - renseigner le cabinet et les praticiens (en-tête, pied de page et signature du compte rendu) ;
    - exporter les réglages pour les réinstaller sur un autre appareil.
-4. Remplir les onglets du bilan dans l'ordre. Certains ont des sous-onglets, affichés juste en dessous. Un ✓ vert marque ce qui est rempli ; chaque partie a un encadré « Comment faire ? ».
+4. L'outil s'ouvre sur l'**accueil** (🏠, ou le logo) : séances du jour, rappels (séances prévues non notées, fin de forfait de la plateforme TND, copie de sécurité, code de verrouillage), dossiers récents, et deux boutons « Nouveau bilan » et « Noter une séance ». L'**enfant ouvert** est affiché en permanence en haut (« Léa M. ▾ ») : le toucher permet de changer d'enfant sans quitter l'onglet. Sur téléphone, les onglets sont en bas de l'écran.
+
+5. Remplir les onglets du bilan dans l'ordre. Certains ont des sous-onglets, affichés juste en dessous. Un ✓ vert marque ce qui est rempli ; chaque partie a un encadré « Comment faire ? ».
 
 | Onglet | Sous-onglets et contenu |
 | --- | --- |
@@ -59,6 +61,26 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 ### Synthèse pour l'école
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
+
+### Phrases favorites
+
+Dans les notes et les observations (textes du bilan, compte rendu, séances), le bouton ★ qui apparaît sur le champ ouvre la liste des phrases favorites : un appui insère la phrase à l'endroit du curseur. On peut chercher une phrase, en ajouter une, ou garder le texte sélectionné. La liste se gère dans les réglages (une phrase par ligne) ; seize phrases d'exemple sont proposées au départ.
+
+### Code de verrouillage
+
+Dans les réglages, un code de 4 à 8 chiffres peut être demandé à l'ouverture de l'outil et après un temps sans utilisation (2, 5, 10 ou 30 minutes, ou seulement à l'ouverture), ainsi qu'au retour dans l'application. Le bouton 🔒 de l'en-tête verrouille tout de suite. Le code n'est pas gardé en clair (empreinte SHA-256 salée et répétée). Après cinq erreurs, l'attente augmente (30 s, 60 s, 120 s…). Code oublié : on efface les dossiers de l'appareil (les réglages sont gardés) et on les remet avec une copie de sécurité ou un partage.
+
+Limite : le code empêche d'ouvrir l'outil, il ne chiffre pas les données enregistrées dans le navigateur. Le code de l'appareil (tablette, téléphone, session de l'ordinateur) reste indispensable.
+
+### Partage entre praticiennes
+
+Chaque appareil garde ses dossiers. Pour travailler à deux, « 📤 Envoyer à une collègue » (dans Mes dossiers) crée un fichier avec les dossiers choisis, chiffré par un mot de passe (AES-GCM 256 bits, clé dérivée par PBKDF2-SHA-256, 210 000 itérations). Le fichier se transmet par un moyen sûr (clé USB, messagerie sécurisée de santé), le mot de passe par un autre moyen. « 📥 Recevoir d'une collègue » ouvre le fichier et montre ce qui va changer avant d'ajouter :
+
+- dossier inconnu : ajouté ;
+- dossier déjà présent : la version la plus récente est gardée, et les séances des deux côtés sont réunies (chaque séance a son identifiant) ;
+- l'ajout peut être annulé.
+
+Un même enfant saisi séparément par deux praticiennes donne deux dossiers distincts : il vaut mieux qu'une seule crée le dossier, puis l'envoie à l'autre. Il n'y a pas de synchronisation automatique : un serveur demanderait un hébergement certifié pour les données de santé (HDS).
 
 ### Séances
 
@@ -186,6 +208,7 @@ js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
 js/accueil.js     accueil adapté, plateforme TND, passations adaptées
 js/seances.js     séances : modèle, périodes, filtres, regroupement par jour, programmation
+js/partage.js     partage chiffré entre praticiennes, fusion des dossiers, empreinte du code de verrouillage
 js/suivi.js       plan de suivi, carnet des parents et documents d'accueil : axes de travail, exercices, calendrier, GAS
 js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)
 js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du document

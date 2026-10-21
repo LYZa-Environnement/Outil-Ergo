@@ -715,3 +715,58 @@ test("séances : résumé de l'enfant, rang dans le plan, programmation sans dou
   const plan = JSON.stringify(U.modeleSuivi(Object.assign(dossierTest(), { seances: [{ date: "2026-10-01", statut: "faite" }, { date: "2099-01-05", statut: "prevue", heure: "10:00" }] }), reglagesTest()));
   assert.match(plan, /1 séance faite\. Prochaines séances prévues : 05\/01\/2099 à 10 h 00\./);
 });
+
+/* ---------- Partage entre praticiennes et code de verrouillage ---------- */
+
+const P = require("../js/partage.js");
+const nodeCrypto = require("node:crypto");
+
+test("verrouillage : SHA-256 conforme, code vérifié, attente après erreurs", () => {
+  ["", "abc", "a".repeat(55), "a".repeat(56), "é".repeat(300)].forEach((t) => {
+    assert.equal(Buffer.from(P.sha256(new TextEncoder().encode(t))).toString("hex"), nodeCrypto.createHash("sha256").update(t).digest("hex"));
+  });
+  const v = P.creerVerrou("2580", 10);
+  assert.deepEqual([v.longueur, v.delai], [4, 10]);
+  assert.ok(P.verifierCode(v, "2580"));
+  assert.ok(!P.verifierCode(v, "2581"));
+  assert.ok(JSON.stringify(v).indexOf("2580") < 0);
+  assert.throws(() => P.creerVerrou("12a4"), /4 à 8 chiffres/);
+  assert.equal(P.normaliserDelai("7"), 5);
+  assert.equal(P.normaliserDelai("0"), 0);
+  assert.deepEqual([4, 5, 6, 7].map(P.attenteApres), [0, 30, 60, 120]);
+});
+
+test("partage : fichier protégé par mot de passe", async () => {
+  const contenu = { de: "Camille", dossiers: [{ id: "d1", prenom: "Léa", dossier: { prenom: "Léa" } }] };
+  const f = await P.emballer(contenu, "pommier-2026");
+  assert.equal(f.chiffre, true);
+  assert.ok(JSON.stringify(f).indexOf("Léa") < 0);
+  assert.deepEqual(await P.deballer(JSON.parse(JSON.stringify(f)), "pommier-2026"), contenu);
+  await assert.rejects(P.deballer(f, "faux"), /Mot de passe incorrect/);
+  await assert.rejects(P.deballer(f, ""), /protégé/);
+  await assert.rejects(P.deballer({ type: "autre" }, "x"), /pas un partage/);
+});
+
+test("partage : fusion, version la plus récente gardée et séances réunies", () => {
+  const entree = (id, modifieLe, motif, seances) => ({ id, prenom: id === "d1" ? "Léa" : "Tom", modifieLe, dossier: { id, motif, seances } });
+  const locaux = [
+    entree("d1", "2026-10-20T10:00:00Z", "local", [{ id: "s1", date: "2026-10-01", statut: "faite" }, { id: "s2", date: "2026-10-08", statut: "faite", etat: "bien" }]),
+    entree("d2", "2026-10-21T10:00:00Z", "local", [{ id: "t1", date: "2026-10-02" }]),
+  ];
+  const recus = [
+    entree("d1", "2026-10-21T09:00:00Z", "reçu", [{ id: "s2", date: "2026-10-08", statut: "faite", etat: "moyen" }, { id: "s3", date: "2026-10-15", statut: "faite" }]),
+    entree("d2", "2026-10-19T10:00:00Z", "reçu", [{ id: "t1", date: "2026-10-02" }, { id: "t2", date: "2026-10-09" }]),
+    entree("d3", "2026-10-18T10:00:00Z", "reçu", []),
+    entree("d4", "2026-10-18T10:00:00Z", "reçu", null),
+  ];
+  recus[3].prenom = "Nina";
+  const f = P.fusionner(locaux, recus.concat([entree("d2", "2026-10-21T10:00:00Z", "local", [{ id: "t1", date: "2026-10-02" }])]));
+  const d1 = f.ecrire.find((x) => x.id === "d1"), d2 = f.ecrire.find((x) => x.id === "d2");
+  assert.equal(d1.dossier.motif, "reçu");
+  assert.deepEqual(d1.dossier.seances.map((s) => s.id + ":" + (s.etat || "")), ["s1:", "s2:moyen", "s3:"]);
+  assert.equal(d2.dossier.motif, "local");
+  assert.deepEqual(d2.dossier.seances.map((s) => s.id), ["t1", "t2"]);
+  assert.equal(d2.modifieLe, "2026-10-21T10:00:00Z");
+  assert.deepEqual(f.resume, { ajouts: 2, misAJour: 1, seancesAjoutees: 2, inchanges: 1 });
+  assert.deepEqual(f.lignes.map((x) => x.action), ["maj", "seances", "ajout", "ajout", "inchange"]);
+});

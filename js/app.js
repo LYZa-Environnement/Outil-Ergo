@@ -508,6 +508,7 @@
 
   // Rassemble les séances rangées dans chaque dossier (le dossier ouvert est pris en mémoire).
   async function chargerAgenda() {
+    await viderEcritures();
     let l = [];
     try { l = await Base.tous(); } catch (e) { l = []; }
     agenda = { lignes: [], dossiers: {}, enfants: [], entrees: {} };
@@ -578,7 +579,7 @@
       </section>`).join("")
       : `<p class="vide">Aucune séance${filtres.enfant ? " pour cet enfant" : ""} sur cette période. Touchez « ＋ Séance » pour en ajouter une, passée ou à venir.</p>`;
     $("[data-action='programmer-seances']").hidden = !filtres.enfant;
-    if (seanceOuverte && $(`[data-seance="${seanceOuverte}"]`)) ouvrirEditeur(seanceOuverte, false); else seanceOuverte = "";
+    if (seanceOuverte && $(`[data-seance="${seanceOuverte}"]`, $("#p-seances"))) ouvrirEditeur(seanceOuverte, false); else seanceOuverte = "";
   }
 
   function htmlTeteSeance(x) {
@@ -651,7 +652,7 @@
   }
 
   function ouvrirEditeur(cle, basculer) {
-    const art = $(`[data-seance="${cle}"]`);
+    const art = $(`[data-seance="${cle}"]`, zoneActive());
     if (!art) return;
     const zone = $(".seance-edition", art);
     if (basculer && seanceOuverte === cle && !zone.hidden) {
@@ -659,15 +660,15 @@
       $(".seance-ouvrir", art).setAttribute("aria-expanded", "false");
       return;
     }
-    $$("#agenda .seance-edition").forEach((z) => { if (z !== zone) { z.hidden = true; z.innerHTML = ""; } });
-    $$("#agenda .seance-ouvrir").forEach((b) => b.setAttribute("aria-expanded", String(b.closest("[data-seance]") === art)));
+    $$(".seance-edition").forEach((z) => { if (z !== zone) { z.hidden = true; z.innerHTML = ""; } });
+    $$(".seance-ouvrir").forEach((b) => b.setAttribute("aria-expanded", String(b.closest("[data-seance]") === art)));
     seanceOuverte = cle;
     zone.innerHTML = htmlEditeur(cle);
     zone.hidden = false;
   }
 
   function majTeteSeance(cle) {
-    const art = $(`[data-seance="${cle}"]`), t = trouverSeance(cle);
+    const art = $(`[data-seance="${cle}"]`, zoneActive()), t = trouverSeance(cle);
     if (!art || !t) return;
     const tmp = document.createElement("div");
     tmp.innerHTML = htmlTeteSeance({ dossierId: t.id, enfant: nomEnfant(t.e.infos), s: t.s });
@@ -724,7 +725,7 @@
       else s[champ] = v;
     });
     if (champ === "statut") $(".si-faite", art).hidden = v !== "faite";
-    if (champ === "date") { reconstruireLignes(); rendreVue(); return; }
+    if (champ === "date") { reconstruireLignes(); rafraichirSeances(); return; }
     majTeteSeance(cle);
   }
 
@@ -743,11 +744,11 @@
     t.e.d.seances.splice(i, 1);
     enregistrerSeancesDe(t.id);
     seanceOuverte = "";
-    reconstruireLignes(); rendreVue();
+    reconstruireLignes(); rafraichirSeances();
     proposerAnnulation("Séance retirée.", () => {
       t.e.d.seances.splice(i, 0, t.s);
       enregistrerSeancesDe(t.id);
-      reconstruireLignes(); rendreVue();
+      reconstruireLignes(); rafraichirSeances();
     });
   }
 
@@ -1182,6 +1183,7 @@
     $$("[data-reg-num]").forEach((el) => { el.value = B.formaterNombre(reglages[el.dataset.regNum]); el.removeAttribute("aria-invalid"); });
     $$("[data-reg-bool]").forEach((el) => { el.checked = !!reglages[el.dataset.regBool]; });
     $$("[data-reg-texte]").forEach((el) => { el.value = reglages[el.dataset.regTexte] || ""; });
+    if ($("#phrases-reglages")) $("#phrases-reglages").value = reglages.phrases.join("\n");
     $("#questions-auto").innerHTML = reglages.autoQuestions.map((q, i) =>
       `<label class="champ"><span>Question ${i + 1}</span><input type="text" data-reg-question="${i}" value="${esc(q)}"></label>`).join("") +
       `<div class="barre-actions"><button type="button" class="bouton bouton-second" data-action="ajouter-question">Ajouter une question</button>` +
@@ -1226,6 +1228,12 @@
       reglages.autoQuestions[i] = el.value;
       const lab = $("#lq-" + (i + 1));
       if (lab) lab.textContent = el.value || "Question " + (i + 1);
+    } else if (el.dataset.regPhrases !== undefined) {
+      reglages.phrases = el.value.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 300);
+    } else if (el.dataset.verrouDelai !== undefined) {
+      if (e.type !== "change") return true;
+      if (verrouActif()) { verrou.delai = P.normaliserDelai(el.value); ecrireStockage(CLE_VERROU, verrou); annoncer("Délai de verrouillage enregistré"); }
+      return true;
     } else if (el.dataset.regBool) {
       reglages[el.dataset.regBool] = el.checked;
       if (el.dataset.regBool === "brouillon") {
@@ -1308,6 +1316,7 @@
     if (!el.dataset) return;
     if (el.closest("#p-reglages")) { surSaisieReglages(e); return; }
 
+    if (el.id === "code-verrou") { if (e.type === "input" && verrou && el.value.length >= verrou.longueur) essayerCode(); return; }
     if (el.id === "filtre-dossiers") { filtreDossiers = el.value; afficherMesDossiers(); return; }
     if (el.dataset.ed !== undefined) { surSaisieSeance(e); return; }
     if (el.dataset.filtre !== undefined) { if (e.type === "change") surFiltre(el); return; }
@@ -1528,6 +1537,7 @@
     majAccueil();
     majEtapes();
     majSousOnglets();
+    majEnfantCourant();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
     items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
 
@@ -1868,14 +1878,15 @@
 
   function nbSeances(x) { return x && x.dossier && Array.isArray(x.dossier.seances) ? x.dossier.seances.filter((s) => s && s.statut !== "prevue" && s.statut !== "annulee").length : 0; }
 
-  async function ouvrirDeMesDossiers(id) {
+  async function ouvrirDeMesDossiers(id, onglet) {
     await viderEcritures();
     const x = await Base.lire(id);
     if (!x || !x.dossier) { annoncer("Ce dossier est introuvable."); return; }
     enregistrerDansMesDossiers();
     charger({ dossier: x.dossier, compteRendu: x.compteRendu });
     nonEnregistre = false;
-    afficherOnglet("dossier");
+    if (filtres.enfant) { filtres.enfant = id; sauverFiltres(); }
+    afficherOnglet(onglet || "dossier");
     afficherMesDossiers();
     annoncer("Dossier de " + (x.prenom || "l'enfant") + " ouvert");
   }
@@ -1975,6 +1986,7 @@
     remplirReglages();
     majProfil();
     majTout();
+    if (panneauCourant() === "tableau") rendreTableau();
     annoncer("Bonjour " + p.nom.split(" ")[0] + " !");
   }
   function ouvrirChoixProfil(creer) {
@@ -2266,6 +2278,375 @@
     if (champ) champ.focus();
   }
 
+
+  /* ================= Accueil, enfant ouvert, verrouillage, partage, phrases favorites ================= */
+
+  const P = window.Partage;
+  const CLE_VERROU = "outil-ergo:verrou";
+  const estTactile = () => { try { return window.matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } };
+
+  function panneauCourant() { const p = $$("[role=tabpanel]").find((x) => !x.hidden); return p ? p.id.slice(2) : "tableau"; }
+  function zoneActive() { return $$("[role=tabpanel]").find((x) => !x.hidden) || document; }
+  function rafraichirSeances() { if (panneauCourant() === "tableau") rendreTableau(); else rendreVue(); }
+
+  // Petite fenêtre générique : renvoie la valeur du bouton choisi (null si fermée).
+  function ouvrirDialogue(o) {
+    return new Promise((resoudre) => {
+      const fond = document.createElement("div");
+      fond.className = "demande";
+      fond.setAttribute("role", "dialog");
+      fond.setAttribute("aria-modal", "true");
+      fond.setAttribute("aria-labelledby", "titre-dialogue");
+      fond.innerHTML = `<form class="demande-boite ${o.classe || ""}" novalidate><p class="profil-titre" id="titre-dialogue">${esc(o.titre)}</p>${o.html || ""}
+        <p class="dialogue-message" role="alert"></p>
+        <div class="barre-actions">${o.boutons.map((b, i) => `<button type="${i === 0 ? "submit" : "button"}" class="${b.classe || (i === 0 ? "bouton" : "bouton-lien")}" data-valeur="${esc(b.valeur)}">${esc(b.libelle)}</button>`).join("")}</div></form>`;
+      const form = $("form", fond);
+      const fermer = (v) => { fond.remove(); document.removeEventListener("keydown", clavier, true); resoudre(v); };
+      const clavier = (e) => { if (e.key === "Escape") { e.stopPropagation(); fermer(null); } };
+      const choisir = async (v) => {
+        if (o.valider) {
+          const m = await o.valider(fond, v);
+          if (m) { $(".dialogue-message", fond).textContent = m; return; }
+        }
+        fermer(v);
+      };
+      form.addEventListener("submit", (e) => { e.preventDefault(); choisir(o.boutons[0].valeur); });
+      fond.addEventListener("click", (e) => {
+        if (e.target === fond) return fermer(null);
+        const b = e.target.closest("button[data-valeur]");
+        if (b && b.type !== "submit") { e.preventDefault(); if (b.dataset.valeur === "annuler") fermer(null); else choisir(b.dataset.valeur); }
+        if (o.clic) o.clic(e, fond);
+      });
+      document.addEventListener("keydown", clavier, true);
+      document.body.appendChild(fond);
+      if (o.init) o.init(fond);
+      const premier = $("input:not([type=checkbox]), button", form);
+      if (premier && !(estTactile() && premier.tagName === "INPUT")) premier.focus();
+    });
+  }
+
+  /* ---------- Enfant ouvert ---------- */
+
+  function majEnfantCourant() {
+    const b = $("#enfant-courant");
+    if (!b) return;
+    const p = String(dossier.prenom || "").trim(), n = String(dossier.nom || "").trim();
+    const vide = !p && !n;
+    $(".enfant-avatar", b).textContent = vide ? "＋" : (p || n).charAt(0).toUpperCase();
+    $(".enfant-nom", b).textContent = vide ? "Aucun enfant" : nomEnfant(dossier);
+    b.classList.toggle("vide", vide);
+    b.setAttribute("aria-label", vide ? "Aucun dossier ouvert. Choisir un enfant" : "Dossier ouvert : " + nomCompletEnfant(dossier) + ". Changer d'enfant");
+  }
+
+  async function ouvrirChoixEnfant() {
+    enregistrerDansMesDossiers();
+    const l = (await Base.tous()).filter((x) => x && x.id).sort((a, b) => String(b.modifieLe).localeCompare(String(a.modifieLe)));
+    const ligne = (x) => `<li><button type="button" class="choix-enfant${x.id === dossier.id ? " actuel" : ""}" data-valeur="${esc(x.id)}">
+        <span class="dossier-avatar" aria-hidden="true">${esc((x.prenom || x.nom || "?").trim().charAt(0).toUpperCase() || "?")}</span>
+        <span class="choix-enfant-infos"><strong>${esc(nomCompletEnfant(x))}</strong><small>${[x.groupe, x.passation ? "bilan du " + B.dateCourte(x.passation) : "", nbSeances(x) ? nbSeances(x) + " séance" + (nbSeances(x) > 1 ? "s" : "") : ""].filter(Boolean).map(esc).join(" · ")}</small></span>
+        ${x.id === dossier.id ? `<span class="badge">Ouvert</span>` : ""}</button></li>`;
+    const v = await ouvrirDialogue({
+      titre: "Quel enfant ?", classe: "boite-enfants",
+      html: `${l.length > 6 ? `<input type="search" class="filtre-enfants" placeholder="Chercher un enfant" aria-label="Chercher un enfant" autocomplete="off">` : ""}
+        <ul class="liste-enfants">${l.map(ligne).join("") || `<li class="vide">Aucun dossier pour l'instant.</li>`}</ul>`,
+      boutons: [{ valeur: "nouveau", libelle: "＋ Nouveau dossier" }, { valeur: "annuler", libelle: "Fermer" }],
+      init: (fond) => {
+        const f = $(".filtre-enfants", fond);
+        if (f) f.addEventListener("input", () => { const t = f.value.trim().toLowerCase(); $$(".liste-enfants li", fond).forEach((li) => { li.hidden = !!t && li.textContent.toLowerCase().indexOf(t) < 0; }); });
+      },
+    });
+    if (!v) return;
+    if (v === "nouveau") return nouveau();
+    if (v === dossier.id) return;
+    const onglet = panneauCourant();
+    ouvrirDeMesDossiers(v, ["tableau", "reglages", "accueil"].indexOf(onglet) >= 0 ? null : onglet);
+  }
+
+  /* ---------- Page d'accueil ---------- */
+
+  async function rendreTableau() {
+    const prof = profilActif();
+    $("#bonjour").textContent = "Bonjour" + (prof ? " " + prof.split(/\s+/)[0] : "") + " !";
+    const auj = B.aujourdhui();
+    $("#date-du-jour").textContent = SE.libelleJour(auj);
+    await chargerAgenda();
+    const jour = agenda.lignes.filter((x) => x.s.date === auj).sort((a, b) => SE.ordre(a.s, b.s));
+    $("#accueil-jour").innerHTML = jour.length ? jour.map(htmlLigneSeance).join("")
+      : `<p class="vide">Aucune séance prévue aujourd'hui. Après une séance, touchez « Noter une séance ».</p>`;
+
+    const rappels = [];
+    const nonNotees = agenda.lignes.filter((x) => x.s.statut === "prevue" && x.s.date && x.s.date < auj).length;
+    if (nonNotees) rappels.push({ icone: "🗓️", texte: nonNotees + (nonNotees > 1 ? " séances prévues n'ont pas été notées (faite ou absent)." : " séance prévue n'a pas été notée (faite ou absent)."), bouton: "Voir", action: "voir-non-notees" });
+    Object.keys(agenda.dossiers).forEach((id) => {
+      const e = agenda.dossiers[id];
+      if (!e.d.pco || e.d.pco.actif !== "oui") return;
+      const et = A.etatPco(B.normaliserDossier(e.d), auj);
+      if (et.alerte) rappels.push({ icone: "🧭", texte: nomEnfant(e.infos) + " : " + (et.joursRestants < 0 ? "forfait de la plateforme terminé le " : "fin du forfait de la plateforme le ") + B.dateCourte(et.echeance) + ".", bouton: "Ouvrir", dossier: id });
+    });
+    const tous = await Base.tous();
+    const der = lireStockage(CLE_COPIE);
+    if (tous.length && (!der || Date.now() - new Date(der).getTime() > 7 * 864e5) && tous.some((x) => !der || String(x.modifieLe) > String(der))) {
+      rappels.push({ icone: "💾", texte: "Pensez à votre copie de sécurité. " + (der ? "Dernière : " + quand(der) + "." : "Aucune pour l'instant."), bouton: "Télécharger", action: "copie-securite" });
+    }
+    if (!verrouActif()) rappels.push({ icone: "🔒", texte: "Protégez l'outil par un code : il contient des données de santé.", bouton: "Choisir un code", action: "regler-verrou" });
+    $("#carte-rappels").hidden = !rappels.length;
+    $("#accueil-rappels").innerHTML = rappels.map((r) => `<li><span class="rappel-icone" aria-hidden="true">${r.icone}</span><span class="rappel-texte">${esc(r.texte)}</span>` +
+      (r.dossier ? `<button type="button" class="bouton bouton-second bouton-petit" data-ouvrir-dossier-seance="${esc(r.dossier)}">${esc(r.bouton)}</button>`
+        : `<button type="button" class="bouton bouton-second bouton-petit" data-action="${r.action}">${esc(r.bouton)}</button>`) + `</li>`).join("");
+
+    const recents = tous.filter((x) => x && x.id).sort((a, b) => String(b.modifieLe).localeCompare(String(a.modifieLe))).slice(0, 5);
+    $("#accueil-recents").innerHTML = recents.length ? `<ul class="liste-dossiers">${recents.map((x) => {
+      const actuel = x.id === dossier.id;
+      return `<li class="${actuel ? "actuel" : ""}"><span class="dossier-avatar" aria-hidden="true">${esc((x.prenom || "?").trim().charAt(0).toUpperCase() || "?")}</span>
+        <span class="dossier-infos"><strong>${esc(nomCompletEnfant(x))}</strong><small>${[x.groupe, nbSeances(x) ? nbSeances(x) + " séance" + (nbSeances(x) > 1 ? "s" : "") : "", "modifié " + quand(x.modifieLe)].filter(Boolean).map(esc).join(" · ")}</small></span>
+        ${actuel ? `<button type="button" class="bouton bouton-second bouton-petit" data-aller="dossier">Ouvert</button>` : `<button type="button" class="bouton bouton-petit" data-ouvrir-dossier="${esc(x.id)}">Ouvrir</button>`}</li>`;
+    }).join("")}</ul>` : `<p class="vide">Aucun dossier pour l'instant : touchez « Nouveau bilan ».</p>`;
+  }
+
+  /* ---------- Code de verrouillage ---------- */
+
+  let verrou = lireStockage(CLE_VERROU);
+  let derniereActivite = Date.now(), cacheLe = 0, erreursCode = 0, bloqueJusqua = 0;
+  function verrouActif() { return !!(verrou && verrou.empreinte && verrou.sel); }
+
+  function verrouiller() {
+    if (!verrouActif()) return;
+    fermerPhrases();
+    document.body.classList.add("verrouille");
+    $("#verrou").hidden = false;
+    $("#code-verrou").value = "";
+    $("#verrou-message").textContent = "";
+    $("#confirmer-effacement").value = "";
+    if (!estTactile()) $("#code-verrou").focus();
+  }
+
+  function essayerCode() {
+    const champ = $("#code-verrou");
+    const msg = $("#verrou-message");
+    if (Date.now() < bloqueJusqua) { msg.textContent = "Trop d'essais : patientez encore " + Math.ceil((bloqueJusqua - Date.now()) / 1000) + " secondes."; champ.value = ""; return; }
+    if (!champ.value) return;
+    if (P.verifierCode(verrou, champ.value)) {
+      erreursCode = 0;
+      document.body.classList.remove("verrouille");
+      $("#verrou").hidden = true;
+      champ.value = "";
+      derniereActivite = Date.now();
+      return;
+    }
+    erreursCode++;
+    const attente = P.attenteApres(erreursCode);
+    if (attente) bloqueJusqua = Date.now() + attente * 1000;
+    msg.textContent = attente ? "Code incorrect. Réessayez dans " + attente + " secondes." : "Code incorrect.";
+    champ.value = "";
+    const boite = $(".verrou-boite");
+    boite.classList.remove("secoue"); void boite.offsetWidth; boite.classList.add("secoue");
+  }
+
+  function rendreReglagesVerrou() {
+    const actif = verrouActif();
+    $("#verrou-delai").innerHTML = P.DELAIS.map((d) => `<option value="${d[0]}">${esc(d[1])}</option>`).join("");
+    $("#verrou-delai").value = String(actif ? verrou.delai : 5);
+    $("#verrou-etat").innerHTML = actif ? `<p class="ok-verrou">✓ Code actif (${verrou.longueur} chiffres).</p>
+      <label class="champ champ-court"><span>Code actuel (pour le changer ou le retirer)</span><input type="password" id="verrou-actuel" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password"></label>` : "";
+    $("#verrou-actions").innerHTML = actif
+      ? `<button type="button" class="bouton" data-action="activer-verrou">Changer le code</button><button type="button" class="bouton bouton-second" data-action="verrouiller">Verrouiller maintenant</button><button type="button" class="bouton-lien" data-action="retirer-verrou">Retirer le code</button>`
+      : `<button type="button" class="bouton" data-action="activer-verrou">Activer le code</button>`;
+    $("#bouton-verrou").hidden = !actif;
+  }
+
+  function activerVerrou() {
+    const c1 = $("#verrou-code").value, c2 = $("#verrou-code-2").value;
+    if (verrouActif() && !P.verifierCode(verrou, ($("#verrou-actuel") || {}).value || "")) { annoncer("Le code actuel n'est pas le bon."); return; }
+    if (!P.codeValide(c1)) { annoncer("Le code doit compter de 4 à 8 chiffres."); $("#verrou-code").focus(); return; }
+    if (c1 !== c2) { annoncer("Les deux codes sont différents."); $("#verrou-code-2").focus(); return; }
+    verrou = P.creerVerrou(c1, $("#verrou-delai").value);
+    ecrireStockage(CLE_VERROU, verrou);
+    $("#verrou-code").value = ""; $("#verrou-code-2").value = "";
+    rendreReglagesVerrou();
+    annoncer("Code enregistré : il sera demandé à l'ouverture et après " + (verrou.delai ? verrou.delai + " minutes sans utilisation" : "chaque ouverture") + ".");
+  }
+
+  function retirerVerrou() {
+    if (!P.verifierCode(verrou, ($("#verrou-actuel") || {}).value || "")) { annoncer("Saisissez d'abord le code actuel."); const c = $("#verrou-actuel"); if (c) c.focus(); return; }
+    verrou = null;
+    try { localStorage.removeItem(CLE_VERROU); } catch (e) { /* rien */ }
+    rendreReglagesVerrou();
+    annoncer("Code retiré.");
+  }
+
+  async function effacerAppareil() {
+    if ($("#confirmer-effacement").value.trim().toUpperCase() !== "EFFACER") { $("#verrou-message").textContent = "Écrivez EFFACER pour confirmer."; return; }
+    const l = await Base.tous();
+    for (const x of l) { try { await Base.retirer(x.id); } catch (e) { /* rien */ } }
+    ecrireStockage(CLE_BROUILLON, null);
+    try { ["outil-ergo:dossiers", CLE_VERROU, CLE_FILTRES].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* rien */ }
+    location.reload();
+  }
+
+  /* ---------- Partage entre praticiennes ---------- */
+
+  async function ouvrirEnvoiPartage() {
+    enregistrerDansMesDossiers();
+    await viderEcritures();
+    const l = (await Base.tous()).filter((x) => x && x.id && x.dossier).sort((a, b) => nomCompletEnfant(a).localeCompare(nomCompletEnfant(b), "fr"));
+    if (!l.length) { annoncer("Aucun dossier à envoyer pour l'instant."); return; }
+    const chiffrable = P.chiffrementDisponible();
+    const coche = (x) => (agenda.dossiers[dossier.id] || String(dossier.prenom || "").trim() ? x.id === dossier.id : true);
+    let contenu = null, motDePasse = "";
+    const v = await ouvrirDialogue({
+      titre: "Envoyer à une collègue", classe: "boite-partage",
+      html: `<p class="note">Choisissez les dossiers. L'outil crée un fichier à transmettre par un moyen sûr (clé USB, messagerie sécurisée de santé). Donnez le mot de passe par un autre moyen (de vive voix, SMS).</p>
+        <div class="barre-actions"><button type="button" class="bouton-lien" data-tout="1">Tout cocher</button><button type="button" class="bouton-lien" data-tout="0">Tout décocher</button></div>
+        <div class="cases liste-partage">${l.map((x) => `<label><input type="checkbox" value="${esc(x.id)}"${coche(x) ? " checked" : ""}><span>${esc(nomCompletEnfant(x))}${x.groupe ? " · " + esc(x.groupe) : ""}${nbSeances(x) ? " · " + nbSeances(x) + " séance" + (nbSeances(x) > 1 ? "s" : "") : ""}</span></label>`).join("")}</div>
+        ${chiffrable ? `<div class="grille2"><label class="champ"><span>Mot de passe (6 caractères au moins)</span><input type="password" name="mdp" autocomplete="new-password"></label>
+          <label class="champ"><span>Le même, une seconde fois</span><input type="password" name="mdp2" autocomplete="new-password"></label></div>`
+          : `<p class="alerte-pco">Ce navigateur ne permet pas de protéger le fichier par un mot de passe. Ouvrez l'outil dans un navigateur à jour (Safari, Chrome, Firefox) pour envoyer des dossiers.</p>`}`,
+      boutons: chiffrable ? [{ valeur: "envoyer", libelle: "Créer le fichier" }, { valeur: "annuler", libelle: "Annuler" }] : [{ valeur: "annuler", libelle: "Fermer", classe: "bouton" }],
+      clic: (e, fond) => { const t = e.target.closest("[data-tout]"); if (t) { e.preventDefault(); $$(".liste-partage input", fond).forEach((c) => { c.checked = t.dataset.tout === "1"; }); } },
+      valider: (fond, valeur) => {
+        if (valeur !== "envoyer") return "";
+        const ids = $$(".liste-partage input:checked", fond).map((c) => c.value);
+        if (!ids.length) return "Cochez au moins un dossier.";
+        const m1 = fond.querySelector("[name=mdp]").value, m2 = fond.querySelector("[name=mdp2]").value;
+        if (m1.length < 6) return "Le mot de passe doit compter 6 caractères au moins.";
+        if (m1 !== m2) return "Les deux mots de passe sont différents.";
+        motDePasse = m1;
+        contenu = { de: profilActif() || "", le: new Date().toISOString(), dossiers: l.filter((x) => ids.indexOf(x.id) >= 0) };
+        return "";
+      },
+    });
+    if (v !== "envoyer" || !contenu) return;
+    try {
+      const obj = await P.emballer(contenu, motDePasse);
+      const n = contenu.dossiers.length;
+      await telecharger("Partage_Outil_Ergo_" + B.aujourdhui() + ".json", JSON.stringify(obj), "application/json", n + " dossier" + (n > 1 ? "s" : "") + " prêt" + (n > 1 ? "s" : "") + " à envoyer, protégé" + (n > 1 ? "s" : "") + " par le mot de passe");
+    } catch (e) { annoncer("Le fichier n'a pas pu être créé : " + e.message); }
+  }
+
+  async function recevoirPartage(obj) {
+    if (obj && obj.type === "outil-ergo-sauvegarde") return restaurerCopie(obj);
+    if (!obj || obj.type !== P.TYPE) throw new Error("Ce fichier n'est pas un partage de l'outil.");
+    let contenu = obj.chiffre ? null : obj.contenu;
+    if (obj.chiffre) {
+      await ouvrirDialogue({
+        titre: "Fichier protégé",
+        html: `<p class="note">Saisissez le mot de passe donné par votre collègue.</p><label class="champ"><span>Mot de passe</span><input type="password" name="mdp" autocomplete="off"></label>`,
+        boutons: [{ valeur: "ouvrir", libelle: "Ouvrir" }, { valeur: "annuler", libelle: "Annuler" }],
+        valider: async (fond) => {
+          try { contenu = await P.deballer(obj, fond.querySelector("[name=mdp]").value); return ""; } catch (e) { return e.message; }
+        },
+      });
+      if (!contenu) return;
+    }
+    const recus = contenu && Array.isArray(contenu.dossiers) ? contenu.dossiers : [];
+    enregistrerDansMesDossiers();
+    await viderEcritures();
+    const locaux = await Base.tous();
+    const f = P.fusionner(locaux, recus);
+    if (!f.ecrire.length) { annoncer("Tout est déjà à jour : rien à ajouter."); return; }
+    const libelles = { ajout: "nouveau dossier", maj: "version plus récente", seances: "séances ajoutées" };
+    const v = await ouvrirDialogue({
+      titre: "Ajouter à mes dossiers ?",
+      html: `<p class="note">Envoyé par ${esc(contenu.de || "une collègue")}${contenu.le ? ", le " + esc(B.dateCourte(String(contenu.le).slice(0, 10))) : ""}. Pour un dossier que vous avez déjà, la version la plus récente est gardée et les séances des deux côtés sont réunies.</p>
+        <ul class="liste-fusion">${f.lignes.map((x) => `<li><strong>${esc(x.nom)}</strong> : ${x.action === "inchange" ? "déjà à jour" : esc(libelles[x.action]) + (x.seances && x.action !== "ajout" ? " (" + x.seances + " séance" + (x.seances > 1 ? "s" : "") + " de plus)" : "")}</li>`).join("")}</ul>`,
+      boutons: [{ valeur: "ok", libelle: "Ajouter à mes dossiers" }, { valeur: "annuler", libelle: "Annuler" }],
+    });
+    if (v !== "ok") return;
+    const avant = {};
+    locaux.forEach((x) => { avant[x.id] = x; });
+    for (const x of f.ecrire) await Base.mettre(x);
+    const courant = f.ecrire.find((x) => x.id === dossier.id);
+    if (courant) { charger({ dossier: courant.dossier, compteRendu: courant.compteRendu }); nonEnregistre = false; }
+    afficherMesDossiers();
+    if (panneauCourant() === "tableau") rendreTableau();
+    if (panneauCourant() === "seances") rendreAgenda();
+    const r = f.resume;
+    proposerAnnulation([r.ajouts ? r.ajouts + " ajouté" + (r.ajouts > 1 ? "s" : "") : "", r.misAJour ? r.misAJour + " mis à jour" : "", r.seancesAjoutees ? r.seancesAjoutees + " séance" + (r.seancesAjoutees > 1 ? "s" : "") + " de plus" : ""].filter(Boolean).join(", ") + ".", async () => {
+      for (const x of f.ecrire) { if (avant[x.id]) await Base.mettre(avant[x.id]); else await Base.retirer(x.id); }
+      if (courant && avant[courant.id]) charger({ dossier: avant[courant.id].dossier, compteRendu: avant[courant.id].compteRendu });
+      afficherMesDossiers();
+      if (panneauCourant() === "tableau") rendreTableau();
+    });
+  }
+
+  /* ---------- Phrases favorites ---------- */
+
+  let champPhrases = null, selectionPhrases = null;
+  function acceptePhrases(el) {
+    if (!el || !el.matches || el.closest("#p-reglages, .demande, #panneau-phrases, #verrou, .seances-barre")) return false;
+    if (el.matches("textarea")) return el.id !== "eso-coller";
+    if (el.matches("input[type=text]")) return ["fait", "prochaine", "aide", "difficile"].indexOf(el.dataset.ed) >= 0 || /:commentaire$/.test(el.dataset.tl || "");
+    return false;
+  }
+  function placerBoutonPhrases(el) {
+    const b = $("#bouton-phrases"), r = el.getBoundingClientRect();
+    b.style.top = Math.max(0, window.scrollY + r.top - 16) + "px";
+    b.style.left = Math.max(4, window.scrollX + r.right - 44) + "px";
+    b.hidden = false;
+  }
+  function masquerBoutonPhrases() { if ($("#panneau-phrases").hidden) $("#bouton-phrases").hidden = true; }
+  function rendrePhrases() {
+    const f = $("#filtre-phrases").value.trim().toLowerCase();
+    const l = reglages.phrases.map((t, i) => [t, i]).filter((x) => !f || x[0].toLowerCase().indexOf(f) >= 0);
+    $("#liste-phrases").innerHTML = l.length ? l.map((x) => `<li><button type="button" data-phrase="${x[1]}">${esc(x[0])}</button></li>`).join("")
+      : `<li class="note">${f ? "Aucune phrase trouvée." : "Aucune phrase : ajoutez-en ci-dessous ou dans les réglages."}</li>`;
+  }
+  function ouvrirPhrases() {
+    if (!champPhrases) return;
+    const [a, b] = selectionPhrases || [champPhrases.value.length, champPhrases.value.length];
+    const sel = champPhrases.value.slice(a, b).trim();
+    const bouton = $("#ajouter-selection");
+    bouton.hidden = !sel;
+    bouton.textContent = "＋ Garder « " + (sel.length > 40 ? sel.slice(0, 40) + "…" : sel) + " »";
+    $("#filtre-phrases").value = "";
+    rendrePhrases();
+    $("#panneau-phrases").hidden = false;
+    if (!estTactile()) $("#filtre-phrases").focus();
+  }
+  function fermerPhrases() { const p = $("#panneau-phrases"); if (p) p.hidden = true; const b = $("#bouton-phrases"); if (b) b.hidden = true; }
+  function insererPhrase(t) {
+    const el = champPhrases;
+    if (!el || !document.body.contains(el)) { fermerPhrases(); return; }
+    const [a, b] = selectionPhrases || [el.value.length, el.value.length];
+    const avant = el.value.slice(0, a), apres = el.value.slice(b);
+    const ajout = (!avant || /\s$/.test(avant) ? "" : " ") + t;
+    el.value = avant + ajout + apres;
+    const pos = (avant + ajout).length;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    fermerPhrases();
+    el.focus();
+    try { el.setSelectionRange(pos, pos); } catch (e) { /* rien */ }
+    selectionPhrases = [pos, pos];
+    if (el.tagName === "TEXTAREA") ajuster(el);
+  }
+  function ajouterPhrase(t) {
+    const p = String(t || "").trim();
+    if (!p) return;
+    if (reglages.phrases.indexOf(p) < 0) reglages.phrases.push(p);
+    sauverReglages();
+    const z = $("#phrases-reglages");
+    if (z) z.value = reglages.phrases.join("\n");
+    rendrePhrases();
+    annoncer("Phrase ajoutée aux favorites");
+  }
+  function initPhrases() {
+    document.addEventListener("focusin", (e) => {
+      if (acceptePhrases(e.target)) { champPhrases = e.target; placerBoutonPhrases(e.target); }
+      else if (!e.target.closest || !e.target.closest("#panneau-phrases, #bouton-phrases")) masquerBoutonPhrases();
+    });
+    document.addEventListener("focusout", (e) => {
+      if (e.target !== champPhrases) return;
+      selectionPhrases = [e.target.selectionStart, e.target.selectionEnd];
+      setTimeout(() => { const a = document.activeElement; if (!a || (!acceptePhrases(a) && !(a.closest && a.closest("#panneau-phrases, #bouton-phrases")))) masquerBoutonPhrases(); }, 200);
+    });
+    const b = $("#bouton-phrases");
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); if (champPhrases) selectionPhrases = [champPhrases.selectionStart, champPhrases.selectionEnd]; });
+    b.addEventListener("click", ouvrirPhrases);
+    $("#filtre-phrases").addEventListener("input", rendrePhrases);
+    $("#liste-phrases").addEventListener("pointerdown", (e) => { if (e.target.closest("[data-phrase]")) e.preventDefault(); });
+    window.addEventListener("resize", () => { if (champPhrases && !$("#bouton-phrases").hidden) placerBoutonPhrases(champPhrases); });
+  }
+
   /* ================= Onglets ================= */
 
   // Six onglets ; chacun peut regrouper plusieurs pages (sous-onglets). Les réglages s'ouvrent depuis l'en-tête.
@@ -2309,6 +2690,7 @@
 
   function afficherOnglet(nom, opts) {
     if (!panneauVisible(nom)) nom = "dossier";
+    if (!$("#p-" + nom)) nom = "tableau";
     // Historique : le geste « retour » du téléphone ramène à l'onglet précédent.
     if (!(opts && opts.historique === false)) {
       try { if (!history.state || history.state.onglet !== nom) history.pushState({ onglet: nom }, ""); } catch (e) { /* page partagée : sans historique */ }
@@ -2327,14 +2709,19 @@
     window.scrollTo(0, 0);
     if (nom === "compte-rendu") { $$("[data-section]").forEach(ajuster); majGalerie(); }
     if (nom === "dossier") afficherMesDossiers();
-    if (nom === "seances") rendreAgenda();
+    if (nom === "seances") agendaPret = rendreAgenda();
+    if (nom === "tableau") rendreTableau();
+    const maison = $(".bouton-maison");
+    if (maison) maison.setAttribute("aria-current", nom === "tableau" ? "page" : "false");
+    fermerPhrases();
   }
+  let agendaPret = Promise.resolve();
 
   function allerAccueil() {
     if (!$("#apercu").hidden) fermerApercu();
-    afficherOnglet("dossier");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    const titre = $("#h-mes-dossiers");
+    afficherOnglet("tableau");
+    window.scrollTo({ top: 0 });
+    const titre = $("#bonjour");
     if (titre) { titre.setAttribute("tabindex", "-1"); titre.focus({ preventScroll: true }); }
   }
 
@@ -2375,6 +2762,14 @@
     if (el.dataset.etapeBas) return modifierPlanning((l) => { const i = +el.dataset.etapeBas; if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); });
     if (el.dataset.etapeSuppr) return modifierPlanning((l) => { l.splice(+el.dataset.etapeSuppr, 1); });
     if (el.dataset.ouvrirDossier) return ouvrirDeMesDossiers(el.dataset.ouvrirDossier);
+    if (el.dataset.chiffre) {
+      const c = $("#code-verrou");
+      if (el.dataset.chiffre === "effacer") c.value = c.value.slice(0, -1);
+      else if (c.value.length < 8) c.value += el.dataset.chiffre;
+      if (verrou && c.value.length >= verrou.longueur) essayerCode();
+      return;
+    }
+    if (el.dataset.phrase !== undefined) return insererPhrase(reglages.phrases[+el.dataset.phrase]);
     if (el.dataset.ouvrirSeance) return ouvrirEditeur(el.dataset.ouvrirSeance, true);
     if (el.dataset.statutRapide) return statutRapide(el.dataset.cle, el.dataset.statutRapide);
     if (el.dataset.retirerSeance) return retirerSeance(el.dataset.retirerSeance);
@@ -2526,6 +2921,33 @@
       case "copie-securite": return telechargerCopie();
       case "planning-defaut": return modifierPlanning((l) => { l.splice(0, l.length, ...A.PLANNING_DEFAUT); });
       case "nouvelle-seance": return ouvrirFormSeance();
+      case "choisir-enfant": return ouvrirChoixEnfant();
+      case "nouveau-bilan": return nouveau();
+      case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
+      case "voir-planning": return afficherOnglet("seances");
+      case "tous-dossiers": afficherOnglet("dossier"); { const t = $("#h-mes-dossiers"); if (t) t.scrollIntoView({ block: "start" }); } return;
+      case "voir-non-notees":
+        Object.assign(filtres, { enfant: "", periode: "passees", decalage: 0, statut: "prevue", auteur: "", axe: "", lieu: "" });
+        sauverFiltres();
+        return afficherOnglet("seances");
+      case "regler-verrou": afficherOnglet("reglages"); { const f = $("#reglages-verrou"); if (f) f.scrollIntoView({ block: "start" }); } return;
+      case "verrouiller": return verrouiller();
+      case "activer-verrou": return activerVerrou();
+      case "retirer-verrou": return retirerVerrou();
+      case "effacer-appareil": return effacerAppareil();
+      case "envoyer-partage": return ouvrirEnvoiPartage();
+      case "fermer-phrases": fermerPhrases(); if (champPhrases) champPhrases.focus(); return;
+      case "ajouter-selection": {
+        if (!champPhrases || !selectionPhrases) return;
+        ajouterPhrase(champPhrases.value.slice(selectionPhrases[0], selectionPhrases[1]));
+        $("#ajouter-selection").hidden = true;
+        return;
+      }
+      case "phrases-exemples":
+        B.PHRASES_EXEMPLES.forEach((t) => { if (reglages.phrases.indexOf(t) < 0) reglages.phrases.push(t); });
+        sauverReglages(); $("#phrases-reglages").value = reglages.phrases.join("\n");
+        annoncer("Phrases d'exemple ajoutées");
+        return;
       case "fermer-form-seance": $("#form-seance").hidden = true; return;
       case "programmer-seances": return programmerPlan();
       case "retirer-photo-cabinet":
@@ -2579,6 +3001,8 @@
       lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {
       lireFichier(e.target).then(chargerPrecedent).catch((err) => annoncer(err.message));
+    } else if (action === "recevoir-partage") {
+      lireFichier(e.target).then(recevoirPartage).catch((err) => annoncer(err.message));
     } else if (action === "photo-cabinet") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
@@ -2617,6 +3041,7 @@
 
   function init() {
     document.documentElement.lang = "fr";
+    if (verrouActif()) verrouiller();
     construireListes();
     construireGrille();
     construireCriteres();
@@ -2628,6 +3053,8 @@
     construireDcdq();
     construireAccueil();
     initOnglets();
+    initPhrases();
+    rendreReglagesVerrou();
     remplirReglages();
     construireAuto();
 
@@ -2654,13 +3081,25 @@
     window.addEventListener("pagehide", toutDeSuite);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") toutDeSuite(); });
 
-    try { history.replaceState({ onglet: "dossier" }, ""); } catch (e) { /* rien */ }
+    afficherOnglet("tableau", { historique: false });
+    try { history.replaceState({ onglet: "tableau" }, ""); } catch (e) { /* rien */ }
+    // Verrouillage après un temps sans utilisation, et au retour dans l'application.
+    ["pointerdown", "keydown", "input", "wheel", "touchstart"].forEach((t) => document.addEventListener(t, () => { derniereActivite = Date.now(); }, { passive: true, capture: true }));
+    setInterval(() => {
+      if (verrouActif() && verrou.delai && !document.body.classList.contains("verrouille") && Date.now() - derniereActivite > verrou.delai * 60000) verrouiller();
+    }, 15000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") cacheLe = Date.now();
+      else if (verrouActif() && verrou.delai && cacheLe && Date.now() - cacheLe > verrou.delai * 60000) verrouiller();
+    });
     window.addEventListener("popstate", (e) => {
       if (!$("#apercu").hidden) { fermerApercu(); return; }
       if (e.state && e.state.onglet) afficherOnglet(e.state.onglet, { historique: false });
     });
     document.addEventListener("submit", (e) => {
       if (e.target && e.target.id === "form-seance") { e.preventDefault(); ajouterSeanceDepuisForm(); }
+      if (e.target && e.target.id === "form-verrou") { e.preventDefault(); essayerCode(); }
+      if (e.target && e.target.id === "form-phrase") { e.preventDefault(); ajouterPhrase($("#nouvelle-phrase").value); $("#nouvelle-phrase").value = ""; }
     });
     document.addEventListener("input", surSaisie);
     document.addEventListener("change", (e) => { if (!surFichier(e)) surSaisie(e); });
