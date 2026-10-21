@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -306,7 +306,7 @@
     { id: "outil", cat: "scolaire", label: "Outil scripteur adapté", texte: "Proposer un outil scripteur adapté (crayon ergonomique, embout)", raisons: ["douleur", "pression"] },
     { id: "pauses", cat: "scolaire", label: "Pauses à l'écrit", texte: "Prévoir des pauses lors des tâches écrites longues", raisons: ["fatigue", "douleur"] },
     { id: "installation", cat: "scolaire", label: "Installation en classe", texte: "Veiller à une installation adaptée en classe (hauteur de table et de chaise, appui des pieds)", raisons: ["posture", "postural"] },
-    { id: "numerique", cat: "scolaire", label: "Outil numérique", texte: "Envisager l'outil numérique, avec un apprentissage de la frappe au clavier", raisons: ["vitesseForte"] },
+    { id: "numerique", cat: "scolaire", label: "Outil numérique", texte: "Envisager l'outil numérique, avec un apprentissage de la frappe au clavier", raisons: ["clavierEfficace", "vitesseForte"] },
     { id: "casque", cat: "sensoriel", label: "Espace calme, casque", texte: "Proposer un espace calme et un casque anti-bruit lors des moments bruyants (cantine, récréation)", raisons: ["auditif", "evitement", "sensibilite"] },
     { id: "mouvement", cat: "sensoriel", label: "Pauses de mouvement", texte: "Intégrer des pauses de mouvement et un siège dynamique", raisons: ["recherche", "attention"] },
     { id: "manipulation", cat: "sensoriel", label: "Objet à manipuler", texte: "Autoriser un objet à manipuler pendant les temps d'écoute", raisons: ["recherche", "attention"] },
@@ -520,6 +520,7 @@
     d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
     d.tdc = { fait: "", debut: "", exclusion: "", notes: "" };
     Object.assign(d, Accueil.vide());
+    d.clavier = Clavier.vide();
     return d;
   }
 
@@ -545,6 +546,7 @@
     d.precedent = normaliserPrecedent(src.precedent);
     Object.assign(d, Accueil.normaliser(src));
     d.seances = Seances.normaliserListe(src.seances);
+    d.clavier = Clavier.normaliser(src.clavier);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -844,6 +846,7 @@
     { id: "observation", titre: "Observation de l'écriture manuscrite", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "bhk", titre: "Copie de texte : {bhk}", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "vitesse", titre: "Vitesse d'écriture", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
+    { id: "clavier", titre: "Frappe au clavier", niveau: 4, groupes: ["ecriture", "occupationnelle"] },
     { id: "otipis", titre: "Observations cliniques (OTIPIS)", niveau: 3, groupes: ["sensoriel"], graphiques: ["otipis"] },
     { id: "dunn", titre: "Profil sensoriel 2 de Dunn", niveau: 3, groupes: ["sensoriel"], graphiques: ["dunn-enfant", "dunn-scolaire"] },
     { id: "eso", titre: "Engagement sensori-occupationnel (ESO)", niveau: 3, groupes: ["sensoriel"], graphiques: ["eso-roues", "eso-systemes", "eso-items"] },
@@ -885,7 +888,7 @@
   function ecritureCommencee(d) {
     const champs = ["lateralite", "prise", "priseDetail", "motivation", "envFeuille", "envOutil", "envLieu", "tailleMm", "c1", "c2", "vitesse", "modeCopie", "reperage", "douleurEva", "bhkNotes"];
     return champs.some((k) => texte(d[k]).trim()) || Object.keys(d.grille).length > 0 ||
-      Object.keys(d.lignes).some((k) => d.lignes[k].some(Boolean)) || TESTS.some((t) => t.section === "vitesse" && d.tests[t.id].fait === "oui");
+      Object.keys(d.lignes).some((k) => d.lignes[k].some(Boolean)) || TESTS.some((t) => t.section === "vitesse" && d.tests[t.id].fait === "oui") || d.clavier.fait === "oui";
   }
   function sensorielCommence(d) {
     return ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui");
@@ -987,6 +990,11 @@
       manos: ["des difficultés de manipulation des outils scolaires", "motriciteFine"],
       evic: ["une frappe au clavier lente", "clavier"],
     };
+    const frappe = Clavier.indicateur(d.clavier);
+    if (frappe) {
+      ajout(frappe.cle, frappe.raison);
+      if (frappe.constat) constats.push(frappe.constat);
+    }
     if (d.manip.fait === "oui") {
       const faibles = MANIPULATIONS.filter((it) => {
         const v = [d.manip.md[it.id], d.manip.mg[it.id]].filter((x) => x !== undefined);
@@ -1139,6 +1147,7 @@
       const q = Occup.calculDcdq(d.dcdq, ageMois(d));
       if (q.complet) l.push({ cle: "dcdq-total", bilan: "DCDQ", epreuve: "Score total", valeur: q.total + "/75", echelle: "dcdq", ds: null, perf: null, num: q.total, sens: 1, seuil: null });
     }
+    Clavier.mesures(d.clavier).forEach((m) => l.push(m));
     return l;
   }
 
@@ -1215,6 +1224,7 @@
       if (d.othope.fait === "oui") l.push("OT'Hope : auto-évaluation des occupations par " + a.sujetMin);
       if (d.cartes.activites.fait === "oui") l.push("Tri de cartes sur écran : activités du quotidien");
       if (d.cartes.sensoriel.fait === "oui") l.push("Tri de cartes sur écran : situations sensorielles");
+      if (d.clavier.fait === "oui") l.push("EViC : évaluation de la vitesse de frappe au clavier (" + Clavier.SOURCE.court + ")");
       if (d.dcdq.fait === "oui") l.push("DCDQ : questionnaire sur le trouble développemental de la coordination, rempli par " + (d.dcdq.repondant.trim() || "les parents"));
       if (d.tdc.fait === "oui") l.push("Repères des recommandations internationales sur le TDC (" + SOURCE_TDC.court + ")");
       lignesDe(d.bilansLibre).forEach((x) => l.push(maj(x)));
@@ -1397,6 +1407,7 @@
       }
       tests.filter((t) => t.fait && t.section === "vitesse").forEach((t) => blocs.push(paragrapheTest(t)));
       out.vitesse = blocs.join("\n\n");
+      out.clavier = d.clavier.fait === "oui" ? Clavier.rediger(d.clavier, a) : "";
     }
     {
       const blocs = tests.filter((t) => t.fait && t.section === "complementaires").map(paragrapheTest);
@@ -1449,7 +1460,7 @@
     } else out.autoeval = "";
 
     // Bilan seulement sensoriel : les sections du volet écriture restent vides.
-    if (!ecritureCommencee(d) && (sensorielCommence(d) || Occup.commence(d))) ["personne", "environnementale", "observation", "bhk", "vitesse"].forEach((k) => { out[k] = ""; });
+    if (!ecritureCommencee(d) && (sensorielCommence(d) || Occup.commence(d))) ["personne", "environnementale", "observation", "bhk", "vitesse", "clavier"].forEach((k) => { out[k] = ""; });
 
     // Bilan sensoriel
     Object.assign(out, Senso.rediger(d.senso, a));

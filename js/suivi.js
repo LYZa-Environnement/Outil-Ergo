@@ -5,9 +5,9 @@
  * Les exercices sont des pistes générales à adapter à chaque enfant.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"), require("./accueil.js"), require("./seances.js"));
-  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso, racine.Accueil, racine.Seances);
-})(typeof self !== "undefined" ? self : this, function (B, O, S, A, SE) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./bhk.js"), require("./occupation.js"), require("./sensoriel.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"));
+  else racine.Suivi = fabrique(racine.BHK, racine.Occup, racine.Senso, racine.Accueil, racine.Seances, racine.Clavier);
+})(typeof self !== "undefined" ? self : this, function (B, O, S, A, SE, C) {
   "use strict";
 
   function texte(v) { return typeof v === "string" ? v : v === null || v === undefined ? "" : String(v); }
@@ -289,6 +289,17 @@
       l.push("");
     }
 
+    // Frappe au clavier (EViC)
+    if (d.clavier.fait === "oui") {
+      const res = C.resultats(d.clavier).faites;
+      if (res.length) {
+        l.push("Frappe au clavier (EViC) :");
+        res.forEach((x) => l.push("– " + x.nom + " : " + C.fmt(x.mpm) + " mots par minute" + (x.ratio !== null ? " (" + Math.round(x.ratio * 100) + " % de la vitesse à la main)" : "") +
+          (x.corrections !== null ? ", " + x.corrections + " correction" + (x.corrections > 1 ? "s" : "") : "") + (x.outil ? ", chronométré dans l'outil" : "")));
+        l.push("");
+      }
+    }
+
     // Bilan sensoriel en détail
     const s = d.senso;
     if (s.otipis.fait === "oui") {
@@ -401,6 +412,10 @@
       txt("Les recommandations internationales (" + B.SOURCE_TDC.court + ") conseillent, pour les difficultés de coordination, des approches centrées sur l'activité et la participation (par exemple CO-OP ou l'entraînement neuromoteur à la tâche) : objectifs choisis avec l'enfant et sa famille, entraînement des activités elles-mêmes, pratique régulière sur plusieurs mois, avec les parents et l'école. Les approches qui travaillent seulement les fonctions sous-jacentes, hors activité, ne sont pas recommandées pour améliorer la motricité." +
         (tdc ? "\nRepères du bilan : " + tdc.criteres.map((x) => "critère " + x.id + " " + B.ETATS_TDC[x.etat]).join(", ") + ". " + tdc.conclusion : "") +
         "\nSource : " + B.SOURCE_TDC.texte + " " + B.SOURCE_TDC.lien);
+    }
+    if (d.clavier.fait === "oui" || actifs.indexOf("clavier") >= 0) {
+      h(3, "Repères de l'EViC pour l'apprentissage du clavier");
+      txt(C.REPERES + "\nSources : " + C.SOURCE_REPERES.texte + " " + C.SOURCE_REPERES.lien + "\n" + C.SOURCE.texte + " " + C.SOURCE.lien);
     }
     if (A.raisonTsa(d)) {
       h(3, "Ajout : recommandations de la HAS sur l'autisme");

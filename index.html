@@ -55,6 +55,7 @@
     <button type="button" class="enfant-courant" id="enfant-courant" data-action="choisir-enfant" aria-haspopup="dialog" title="Changer d'enfant">
       <span class="enfant-avatar" aria-hidden="true"></span><span class="enfant-nom"></span><span class="enfant-fleche" aria-hidden="true">▾</span>
     </button>
+    <button type="button" class="etat-enregistrement" id="etat-enregistrement" data-action="infos-enregistrement"><span class="etat-icone" aria-hidden="true">✓</span><span class="etat-texte">Prêt</span></button>
     </div>
     <nav class="sous-onglets" id="sous-onglets" aria-label="Parties de l'étape" hidden></nav>
   </div>
@@ -77,6 +78,11 @@
       <section class="carte" id="carte-rappels" aria-labelledby="h-rappels" hidden>
         <h2 id="h-rappels">À ne pas oublier</h2>
         <ul class="rappels" id="accueil-rappels"></ul>
+      </section>
+      <section class="carte carte-donnees" aria-labelledby="h-donnees">
+        <div class="carte-tete"><h2 id="h-donnees">💾 Vos données</h2><button type="button" class="bouton-lien" data-action="infos-enregistrement">Comment ça marche ?</button></div>
+        <p id="accueil-donnees"></p>
+        <div class="barre-actions"><button type="button" class="bouton bouton-second bouton-petit" data-action="copie-securite">Faire une copie de sécurité</button></div>
       </section>
       <section class="carte" aria-labelledby="h-recents">
         <div class="carte-tete"><h2 id="h-recents">Dossiers récents</h2><button type="button" class="bouton-lien" data-action="tous-dossiers">Tous mes dossiers →</button></div>
@@ -538,11 +544,43 @@
         <label class="champ"><span>Autres observations sur le BHK</span><textarea data-champ="bhkNotes" rows="2" placeholder="Se fatigue en fin d'épreuve, secoue la main"></textarea></label>
         <div id="passation-bhk"></div>
       </fieldset>
-      <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Suivant : sensoriel →</button></div>
+      <div class="suite"><button type="button" class="bouton" data-aller="clavier">Suivant : clavier →</button></div>
       <div class="recap" id="recap" aria-live="polite"></div>
     </section>
 
     <!-- ============ Sensoriel ============ -->
+    <!-- ============ Frappe au clavier (EViC) ============ -->
+    <section id="p-clavier" role="tabpanel" aria-label="Frappe au clavier" class="panneau" hidden>
+      <details class="aide">
+        <summary>Comment faire ?</summary>
+        <ol>
+          <li>Installez l'enfant devant le matériel qu'il utiliserait en classe, le texte du BHK sur papier à côté de l'écran (sur un ordinateur, le chronomètre de l'outil peut servir directement).</li>
+          <li>Touchez « Lancer l'épreuve » : le chronomètre démarre à la première touche et s'arrête seul. L'outil compte les mots, les caractères et les corrections.</li>
+          <li>Notez aussi les mots écrits à la main (copie du BHK et répétition, 5 minutes chacune) : l'outil compare les deux vitesses.</li>
+          <li>Épreuve faite ailleurs ? Écrivez directement le nombre de mots tapés.</li>
+        </ol>
+      </details>
+      <div class="ajout"><strong>EViC</strong> : protocole gratuit créé par des ergothérapeutes (Lefèvere et Galbiati, 2007). Au clavier : copie (5 min), répétition d'un mot (3 min), dictée (5 min) ; à la main : copie du BHK et répétition (5 min). Les vitesses sont en mots par minute. Ses repères par classe sont indicatifs (petits effectifs) : l'outil compare surtout l'enfant à lui-même. <a href="http://www.geppe.free.fr/IMG/pdf/2007_02_-_LEFEVERE_GWENAELLE_-_EViC_consignes_et_feuille_passation.pdf" target="_blank" rel="noopener">Consignes et feuille de passation</a></div>
+      <fieldset class="groupe test" id="bloc-clavier">
+        <legend><label class="case case-titre"><input type="checkbox" data-chemin="clavier.fait" data-bascule="#corps-clavier"><span>⌨️ EViC : vitesse de frappe au clavier</span></label></legend>
+        <div class="test-corps" id="corps-clavier" hidden>
+          <h3>Au clavier</h3>
+          <div id="epreuves-clavier"></div>
+          <h3>À la main</h3>
+          <div class="grille2" id="manuscrit-clavier"></div>
+          <p class="calcule" id="resultats-clavier" aria-live="polite"></p>
+          <h3>Observation de la frappe</h3>
+          <div class="champ"><span>Matériel</span><div id="materiel-clavier"></div></div>
+          <div class="champ"><span>Doigts utilisés</span><div id="doigte-clavier"></div></div>
+          <div class="champ"><span>Regard</span><div id="regard-clavier"></div></div>
+          <div class="champ"><span>Fonctions du clavier</span><div id="fonctions-clavier" class="fonctions-clavier"></div></div>
+          <label class="champ"><span>Apprentissage déjà fait</span><input type="text" data-chemin="clavier.experience" placeholder="logiciel en séance depuis septembre, environ 10 heures"></label>
+          <label class="champ"><span>Observations</span><textarea data-chemin="clavier.notes" rows="2" placeholder="se fatigue vite, cherche longtemps les touches"></textarea></label>
+        </div>
+      </fieldset>
+      <div class="suite"><button type="button" class="bouton" data-aller="sensoriel">Suivant : sensoriel →</button></div>
+    </section>
+
     <section id="p-sensoriel" role="tabpanel" aria-label="Bilan sensoriel" class="panneau" hidden>
       <details class="aide">
         <summary>Comment faire ?</summary>
@@ -847,6 +885,12 @@
       <form id="form-phrase" class="form-phrase"><input type="text" id="nouvelle-phrase" placeholder="Nouvelle phrase" aria-label="Nouvelle phrase favorite"><button type="submit" class="bouton bouton-petit">Ajouter</button></form>
     </div>
   </div>
+  <div class="ecran-frappe" id="ecran-frappe" role="dialog" aria-modal="true" aria-labelledby="titre-frappe" hidden>
+    <div class="frappe-tete"><strong id="titre-frappe"></strong><span class="frappe-temps" id="frappe-temps"></span><button type="button" class="bouton bouton-second bouton-petit" data-action="arreter-frappe">Arrêter</button></div>
+    <p class="frappe-consigne" id="frappe-consigne"></p>
+    <textarea id="zone-frappe" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Zone de frappe"></textarea>
+    <div class="frappe-pied" id="frappe-pied" aria-live="polite"></div>
+  </div>
   <div class="verrou" id="verrou" role="dialog" aria-modal="true" aria-labelledby="titre-verrou" hidden>
     <div class="verrou-boite">
       <svg class="logo" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="23"/><path class="logo-tige" d="M24 38V22"/><path class="logo-feuille" d="M24 26c-9-1-13-8-12-14 8 0 12 6 12 14z"/><path class="logo-feuille-2" d="M24 22c7-1 11-7 10-12-7 0-10 5-10 12z"/></svg>
@@ -876,6 +920,7 @@
   <script src="js/occupation.js"></script>
   <script src="js/accueil.js"></script>
   <script src="js/seances.js"></script>
+  <script src="js/clavier.js"></script>
   <script src="js/partage.js"></script>
   <script src="js/bhk.js"></script>
   <script src="js/suivi.js"></script>

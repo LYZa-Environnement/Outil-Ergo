@@ -22,7 +22,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 | --- | --- |
 | 📁 Dossier | **Dossier** : Mes dossiers, identité, âge calculé, parents, prescription, scolarité, motif, accueil adapté, plateforme TND, bilans utilisés, réévaluation, résumé des séances. **Accueil adapté** (si la case est cochée) : questionnaire des parents, fiche « Ce qui aide », planning en images, « Ma visite » |
 | 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
-| ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie et son analyse, résultats, observations pendant la copie, douleur (EVA) |
+| ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie et son analyse, résultats, observations pendant la copie, douleur (EVA). **Clavier** : EViC, vitesse de frappe au clavier, chronométrée dans l'outil |
 | 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (synthèse et réponses détaillées), SensOT-dir, tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
 | 📄 Compte rendu | Les quatre documents (aperçu, impression, Word), diagnostic ergothérapique, objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, réglage du plan de suivi |
 | 📅 Séances | Planning de toutes les séances de suivi, pour tous les enfants : séances faites, prévues, annulées ; filtres ; programmation du plan de suivi ; impression |
@@ -62,6 +62,15 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 
 Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
 
+### Frappe au clavier (EViC)
+
+Dans Écriture › Clavier, l'outil reprend le protocole EViC (évaluation de la vitesse de frappe au clavier, Lefèvere et Galbiati, 2007, GEPPE, gratuit) : au clavier, copie (5 min), répétition d'un mot (3 min) et dictée (5 min) ; à la main, copie du BHK et répétition (5 min). Les copies et dictées reprennent le texte du BHK, que l'enfant lit sur la feuille : il n'est pas reproduit dans l'outil.
+
+- « Lancer l'épreuve » ouvre un écran de frappe : le chronomètre démarre à la première touche et s'arrête seul ; l'outil compte les mots, les caractères et les corrections (correcteur automatique, majuscules automatiques et collage désactivés). Une épreuve faite ailleurs se note en nombre de mots.
+- Résultats en mots par minute, comparés à la vitesse à la main de l'enfant (« équivalence personnelle ») ; observation du doigté, du regard, du matériel et des fonctions connues.
+- Le compte rendu a une section « Frappe au clavier » ; une frappe plus lente que la main justifie l'apprentissage du clavier, une frappe au moins aussi rapide justifie l'outil numérique. Les résultats sont gardés pour la réévaluation (l'EViC prévoit de refaire les épreuves à un an et à deux ans), sans seuil d'évolution imposé.
+- Le plan de suivi reprend les repères de l'auteure, avec leur source. Les repères par classe de l'EViC sont indicatifs (petits effectifs) : ce n'est pas un étalonnage.
+
 ### Phrases favorites
 
 Dans les notes et les observations (textes du bilan, compte rendu, séances), le bouton ★ qui apparaît sur le champ ouvre la liste des phrases favorites : un appui insère la phrase à l'endroit du curseur. On peut chercher une phrase, en ajouter une, ou garder le texte sélectionné. La liste se gère dans les réglages (une phrase par ligne) ; seize phrases d'exemple sont proposées au départ.
@@ -89,7 +98,7 @@ L'onglet 📅 Séances réunit les séances de suivi de tous les enfants (chaque
 - **Noter une séance** : « ＋ Séance », l'enfant (celui du dossier ouvert par défaut), la date (aujourd'hui par défaut) et, si on veut, l'heure. Une date passée donne une séance faite, une date à venir une séance prévue. La séance s'ouvre : on coche ce qui a été travaillé (les axes du plan de suivi d'abord), on touche un visage (bien, moyen, difficile) ; une note et « pour la prochaine fois » sont facultatives. Tout s'enregistre aussitôt.
 - **Séance prévue** : le jour venu, elle porte deux boutons, « ✓ Faite » et « Absent ».
 - **Planning** : vue par semaine ou par mois (flèches pour avancer ou reculer, « Aujourd'hui » pour revenir), séances à venir, passées ou toutes. Filtres : enfant, statut (prévue, faite, annulée), praticienne, axe travaillé, lieu (si le cabinet a plusieurs adresses).
-- **Un enfant** : résumé (séances faites, prochaine séance, forfait de la plateforme TND, rappel 📌 noté la fois précédente, « Ce qui aide ») et « Programmer le plan de suivi », qui ajoute les séances prévues aux dates du plan (toutes les deux semaines par défaut), sans doublon et annulable.
+- **Un enfant** : résumé (séances faites, prochaine séance, forfait de la plateforme TND, rappel 📌 noté la fois précédente, « Ce qui aide ») et « Programmer le plan de suivi » : on choisit la première date, l'heure, la fréquence et le nombre de séances (le plan de suivi est mis à jour si on le souhaite) ; les séances prévues s'ajoutent sans doublon, et c'est annulable.
 - Dans chaque séance, le rappel 📌 et le contenu prévu au plan de suivi pour ce rang de séance.
 - Le planning affiché s'imprime ou se télécharge en Word ; le plan de suivi reprend les séances faites et les prochaines séances prévues ; le forfait de la plateforme TND compte les séances faites.
 
@@ -139,7 +148,8 @@ Le compte rendu présente les profils en graphiques : profil des résultats en d
 
 ### Ne rien perdre
 
-- Chaque dossier s'enregistre tout seul dans le navigateur, à chaque modification (« Mes dossiers », onglet Dossier) ; un nouveau dossier ne remplace jamais le précédent.
+- Chaque dossier s'enregistre tout seul dans le navigateur, à chaque modification (« Mes dossiers », onglet Dossier) ; un nouveau dossier ne remplace jamais le précédent. Il n'y a pas de bouton « Enregistrer ».
+- Un badge, toujours visible dans la barre du haut, montre où en est l'enregistrement : « Enregistrement… », puis « ✓ Enregistré » avec l'heure, ou « ⚠️ Non enregistré » en cas d'échec. Le toucher ouvre « Où sont vos dossiers ? » : où sont les dossiers (sur cet appareil, rien n'est envoyé sur internet), le seul risque (appareil perdu ou changé, données du navigateur effacées), le nombre de dossiers, la date de la dernière copie de sécurité et un bouton pour en faire une. La carte « Vos données » de l'accueil reprend ces informations.
 - La **copie de sécurité** télécharge tous les dossiers (et les réglages) dans un seul fichier, à ranger ou à transférer sur un autre appareil ; un rappel s'affiche après une semaine sans copie.
 - Effacer une cotation, un tri, une photo ou un dossier peut s'annuler pendant quelques secondes (bouton « Annuler »).
 - Le navigateur est prié de ne pas effacer les données de l'outil quand l'appareil manque de place.
@@ -208,6 +218,7 @@ js/sensoriel.js   bilan sensoriel : OTIPIS, Dunn 2, ESO, SensOT-dir
 js/occupation.js  autonomie, MCRO, OT'Hope, DCDQ, jeux de cartes
 js/accueil.js     accueil adapté, plateforme TND, passations adaptées
 js/seances.js     séances : modèle, périodes, filtres, regroupement par jour, programmation
+js/clavier.js     frappe au clavier (EViC) : épreuves, mots par minute, comparaison avec la main
 js/partage.js     partage chiffré entre praticiennes, fusion des dossiers, empreinte du code de verrouillage
 js/suivi.js       plan de suivi, carnet des parents et documents d'accueil : axes de travail, exercices, calendrier, GAS
 js/graphiques.js  graphiques en SVG (profils sensoriels, DS, critères du BHK, MCRO, DCDQ, évolution)

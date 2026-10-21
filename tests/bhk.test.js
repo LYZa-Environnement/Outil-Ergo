@@ -770,3 +770,34 @@ test("partage : fusion, version la plus récente gardée et séances réunies", 
   assert.deepEqual(f.resume, { ajouts: 2, misAJour: 1, seancesAjoutees: 2, inchanges: 1 });
   assert.deepEqual(f.lignes.map((x) => x.action), ["maj", "seances", "ajout", "ajout", "inchange"]);
 });
+
+/* ---------- Frappe au clavier (EViC) ---------- */
+
+const Cl = require("../js/clavier.js");
+
+test("EViC : mots par minute, comparaison avec la main, compte rendu et préconisations", () => {
+  assert.equal(Cl.compterMots("  le chat  dort, sous la table . "), 6);
+  const e = Cl.essaiChronometre("le chat dort sous la table", 120, 3, "2026-10-21");
+  assert.deepEqual([e.mots, e.duree, e.caracteres, e.corrections, e.outil], ["6", 120, 26, 3, "oui"]);
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.clavier = { fait: "oui", doigte: "index", regard: "clavier", materiel: "portable", fonctions: { majuscule: "oui", accents: "non" },
+    essais: { copie: { mots: "40" }, repetition: { mots: "45", duree: 180 }, dictee: { mots: "25" } }, manuscrit: { copie: "70", repetition: "90" } };
+  const r = Cl.resultats(d.clavier);
+  assert.deepEqual(r.epreuves.map((x) => Math.round(x.mpm * 10) / 10), [8, 15, 5]);
+  assert.deepEqual(r.epreuves.map((x) => x.ratio === null ? null : Math.round(x.ratio * 100)), [57, 83, null]);
+  const txt = B.rediger(d, reg);
+  assert.match(txt.clavier, /Copie : 8 mots par minute au clavier, contre 14 à la main, soit 57 % de sa vitesse manuscrite\./);
+  assert.match(txt.clavier, /Léa tape avec les deux index ; regarde surtout le clavier ; connaît les majuscules ; ne connaît pas encore les accents\./);
+  assert.match(txt.clavier, /reste inférieure à la vitesse à la main/);
+  assert.match(txt.bilans, /EViC : évaluation de la vitesse de frappe au clavier \(EViC, Lefèvere et Galbiati, 2007\)/);
+  assert.match(B.indicateurs(B.normaliserDossier(d), reg).raisons.clavier, /plus lente que l'écriture à la main/);
+  assert.ok(B.mesures(d, reg).some((m) => m.cle === "evic-copie" && m.num === 8));
+  assert.match(JSON.stringify(U.modeleSuivi(d, reg)), /Repères de l'EViC/);
+  // Clavier plus rapide que la main : l'outil numérique est justifié.
+  d.clavier.essais.copie.mots = "80";
+  assert.match(B.indicateurs(B.normaliserDossier(d), reg).raisons.clavierEfficace, /au moins aussi rapide/);
+  assert.match(B.rediger(d, reg).clavier, /atteint ou dépasse la vitesse à la main en copie/);
+  // Saisies invalides écartées.
+  assert.deepEqual(Object.keys(Cl.normaliser({ essais: { copie: { mots: "abc" }, dictee: { mots: "-3" } } }).essais), []);
+});

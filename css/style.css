@@ -113,6 +113,8 @@ h3 { font-size: 1.05rem; margin: 1rem 0 .4rem; }
 }
 .indicateur:empty { display: none; }
 .indicateur.alerte { color: var(--marge); }
+/* Le badge de la barre du haut le remplace à l'écran ; il reste annoncé aux lecteurs d'écran. */
+.indicateur, .indicateur.alerte { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .profil {
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 44px; padding: 4px 14px 4px 4px;
@@ -1030,3 +1032,45 @@ body.verrouille { overflow: hidden; }
 .bouton-danger { background: var(--marge); border-color: var(--marge); color: #fff; }
 .ok-verrou { color: var(--vert); font-weight: 700; }
 .verrou-form input::placeholder { letter-spacing: normal; }
+
+/* ---------- Frappe au clavier (EViC) ---------- */
+.epreuve-clavier { padding: 10px 12px; margin: 8px 0; border: 1.5px solid var(--seyes-fin); border-radius: var(--rayon); background: var(--fond); }
+.epreuve-clavier-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.epreuve-clavier .note { margin: .2rem 0 .5rem; }
+.epreuve-clavier-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; }
+.epreuve-clavier-actions .champ { margin: 0; }
+.resultat-epreuve { display: block; margin-top: 6px; padding: 0 8px; border-radius: 8px; }
+.resultat-epreuve:empty { display: none; }
+.resultat-epreuve.niveau-moyenne { background: var(--vert-fond); }
+.resultat-epreuve.niveau-inferieur { background: var(--ambre-fond); }
+.fonctions-clavier .item-grille { padding: 4px 0; }
+.ecran-frappe { position: fixed; inset: 0; z-index: 45; display: flex; flex-direction: column; gap: 10px; padding: calc(12px + env(safe-area-inset-top, 0px)) var(--gouttiere-d) calc(12px + env(safe-area-inset-bottom, 0px)) var(--gouttiere-g); background: var(--fond); }
+.frappe-tete { display: flex; align-items: center; gap: 12px; }
+.frappe-tete strong { flex: 1 1 auto; font: 600 1.3rem var(--police-titre); color: var(--encre-fonce); }
+.frappe-temps { font: 600 2rem var(--police-titre); color: var(--encre); font-variant-numeric: tabular-nums; }
+.frappe-consigne { margin: 0; color: var(--gris); }
+#zone-frappe { flex: 1 1 auto; width: 100%; min-height: 40vh; padding: 14px; font: 1.35rem/1.6 var(--police); resize: none; border: 2px solid var(--encre); border-radius: var(--rayon-carte); background: var(--papier); color: var(--graphite); }
+#zone-frappe[readonly] { border-color: var(--seyes); }
+.frappe-pied p { margin: 0 0 6px; }
+.boite-programmer { width: min(560px, 100%); text-align: left; }
+.boite-programmer .profil-titre { text-align: center; }
+.apercu-programme { padding: 8px 10px; border-radius: var(--rayon); background: var(--encre-claire); font-weight: 700; }
+
+/* ---------- Enregistrement : badge et explications ---------- */
+.etat-enregistrement {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 4px 12px;
+  border: 1.5px solid var(--vert); border-radius: 999px; background: var(--vert-fond); color: var(--encre-fonce);
+  font: 700 .85rem var(--police); cursor: pointer; white-space: nowrap;
+}
+.etat-enregistrement.etat-attente { border-color: var(--seyes); background: var(--papier); color: var(--gris); }
+.etat-enregistrement.etat-erreur, .etat-enregistrement.etat-desactive { border-color: var(--marge); background: var(--rouge-fond); color: var(--marge); }
+.etat-icone { font-size: 1rem; }
+@media (max-width: 759px) { .etat-enregistrement { padding: 4px 10px; } }
+@media (max-width: 400px) { .etat-enregistrement .etat-texte { font-size: .78rem; } }
+.boite-infos { width: min(600px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; text-align: left; }
+.boite-infos .profil-titre { text-align: center; }
+.infos-enregistrement { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 10px; }
+.infos-enregistrement li { display: flex; gap: 10px; font-weight: 400; }
+.infos-enregistrement li > span:first-child { font-size: 1.3rem; }
+.etat-donnees { padding: 10px 12px; border-radius: var(--rayon); background: var(--vert-fond); font-weight: 400 !important; }
+.carte-donnees p { margin: .2rem 0 .6rem; }

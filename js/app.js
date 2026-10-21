@@ -67,6 +67,7 @@
   let minuteurBrouillon = null;
   function sauverBrouillon() {
     clearTimeout(minuteurBrouillon);
+    if (reglages.brouillon && !dossierVierge()) majEtatEnregistrement("attente");
     minuteurBrouillon = setTimeout(() => {
       if (!reglages.brouillon) return;
       ecrireStockage(CLE_BROUILLON, { dossier: dossier, compteRendu: cr, le: new Date().toISOString() });
@@ -459,6 +460,126 @@
         ${champZone("Observations", "tdc.notes")}`);
   }
 
+
+  /* ---------- Frappe au clavier (EViC) ---------- */
+
+  const C = window.Clavier;
+  let frappe = null;
+
+  function construireClavier() {
+    $("#epreuves-clavier").innerHTML = C.EPREUVES.map((e) => `<div class="epreuve-clavier">
+        <div class="epreuve-clavier-tete"><strong>${esc(e.nom)}</strong><span class="discret">${e.duree / 60} min</span></div>
+        <p class="note">${esc(e.consigne)}</p>
+        <div class="epreuve-clavier-actions">
+          <button type="button" class="bouton bouton-petit" data-lancer-frappe="${e.id}"><span aria-hidden="true">⏱️</span> Lancer l'épreuve</button>
+          <label class="champ champ-court"><span>Mots tapés en ${e.duree / 60} min</span><input type="text" inputmode="numeric" data-chemin="clavier.essais.${e.id}.mots" placeholder="ex. 25"></label>
+        </div>
+        <output class="resultat-epreuve" id="res-clavier-${e.id}"></output>
+      </div>`).join("");
+    $("#manuscrit-clavier").innerHTML = C.MANUSCRIT.map((m) => `<label class="champ"><span>${esc(m.nom)} : mots écrits en ${m.duree / 60} min</span><input type="text" inputmode="numeric" data-chemin="clavier.manuscrit.${m.id}" placeholder="ex. 60"></label>`).join("");
+    const maj1 = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    $("#materiel-clavier").innerHTML = pastilles("clavier-materiel", "clavier.materiel", C.MATERIELS);
+    $("#doigte-clavier").innerHTML = pastilles("clavier-doigte", "clavier.doigte", C.DOIGTES.map((x) => [x[0], maj1(x[1])]));
+    $("#regard-clavier").innerHTML = pastilles("clavier-regard", "clavier.regard", C.REGARDS.map((x) => [x[0], maj1(x[1])]));
+    $("#fonctions-clavier").innerHTML = C.FONCTIONS.map((f) => `<div class="item-grille"><span class="item-label">${esc(f[2])}</span>${pastilles("clavier-f-" + f[0], "clavier.fonctions." + f[0], [["oui", "Connaît"], ["non", "À apprendre"]])}</div>`).join("");
+  }
+
+  function majClavier() {
+    const d = B.normaliserDossier(dossier);
+    const r = C.resultats(d.clavier);
+    r.epreuves.forEach((x) => {
+      const o = $("#res-clavier-" + x.id);
+      if (!o) return;
+      o.className = "resultat-epreuve" + (x.ratio === null ? "" : x.ratio >= 1 ? " niveau-moyenne" : " niveau-inferieur");
+      o.innerHTML = x.mpm === null ? "" : `<strong>${esc(C.fmt(x.mpm))} mots par minute</strong>` +
+        (x.ratio !== null ? ` · ${Math.round(x.ratio * 100)} % de la vitesse à la main` : "") +
+        (x.outil ? ` · chronométré dans l'outil${x.corrections !== null ? ", " + x.corrections + " correction" + (x.corrections > 1 ? "s" : "") : ""}` : "");
+    });
+    const ind = C.indicateur(d.clavier);
+    $("#resultats-clavier").textContent = !r.faites.length ? "" : !ind ? "Notez aussi les mots écrits à la main pour comparer les deux vitesses."
+      : ind.cle === "clavierEfficace" ? "Équivalence personnelle atteinte : au clavier, l'enfant est au moins aussi rapide qu'à la main."
+      : "Équivalence personnelle non atteinte : au clavier, l'enfant reste plus lent qu'à la main.";
+  }
+
+  function minutesTexte(sec) { const m = Math.floor(sec / 60), s2 = Math.round(sec % 60); return m + ":" + String(s2).padStart(2, "0"); }
+
+  async function lancerFrappe(id) {
+    const e = C.EPREUVES.find((x) => x.id === id);
+    if (!e) return;
+    const ancien = dossier.clavier && dossier.clavier.essais && dossier.clavier.essais[id];
+    if (ancien && ancien.mots !== "" && ancien.mots !== undefined && !(await demander("Un résultat est déjà noté pour « " + e.nom + " ». Refaire l'épreuve ?", "Refaire l'épreuve"))) return;
+    lancerFrappeSansQuestion(id);
+  }
+  function lancerFrappeSansQuestion(id) {
+    const e = C.EPREUVES.find((x) => x.id === id);
+    frappe = { e: e, debut: 0, corrections: 0, minuteur: null, essai: null };
+    $("#titre-frappe").textContent = "⌨️ " + e.nom;
+    $("#frappe-consigne").textContent = e.consigne + " Le chronomètre démarre à la première touche.";
+    $("#frappe-temps").textContent = minutesTexte(e.duree);
+    $("#ecran-frappe [data-action='arreter-frappe']").hidden = false;
+    const z = $("#zone-frappe");
+    z.value = ""; z.readOnly = false;
+    $("#frappe-pied").innerHTML = `<button type="button" class="bouton-lien" data-action="fermer-frappe">Annuler</button>`;
+    $("#ecran-frappe").hidden = false;
+    document.body.classList.add("sans-defilement");
+    z.focus();
+  }
+  function ticFrappe() {
+    if (!frappe || !frappe.debut) return;
+    const ecoule = (performance.now() - frappe.debut) / 1000;
+    const reste = Math.max(0, frappe.e.duree - ecoule);
+    $("#frappe-temps").textContent = minutesTexte(Math.ceil(reste));
+    if (reste <= 0) terminerFrappe(frappe.e.duree);
+  }
+  function terminerFrappe(duree) {
+    if (!frappe) return;
+    clearInterval(frappe.minuteur);
+    const z = $("#zone-frappe");
+    z.readOnly = true;
+    frappe.essai = C.essaiChronometre(z.value, duree, frappe.corrections, B.aujourdhui());
+    const mpm = Number(frappe.essai.mots) / (frappe.essai.duree / 60);
+    $("#frappe-temps").textContent = "Terminé";
+    $("#ecran-frappe [data-action='arreter-frappe']").hidden = true;
+    $("#frappe-pied").innerHTML = `<p><strong>${frappe.essai.mots} mot${Number(frappe.essai.mots) > 1 ? "s" : ""}</strong> en ${esc(minutesTexte(frappe.essai.duree))} : <strong>${esc(C.fmt(mpm))} mots par minute</strong> · ${frappe.essai.caracteres} caractères · ${frappe.essai.corrections} correction${frappe.essai.corrections > 1 ? "s" : ""}</p>
+      <div class="barre-actions"><button type="button" class="bouton" data-action="garder-frappe">Enregistrer</button><button type="button" class="bouton bouton-second" data-action="refaire-frappe">Recommencer</button><button type="button" class="bouton-lien" data-action="fermer-frappe">Annuler</button></div>`;
+  }
+  function fermerFrappe() {
+    if (frappe) clearInterval(frappe.minuteur);
+    frappe = null;
+    $("#ecran-frappe").hidden = true;
+    document.body.classList.remove("sans-defilement");
+  }
+  function garderFrappe() {
+    if (!frappe || !frappe.essai) return;
+    const id = frappe.e.id;
+    if (!dossier.clavier || typeof dossier.clavier !== "object") dossier.clavier = C.vide();
+    if (!dossier.clavier.essais) dossier.clavier.essais = {};
+    dossier.clavier.essais[id] = frappe.essai;
+    dossier.clavier.fait = "oui";
+    fermerFrappe();
+    const c = $('[data-chemin="clavier.fait"]');
+    if (c) { c.checked = true; $("#corps-clavier").hidden = false; }
+    const champ = $(`[data-chemin="clavier.essais.${id}.mots"]`);
+    if (champ) champ.value = dossier.clavier.essais[id].mots;
+    nonEnregistre = true;
+    majTout();
+    annoncer("Épreuve enregistrée");
+  }
+  function initFrappe() {
+    const z = $("#zone-frappe");
+    const demarrer = () => {
+      if (!frappe || frappe.debut || z.readOnly) return;
+      frappe.debut = performance.now();
+      frappe.minuteur = setInterval(ticFrappe, 200);
+      $("#frappe-pied").innerHTML = `<p class="note">Le chronomètre tourne.</p>`;
+    };
+    z.addEventListener("input", () => { if (z.value.length) demarrer(); });
+    if ("onbeforeinput" in z) z.addEventListener("beforeinput", (e) => { if (frappe && frappe.debut && /^delete/.test(e.inputType || "")) frappe.corrections++; });
+    else z.addEventListener("keydown", (e) => { if (frappe && frappe.debut && (e.key === "Backspace" || e.key === "Delete")) frappe.corrections++; });
+    z.addEventListener("paste", (e) => e.preventDefault());
+    z.addEventListener("drop", (e) => e.preventDefault());
+  }
+
   /* ---------- Accueil adapté, journal des séances, plateforme TND ---------- */
 
   const A = window.Accueil;
@@ -680,6 +801,7 @@
   function ecrireEntree(id) {
     const x = agenda.entrees[id];
     if (!x) return Promise.resolve();
+    majEtatEnregistrement("attente");
     x.modifieLe = new Date().toISOString();
     return Base.mettre(JSON.parse(JSON.stringify(x))).then(() => { dernierEnregistrement = new Date(); majIndicateur(); }).catch(() => majIndicateur(true));
   }
@@ -693,6 +815,7 @@
       ecritures.courant = setTimeout(() => { delete ecritures.courant; majTout(); }, 500);
     } else if (agenda.entrees[id]) {
       clearTimeout(ecritures[id]);
+      majEtatEnregistrement("attente");
       ecritures[id] = setTimeout(() => { delete ecritures[id]; ecrireEntree(id); }, 300);
     } else {
       // Dossier ouvert entre-temps : on relit l'entrée enregistrée.
@@ -794,21 +917,72 @@
     if (!e) return;
     let plan;
     try { plan = U.planning(e.d, reglages); } catch (err) { annoncer("Le plan de suivi n'a pas pu être calculé."); return; }
-    const avecHeure = e.d.seances.filter((s) => s.heure).sort(SE.ordre).pop();
     const auj = B.aujourdhui();
-    const nouvelles = SE.planifier(e.d.seances, plan.seances.map((x) => x.date), { aujourdhui: auj, heure: avecHeure ? avecHeure.heure : "", auteur: profilActif() || "" });
-    if (!nouvelles.length) { annoncer(plan.seances.some((x) => x.date >= auj) ? "Les séances du plan de suivi sont déjà dans le planning." : "Le plan de suivi ne prévoit plus de séance à venir : changez la date de début dans l'onglet Compte rendu."); return; }
-    const freq = (U.FREQUENCES.find((f) => f[0] === plan.parametres.frequence) || [0, ""])[1].toLowerCase();
+    const avecHeure = e.d.seances.filter((x) => x.heure).sort(SE.ordre).pop();
+    const aVenir = plan.seances.filter((x) => x.date >= auj);
+    const premiere = aVenir.length ? aVenir[0].date : SE.ajouterJours(auj, plan.parametres.frequence);
     const prenom = nomEnfant(e.infos);
-    const ok = await demander(`Ajouter ${nouvelles.length} séance${nouvelles.length > 1 ? "s" : ""} prévue${nouvelles.length > 1 ? "s" : ""} pour ${prenom}, ${freq}, du ${B.dateCourte(nouvelles[0].date)} au ${B.dateCourte(nouvelles[nouvelles.length - 1].date)} ? Chaque date et heure reste modifiable.`, "Programmer");
-    if (!ok) return;
-    nouvelles.forEach((s) => e.d.seances.push(s));
+    const lire = (fond) => {
+      const v = (n) => fond.querySelector(`[name=${n}]`);
+      const debut = v("debut").value, frequence = Number(v("frequence").value), nombre = Math.round(Number(v("nombre").value));
+      const dates = debut && nombre >= 1 && nombre <= 60 ? Array.from({ length: nombre }, (_, i) => SE.ajouterJours(debut, i * frequence)) : [];
+      return { debut: debut, frequence: frequence, nombre: nombre, heure: SE.heureValide(v("heure").value), majPlan: v("majPlan").checked, dates: dates };
+    };
+    let choix = null;
+    const v = await ouvrirDialogue({
+      titre: "Programmer les séances de " + prenom, classe: "boite-programmer",
+      html: `<p class="note">Les séances prévues s'ajoutent au planning, chacune reste modifiable. Une date déjà occupée pour cet enfant n'est pas doublée.</p>
+        <div class="grille2">
+          <label class="champ"><span>Première séance</span><input type="date" name="debut" value="${esc(premiere)}"></label>
+          <label class="champ"><span>Heure (facultatif)</span><input type="time" name="heure" value="${esc(avecHeure ? avecHeure.heure : "")}"></label>
+          <label class="champ"><span>Fréquence</span><select name="frequence">${U.FREQUENCES.map((f) => `<option value="${f[0]}"${f[0] === plan.parametres.frequence ? " selected" : ""}>${esc(f[1])}</option>`).join("")}</select></label>
+          <label class="champ"><span>Nombre de séances</span><input type="number" name="nombre" min="1" max="60" inputmode="numeric" value="${aVenir.length || plan.parametres.nombre}"></label>
+        </div>
+        <label class="case"><input type="checkbox" name="majPlan" checked><span>Mettre le plan de suivi à jour avec ce rythme</span></label>
+        <p class="apercu-programme" aria-live="polite"></p>`,
+      boutons: [{ valeur: "ok", libelle: "Programmer" }, { valeur: "annuler", libelle: "Annuler" }],
+      init: (fond) => {
+        const maj = () => {
+          const c = lire(fond);
+          const z = $(".apercu-programme", fond);
+          if (!c.dates.length) { z.textContent = "Choisissez la date de début et un nombre de séances (1 à 60)."; return; }
+          const prises = new Set(e.d.seances.map((x) => x.date));
+          const libres = c.dates.filter((d) => d >= auj && !prises.has(d));
+          const jour = SE.libelleJour(c.debut).split(" ")[0].toLowerCase();
+          const freq = (U.FREQUENCES.find((f) => f[0] === c.frequence) || [0, ""])[1].toLowerCase();
+          z.textContent = c.nombre + " séance" + (c.nombre > 1 ? "s" : "") + ", le " + jour + (c.nombre > 1 ? ", " + freq : "") + (c.heure ? " à " + heureTexte(c.heure) : "") +
+            ", du " + B.dateCourte(c.dates[0]) + " au " + B.dateCourte(c.dates[c.dates.length - 1]) + "." +
+            (libres.length < c.dates.length ? " " + (c.dates.length - libres.length) + " date" + (c.dates.length - libres.length > 1 ? "s" : "") + " déjà occupée" + (c.dates.length - libres.length > 1 ? "s" : "") + " ou passée" + (c.dates.length - libres.length > 1 ? "s" : "") + " : non ajoutée" + (c.dates.length - libres.length > 1 ? "s" : "") + "." : "");
+        };
+        fond.addEventListener("input", maj);
+        fond.addEventListener("change", maj);
+        maj();
+      },
+      valider: (fond) => {
+        const c = lire(fond);
+        if (!c.debut) return "Choisissez la date de la première séance.";
+        if (!(c.nombre >= 1 && c.nombre <= 60)) return "Le nombre de séances va de 1 à 60.";
+        choix = c;
+        return "";
+      },
+    });
+    if (v !== "ok" || !choix) return;
+    const nouvelles = SE.planifier(e.d.seances, choix.dates, { aujourdhui: auj, heure: choix.heure, auteur: profilActif() || "" });
+    if (!nouvelles.length) { annoncer("Ces dates sont déjà passées ou déjà dans le planning."); return; }
+    const suiviAvant = JSON.parse(JSON.stringify(e.d.suivi || {}));
+    nouvelles.forEach((x) => e.d.seances.push(x));
+    if (choix.majPlan) {
+      const faites = e.d.seances.filter((x) => x.statut === "faite").length;
+      e.d.suivi = Object.assign({}, e.d.suivi || {}, { frequence: String(choix.frequence), nombre: String(faites + nouvelles.length) }, faites ? {} : { debut: choix.debut });
+      if (e.d === dossier) remplirFormulaire();
+    }
     enregistrerSeancesDe(id);
     reconstruireLignes();
     Object.assign(filtres, { periode: "avenir", decalage: 0 });
     sauverFiltres(); rendreFiltres(); rendreVue();
-    proposerAnnulation(nouvelles.length + " séances programmées.", () => {
-      nouvelles.forEach((s) => { const i = e.d.seances.indexOf(s); if (i >= 0) e.d.seances.splice(i, 1); });
+    proposerAnnulation(nouvelles.length + " séance" + (nouvelles.length > 1 ? "s" : "") + " programmée" + (nouvelles.length > 1 ? "s" : "") + ".", () => {
+      nouvelles.forEach((x) => { const i = e.d.seances.indexOf(x); if (i >= 0) e.d.seances.splice(i, 1); });
+      if (choix.majPlan) { e.d.suivi = suiviAvant; if (e.d === dossier) remplirFormulaire(); }
       enregistrerSeancesDe(id); reconstruireLignes(); rendreVue();
     });
   }
@@ -919,7 +1093,7 @@
 
     // Lieu du rendez-vous : villes du cabinet proposées, la première par défaut
     const villes = A.villesCabinet(reglages.cabinet.adresse);
-    $("#lieu-visite").placeholder = villes[0] || "Coutances";
+    $("#lieu-visite").placeholder = villes[0] || "Ville du cabinet";
     $("#villes-cabinet").innerHTML = villes.map((v) => `<option value="${esc(v)}">`).join("");
 
     // Photo du cabinet
@@ -1103,7 +1277,7 @@
   }
 
   function construireTests() {
-    $("#tests").innerHTML = B.TESTS.map(htmlTest).join("");
+    $("#tests").innerHTML = B.TESTS.filter((t) => t.id !== "evic" || (dossier.tests.evic && dossier.tests.evic.fait === "oui")).map(htmlTest).join("");
   }
 
   function reconstruireTest(id) {
@@ -1535,6 +1709,7 @@
     majTdc();
     majSuivi();
     majAccueil();
+    majClavier();
     majEtapes();
     majSousOnglets();
     majEnfantCourant();
@@ -1831,12 +2006,54 @@
 
   function heure(d) { return String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0"); }
   function majIndicateur(erreur) {
+    majEtatEnregistrement(erreur ? "erreur" : !reglages.brouillon ? "desactive" : "ok");
     const el = $("#indicateur");
     if (!el) return;
     if (!reglages.brouillon) { el.textContent = "Enregistrement automatique désactivé"; el.className = "indicateur alerte"; return; }
     if (erreur) { el.textContent = "Enregistrement impossible : téléchargez le dossier"; el.className = "indicateur alerte"; return; }
     el.textContent = dernierEnregistrement ? "✓ Enregistré à " + heure(dernierEnregistrement) : "✓ Enregistrement automatique";
     el.className = "indicateur";
+  }
+
+  // Badge toujours visible dans la barre du haut : l'enregistrement se voit, d'où que l'on soit.
+  function majEtatEnregistrement(etat) {
+    const b = $("#etat-enregistrement");
+    if (!b) return;
+    const textes = {
+      attente: ["…", "Enregistrement…", "Enregistrement en cours sur cet appareil"],
+      ok: ["✓", dernierEnregistrement ? "Enregistré" : "Prêt", dernierEnregistrement ? "Enregistré sur cet appareil à " + heure(dernierEnregistrement) : "Les dossiers s'enregistrent tout seuls sur cet appareil"],
+      erreur: ["⚠️", "Non enregistré", "L'enregistrement a échoué : touchez pour en savoir plus"],
+      desactive: ["⚠️", "Sans enregistrement", "L'enregistrement automatique est désactivé dans les réglages"],
+    };
+    const t = textes[etat] || textes.ok;
+    $(".etat-icone", b).textContent = t[0];
+    $(".etat-texte", b).textContent = t[1] + (etat === "ok" && dernierEnregistrement ? " " + heure(dernierEnregistrement).replace(" h ", "h") : "");
+    b.title = t[2];
+    b.setAttribute("aria-label", t[2] + ". Touchez pour savoir où sont vos dossiers.");
+    b.className = "etat-enregistrement etat-" + etat;
+  }
+
+  async function ouvrirInfosEnregistrement() {
+    enregistrerDansMesDossiers();
+    let l = [];
+    try { l = await Base.tous(); } catch (e) { l = []; }
+    const der = lireStockage(CLE_COPIE);
+    let protege = null;
+    try { protege = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null; } catch (e) { protege = null; }
+    const v = await ouvrirDialogue({
+      titre: "Où sont vos dossiers ?", classe: "boite-infos",
+      html: `<ul class="infos-enregistrement">
+          <li><span aria-hidden="true">💾</span><span><strong>Enregistrement automatique.</strong> Chaque modification est enregistrée toute seule, moins d'une seconde après. Il n'y a pas de bouton « Enregistrer » : en haut, le badge « ✓ Enregistré » donne l'heure du dernier enregistrement.</span></li>
+          <li><span aria-hidden="true">📱</span><span><strong>Sur cet appareil.</strong> Les dossiers restent dans ce navigateur, sur cet appareil : rien n'est envoyé sur internet. Un autre appareil ou un autre navigateur ne les voit pas (pour les transmettre : « Envoyer à une collègue »).</span></li>
+          <li><span aria-hidden="true">⚠️</span><span><strong>Le seul risque :</strong> perdre ou changer d'appareil, ou effacer les données du navigateur (historique et données des sites). D'où la copie de sécurité.</span></li>
+          <li><span aria-hidden="true">🗂️</span><span><strong>Copie de sécurité :</strong> un fichier qui contient tous vos dossiers, à ranger ailleurs (clé USB, ordinateur du cabinet). Une fois par semaine suffit. Pour tout remettre : Dossier › Mes dossiers › Copies de sécurité › Restaurer.</span></li>
+        </ul>
+        <p class="etat-donnees"><strong>Sur cet appareil :</strong> ${l.length} dossier${l.length > 1 ? "s" : ""}${dernierEnregistrement ? " · dernier enregistrement à " + heure(dernierEnregistrement) : ""} · dernière copie de sécurité : ${der ? esc(quand(der)) : "aucune"}${protege ? " · espace protégé par le navigateur" : ""}.</p>
+        ${!reglages.brouillon ? `<p class="alerte-pco">L'enregistrement automatique est désactivé dans les réglages : pensez à télécharger chaque dossier.</p>` : ""}
+        ${dansClaude ? `<p class="alerte-pco">Vous êtes sur la version ouverte depuis le lien claude.ai : les dossiers y sont gardés dans le navigateur, mais peuvent se perdre plus facilement (navigation privée, données du site effacées). Pour les vrais dossiers, utilisez la version du cabinet ouverte dans Safari ou Chrome, avec des copies de sécurité.</p>` : ""}`,
+      boutons: [{ valeur: "copie", libelle: "💾 Faire une copie de sécurité maintenant" }, { valeur: "annuler", libelle: "Fermer" }],
+    });
+    if (v === "copie") telechargerCopie();
   }
 
   function quand(iso) {
@@ -1911,7 +2128,11 @@
     const donnees = { type: "outil-ergo-sauvegarde", version: 1, le: new Date().toISOString(), dossiers: l, reglages: reglages };
     const ok = await telecharger("Sauvegarde_Outil_Ergo_" + B.aujourdhui() + ".json", JSON.stringify(donnees), "application/json",
       "Copie de sécurité téléchargée (" + l.length + " dossier" + (l.length > 1 ? "s" : "") + ")");
-    if (ok) { ecrireStockage(CLE_COPIE, new Date().toISOString()); majRappelSauvegarde(); }
+    if (ok) {
+      ecrireStockage(CLE_COPIE, new Date().toISOString()); majRappelSauvegarde();
+      const t = $("#p-tableau");
+      if (t && !t.hidden) rendreTableau();
+    }
   }
 
   async function restaurerCopie(obj) {
@@ -2192,6 +2413,7 @@
       occupations: O.commence(d),
       ecriture: Object.keys(d.grille).length > 0 || d.auto.fait === "oui" || !!t("prise"),
       bhk: !!t("vitesse") || Object.keys(d.lignes).length > 0,
+      clavier: d.clavier.fait === "oui",
       sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui") || d.cartes.sensoriel.fait === "oui",
       bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui" || d.tdc.fait === "oui",
       "compte-rendu": d.amenagements.length > 0,
@@ -2321,7 +2543,8 @@
       document.body.appendChild(fond);
       if (o.init) o.init(fond);
       const premier = $("input:not([type=checkbox]), button", form);
-      if (premier && !(estTactile() && premier.tagName === "INPUT")) premier.focus();
+      if (premier && !(estTactile() && premier.tagName === "INPUT")) premier.focus({ preventScroll: true });
+      form.scrollTop = 0;
     });
   }
 
@@ -2394,6 +2617,7 @@
       (r.dossier ? `<button type="button" class="bouton bouton-second bouton-petit" data-ouvrir-dossier-seance="${esc(r.dossier)}">${esc(r.bouton)}</button>`
         : `<button type="button" class="bouton bouton-second bouton-petit" data-action="${r.action}">${esc(r.bouton)}</button>`) + `</li>`).join("");
 
+    $("#accueil-donnees").innerHTML = `<strong>${tous.length} dossier${tous.length > 1 ? "s" : ""}</strong> enregistré${tous.length > 1 ? "s" : ""} automatiquement sur cet appareil · dernière copie de sécurité : <strong>${der ? esc(quand(der)) : "aucune"}</strong>.`;
     const recents = tous.filter((x) => x && x.id).sort((a, b) => String(b.modifieLe).localeCompare(String(a.modifieLe))).slice(0, 5);
     $("#accueil-recents").innerHTML = recents.length ? `<ul class="liste-dossiers">${recents.map((x) => {
       const actuel = x.id === dossier.id;
@@ -2573,7 +2797,7 @@
 
   let champPhrases = null, selectionPhrases = null;
   function acceptePhrases(el) {
-    if (!el || !el.matches || el.closest("#p-reglages, .demande, #panneau-phrases, #verrou, .seances-barre")) return false;
+    if (!el || !el.matches || el.closest("#p-reglages, .demande, #panneau-phrases, #verrou, .seances-barre, #ecran-frappe")) return false;
     if (el.matches("textarea")) return el.id !== "eso-coller";
     if (el.matches("input[type=text]")) return ["fait", "prochaine", "aide", "difficile"].indexOf(el.dataset.ed) >= 0 || /:commentaire$/.test(el.dataset.tl || "");
     return false;
@@ -2653,7 +2877,7 @@
   const GROUPES_ONGLETS = [
     { id: "dossier", panneaux: [["dossier", "📁 Dossier"], ["accueil", "🤝 Accueil adapté"]] },
     { id: "entretien", panneaux: [["anamnese", "💬 Anamnèse"], ["occupations", "🌱 Autonomie et priorités"]] },
-    { id: "ecrit", panneaux: [["ecriture", "✏️ Observation"], ["bhk", "📝 BHK"]] },
+    { id: "ecrit", panneaux: [["ecriture", "✏️ Observation"], ["bhk", "📝 BHK"], ["clavier", "⌨️ Clavier"]] },
     { id: "evaluations", panneaux: [["sensoriel", "🌈 Sensoriel"], ["bilans", "🧩 Moteur et autres"]] },
     { id: "compte-rendu", panneaux: [["compte-rendu", "Compte rendu"]] },
     { id: "seances", panneaux: [["seances", "Séances"]] },
@@ -2770,6 +2994,7 @@
       return;
     }
     if (el.dataset.phrase !== undefined) return insererPhrase(reglages.phrases[+el.dataset.phrase]);
+    if (el.dataset.lancerFrappe) return lancerFrappe(el.dataset.lancerFrappe);
     if (el.dataset.ouvrirSeance) return ouvrirEditeur(el.dataset.ouvrirSeance, true);
     if (el.dataset.statutRapide) return statutRapide(el.dataset.cle, el.dataset.statutRapide);
     if (el.dataset.retirerSeance) return retirerSeance(el.dataset.retirerSeance);
@@ -2922,6 +3147,13 @@
       case "planning-defaut": return modifierPlanning((l) => { l.splice(0, l.length, ...A.PLANNING_DEFAUT); });
       case "nouvelle-seance": return ouvrirFormSeance();
       case "choisir-enfant": return ouvrirChoixEnfant();
+      case "infos-enregistrement": return ouvrirInfosEnregistrement();
+      case "arreter-frappe":
+        if (frappe && frappe.debut && !frappe.essai) return terminerFrappe((performance.now() - frappe.debut) / 1000);
+        return fermerFrappe();
+      case "fermer-frappe": return fermerFrappe();
+      case "garder-frappe": return garderFrappe();
+      case "refaire-frappe": { const id = frappe && frappe.e.id; fermerFrappe(); if (id) { frappe = null; lancerFrappeSansQuestion(id); } return; }
       case "nouveau-bilan": return nouveau();
       case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
       case "voir-planning": return afficherOnglet("seances");
@@ -3052,6 +3284,8 @@
     construireOccupation();
     construireDcdq();
     construireAccueil();
+    construireClavier();
+    initFrappe();
     initOnglets();
     initPhrases();
     rendreReglagesVerrou();
