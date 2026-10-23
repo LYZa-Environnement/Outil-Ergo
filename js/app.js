@@ -58,6 +58,14 @@
         if (r.signataire >= r.praticiens.length) r.signataire = 0;
         if (!r.cabinet.nom.trim() && integres.cabinet) r.cabinet = B.normaliserReglages({ cabinet: integres.cabinet }).cabinet;
       }
+      // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
+      const q = integres.auto;
+      if (q && Array.isArray(q.questions) && q.questions.length && !r.autoQuestions.some((x) => String(x).trim())) {
+        const base = B.normaliserReglages({ autoNom: q.nom || r.autoNom, autoQuestions: q.questions, autoDomaines: q.domaines || [] });
+        r.autoNom = base.autoNom; r.autoQuestions = base.autoQuestions; r.autoDomaines = base.autoDomaines;
+      } else if (q && Array.isArray(q.domaines) && Array.isArray(q.questions) && !r.autoDomaines.some(Boolean) && r.autoQuestions.length === q.questions.length) {
+        r.autoDomaines = B.normaliserReglages({ autoQuestions: r.autoQuestions, autoDomaines: q.domaines }).autoDomaines;
+      }
     }
     return r;
   }
@@ -371,12 +379,24 @@
 
   function construireAuto() {
     const n = reglages.autoQuestions.length;
-    let h = `<p class="note">Libellés des questions et nom du questionnaire : onglet Réglages.</p>`;
+    const nomDomaine = (id) => (B.DOMAINES_AUTO.find((x) => x[0] === id) || [])[1];
+    let h = `<p class="note">Libellés des questions, domaines et nom du questionnaire : onglet Réglages.</p>`;
     for (let i = 1; i <= n; i++) {
-      h += `<div class="item-grille"><span class="item-label" id="lq-${i}">${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>
-        ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e]))}</div>`;
+      const dm = reglages.autoDomaines[i - 1];
+      h += `<div class="item-grille"><span class="item-label"><span id="lq-${i}">${i}. ${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>${dm ? `<span class="domaine-auto domaine-${dm}">${esc(nomDomaine(dm))}</span>` : ""}</span>
+        ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e + " (" + k + ")"]))}</div>`;
     }
+    h += `<div class="synthese-auto" id="synthese-auto" aria-live="polite"></div>`;
     $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h + champZone("Synthèse de l'auto-évaluation", "auto.notes"));
+  }
+  function majAuto() {
+    const el = $("#synthese-auto");
+    if (!el) return;
+    const sa = B.syntheseAuto(B.normaliserDossier(dossier).auto, reglages);
+    el.innerHTML = !sa.repondues ? "" : `<strong>Nombre de réponses dans chaque colonne</strong>
+      <div class="colonnes-auto">${B.ECHELLE_AUTO.map((e, k) => `<span><strong>${sa.colonnes[k]}</strong>${esc(e)}</span>`).join("")}</div>
+      <p class="note">Souvent ou toujours : ${sa.frequentes} question${sa.frequentes > 1 ? "s" : ""} sur ${sa.repondues}.</p>` +
+      (sa.domaines.some((d) => d.repondues) ? `<ul class="domaines-auto">${sa.domaines.filter((d) => d.repondues).map((d) => `<li><span class="domaine-auto domaine-${d.id}">${esc(d.nom)}</span> souvent ou toujours : ${d.frequentes} sur ${d.repondues} · ${d.points} points sur ${d.max}</li>`).join("")}</ul>` : "");
   }
 
   /* ---------- Occupations : autonomie, MCRO, OT'Hope, tri de cartes ; DCDQ ---------- */
@@ -1698,7 +1718,8 @@
     $$("[data-reg-texte]").forEach((el) => { el.value = reglages[el.dataset.regTexte] || ""; });
     if ($("#phrases-reglages")) $("#phrases-reglages").value = reglages.phrases.join("\n");
     $("#questions-auto").innerHTML = reglages.autoQuestions.map((q, i) =>
-      `<label class="champ"><span>Question ${i + 1}</span><input type="text" data-reg-question="${i}" value="${esc(q)}"></label>`).join("") +
+      `<div class="question-auto-reglage"><label class="champ"><span>Question ${i + 1}</span><input type="text" data-reg-question="${i}" value="${esc(q)}"></label>
+        <label class="champ"><span>Domaine</span><select data-reg-domaine="${i}"><option value="">–</option>${B.DOMAINES_AUTO.map((x) => `<option value="${x[0]}"${reglages.autoDomaines[i] === x[0] ? " selected" : ""}>${esc(x[1])}</option>`).join("")}</select></label></div>`).join("") +
       `<div class="barre-actions"><button type="button" class="bouton bouton-second" data-action="ajouter-question">Ajouter une question</button>` +
       (reglages.autoQuestions.length > 1 ? `<button type="button" class="bouton-lien" data-action="retirer-question">Retirer la dernière question</button>` : "") + `</div>`;
     construirePraticiens();
@@ -1740,7 +1761,12 @@
       const i = Number(el.dataset.regQuestion);
       reglages.autoQuestions[i] = el.value;
       const lab = $("#lq-" + (i + 1));
-      if (lab) lab.textContent = el.value || "Question " + (i + 1);
+      if (lab) lab.textContent = (i + 1) + ". " + (el.value || "Question " + (i + 1));
+    } else if (el.dataset.regDomaine !== undefined) {
+      if (e.type !== "change") return;
+      reglages.autoDomaines[Number(el.dataset.regDomaine)] = el.value;
+      sauverReglages(); construireAuto(); remplirFormulaire(); majTout();
+      return;
     } else if (el.dataset.regPhrases !== undefined) {
       reglages.phrases = el.value.split("\n").map((t) => t.trim()).filter(Boolean).slice(0, 300);
     } else if (el.dataset.verrouDelai !== undefined) {
@@ -2049,6 +2075,7 @@
     majSuivi();
     majAccueil();
     majClavier();
+    majAuto();
     majEtapes();
     majSousOnglets();
     majEnfantCourant();
@@ -3470,11 +3497,13 @@
         return;
       case "ajouter-question":
         reglages.autoQuestions.push("");
+        reglages.autoDomaines.push("");
         sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
         $$("[data-reg-question]").pop().focus();
         return;
       case "retirer-question":
         reglages.autoQuestions.pop();
+        reglages.autoDomaines.pop();
         sauverReglages(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
         return;
       case "retirer-photo": {

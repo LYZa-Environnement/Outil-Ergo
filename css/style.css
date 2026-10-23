@@ -19,6 +19,7 @@
   --vert: #36835A;
   --vert-fond: #E1F1E6;
   --bleu-fond: #E2EDF6;
+  --violet-fond: #EEE6F4;
   --soleil: #F4BC4C;
   --ciel-haut: #DCEFEE;
   --colline-1: #79B07C;
@@ -35,7 +36,7 @@
   :root:not([data-theme="light"]) {
     --fond: #111713; --papier: #1A221D; --papier-2: #222C26; --encre: #8FD1A8; --encre-fonce: #B4E3C5; --encre-claire: #1E3428; --sur-encre: #10241A;
     --seyes: #34433A; --seyes-fin: #28332C; --marge: #F08A72; --graphite: #E6EDE7; --gris: #A3B0A7; --ambre: #E8B25A; --ambre-fond: #3A3020;
-    --rouge-fond: #3D2622; --vert: #7CCB9B; --vert-fond: #1D3326; --bleu-fond: #1F2F3D; --soleil: #D9A443; --ciel-haut: #182A2A;
+    --rouge-fond: #3D2622; --vert: #7CCB9B; --vert-fond: #1D3326; --bleu-fond: #1F2F3D; --violet-fond: #33293D; --soleil: #D9A443; --ciel-haut: #182A2A;
     --colline-1: #24432F; --colline-2: #1D3727; --colline-3: #182C20;
     --ombre: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
     color-scheme: dark;
@@ -44,7 +45,7 @@
 :root[data-theme="dark"] {
   --fond: #111713; --papier: #1A221D; --papier-2: #222C26; --encre: #8FD1A8; --encre-fonce: #B4E3C5; --encre-claire: #1E3428; --sur-encre: #10241A;
   --seyes: #34433A; --seyes-fin: #28332C; --marge: #F08A72; --graphite: #E6EDE7; --gris: #A3B0A7; --ambre: #E8B25A; --ambre-fond: #3A3020;
-  --rouge-fond: #3D2622; --vert: #7CCB9B; --vert-fond: #1D3326; --bleu-fond: #1F2F3D; --soleil: #D9A443; --ciel-haut: #182A2A;
+  --rouge-fond: #3D2622; --vert: #7CCB9B; --vert-fond: #1D3326; --bleu-fond: #1F2F3D; --violet-fond: #33293D; --soleil: #D9A443; --ciel-haut: #182A2A;
   --colline-1: #24432F; --colline-2: #1D3727; --colline-3: #182C20;
   --ombre: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
   color-scheme: dark;
@@ -936,7 +937,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .enfant-fleche { color: var(--gris); font-size: .8rem; }
 
 /* Téléphone : onglets en bas de l'écran, à portée du pouce */
-@media (max-width: 759px) {
+/* Téléphone et tablette : onglets en bas de l'écran (en haut, ils débordaient et se cachaient sur iPad). */
+@media (max-width: 1099px) {
   .barre-onglets { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--fond); }
   .barre-haut { padding-top: 6px; padding-bottom: 6px; justify-content: space-between; }
   .enfant-courant { max-width: none; flex: 1 1 auto; justify-content: flex-start; }
@@ -958,6 +960,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
   main { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .statut { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
   .annulation { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 760px) and (max-width: 1099px) {
+  .onglets button { font-size: .8rem; min-height: 60px; }
+  .enfant-courant { flex: 0 1 auto; }
 }
 
 /* ---------- Accueil ---------- */
@@ -1158,3 +1164,18 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .mot-a-toucher { min-height: 36px; padding: 2px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--graphite); font: 1.05rem var(--police); cursor: pointer; }
 .mot-a-toucher:hover { border-color: var(--seyes); }
 .mot-a-toucher.choisi { background: var(--vert-fond); border-color: var(--vert); }
+
+/* Questionnaire d'auto-évaluation : domaines et nombre de réponses par colonne */
+.domaine-auto { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .78rem; font-weight: 700; color: var(--encre-fonce); vertical-align: middle; }
+.domaine-lisibilite { background: var(--bleu-fond); }
+.domaine-satisfaction { background: var(--violet-fond); }
+.domaine-vitesse { background: var(--vert-fond); }
+.synthese-auto { margin: .6rem 0; padding: 10px 12px; border-radius: var(--rayon); background: var(--papier); border: 1px solid var(--seyes); }
+.synthese-auto:empty { display: none; }
+.colonnes-auto { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 6px 0; text-align: center; }
+.colonnes-auto span { padding: 4px 2px; border-radius: 8px; background: var(--fond); font-size: .8rem; }
+.colonnes-auto strong { display: block; font-size: 1.2rem; }
+.domaines-auto { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.question-auto-reglage { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.question-auto-reglage select { max-width: 13rem; }
+@media (max-width: 520px) { .question-auto-reglage { grid-template-columns: 1fr; } }

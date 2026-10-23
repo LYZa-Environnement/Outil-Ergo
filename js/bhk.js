@@ -274,6 +274,8 @@
   // Questionnaire d'auto-évaluation de l'écriture : les libellés des questions sont saisis par l'ergo dans les réglages.
   const ECHELLE_AUTO = ["Jamais", "Rarement", "Parfois", "Souvent", "Toujours"];
   const NB_QUESTIONS_AUTO = 12;
+  // Domaines du questionnaire : chaque question est rangée dans un domaine (réglages).
+  const DOMAINES_AUTO = [["lisibilite", "Lisibilité"], ["satisfaction", "Satisfaction et émotions"], ["vitesse", "Vitesse"]];
 
   const BILANS_COURANTS = [
     { id: "entretien", texte: (a) => "Entretien avec les parents et " + a.sujetMin },
@@ -282,6 +284,21 @@
     { id: "productions", texte: () => "Observation des productions réalisées en classe" },
     { id: "ordinateur", texte: () => "Mise en situation avec l'outil informatique" },
   ];
+
+  // Questionnaire d'auto-évaluation : nombre de réponses dans chaque colonne et difficultés fréquentes par domaine.
+  function syntheseAuto(auto, reglages) {
+    const reg = reglages && reglages.autoDomaines ? reglages : normaliserReglages(reglages);
+    const rep = (auto && auto.reponses) || {};
+    const nums = Object.keys(rep).filter((k) => /^\d+$/.test(k) && rep[k] !== undefined && rep[k] !== null && rep[k] !== "").map(Number).sort((x, y) => x - y);
+    const val = (n) => Number(rep[n]);
+    const colonnes = ECHELLE_AUTO.map((e, k) => nums.filter((n) => val(n) === k).length);
+    const domaines = DOMAINES_AUTO.map((dm) => {
+      const qs = reg.autoQuestions.map((q, i) => i + 1).filter((n) => reg.autoDomaines[n - 1] === dm[0]);
+      const rep2 = qs.filter((n) => nums.indexOf(n) >= 0);
+      return { id: dm[0], nom: dm[1], questions: qs, repondues: rep2.length, frequentes: rep2.filter((n) => val(n) >= 3).length, points: rep2.reduce((a, n) => a + val(n), 0), max: rep2.length * 4 };
+    }).filter((dm) => dm.questions.length);
+    return { nums: nums, colonnes: colonnes, repondues: nums.length, frequentes: nums.filter((n) => val(n) >= 3).length, domaines: domaines };
+  }
 
   // Préconisations proposées d'après les résultats : « raisons » = indicateurs qui les justifient (voir indicateurs()).
   const CATEGORIES_PRECO = [
@@ -433,6 +450,7 @@
       brouillon: true,
       autoNom: "Questionnaire d'auto-appréciation de l'écriture",
       autoQuestions: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
+      autoDomaines: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
       photoCabinet: null,
@@ -461,6 +479,10 @@
     if (r.brouillon !== undefined) out.brouillon = !!r.brouillon;
     if (typeof r.autoNom === "string" && r.autoNom.trim()) out.autoNom = r.autoNom;
     if (Array.isArray(r.autoQuestions) && r.autoQuestions.length) out.autoQuestions = r.autoQuestions.slice(0, 40).map(texte);
+    out.autoDomaines = out.autoQuestions.map((q, i) => {
+      const v = Array.isArray(r.autoDomaines) ? r.autoDomaines[i] : "";
+      return DOMAINES_AUTO.some((x) => x[0] === v) ? v : "";
+    });
     out.cartesPerso = Occup.normaliserCartesPerso(r.cartesPerso);
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
@@ -1450,11 +1472,15 @@
 
     // Auto-évaluation de l'écriture
     if (d.auto.fait === "oui") {
-      const rep = Object.keys(d.auto.reponses);
-      const frequentes = rep.filter((k) => d.auto.reponses[k] >= 3).length;
+      const sa = syntheseAuto(d.auto, reg);
+      const frequentes = sa.frequentes;
       const l = [reg.autoNom + ", rempli par " + a.sujetMin + " :"];
-      if (rep.length) l.push("Les réponses de " + a.sujetMin + " signalent une difficulté fréquente (souvent ou toujours) pour " + frequentes + " question" + (frequentes > 1 ? "s" : "") + " sur " + rep.length + ".");
-      else l.push("[Réponses à saisir.]");
+      if (sa.repondues) {
+        const doms = sa.domaines.filter((dm) => dm.repondues).sort((x, y) => y.frequentes / y.repondues - x.frequentes / x.repondues);
+        l.push("Les réponses de " + a.sujetMin + " signalent une difficulté fréquente (souvent ou toujours) pour " + frequentes + " question" + (frequentes > 1 ? "s" : "") + " sur " + sa.repondues +
+          (doms.length ? " : " + doms.map((dm) => dm.nom.toLowerCase() + " " + dm.frequentes + " sur " + dm.repondues).join(", ") : "") + ".");
+        l.push("Réponses : " + ECHELLE_AUTO.map((e, k) => sa.colonnes[k] ? sa.colonnes[k] + " « " + e.toLowerCase() + " »" : "").filter(Boolean).join(", ") + ".");
+      } else l.push("[Réponses à saisir.]");
       if (d.auto.notes.trim()) l.push(point(maj(d.auto.notes.trim())));
       out.autoeval = l.join("\n");
     } else out.autoeval = "";
@@ -1695,12 +1721,26 @@
       if (s.niveau) blocs.push({ type: "h", niveau: s.niveau, texte: titreSection(s.titre, d) });
       blocs.push.apply(blocs, texteVersBlocs(t));
       if (s.id === "autoeval" && d.auto.fait === "oui") {
-        const nums = Object.keys(d.auto.reponses).map(Number).sort((x, y) => x - y);
-        if (nums.length) {
+        const sa = syntheseAuto(d.auto, reg);
+        if (sa.nums.length) {
+          const ligneQ = (n) => ({ cellules: [cellule(n + ". " + (texte(reg.autoQuestions[n - 1]).trim() || "Question " + n))]
+            .concat(ECHELLE_AUTO.map((e, k) => cellule(d.auto.reponses[n] === k ? "X" : "", { align: "center", gras: true }))) });
+          let lignes = [];
+          const rangees = sa.domaines.reduce((acc, dm) => acc.concat(dm.questions), []);
+          if (sa.domaines.length) {
+            sa.domaines.forEach((dm) => {
+              const qs = dm.questions.filter((n) => sa.nums.indexOf(n) >= 0);
+              if (!qs.length) return;
+              lignes.push({ cellules: [cellule(dm.nom + " : difficulté fréquente pour " + dm.frequentes + " question" + (dm.frequentes > 1 ? "s" : "") + " sur " + dm.repondues, { colspan: 6, gras: true, fond: "niveau-moyenne" })] });
+              lignes = lignes.concat(qs.map(ligneQ));
+            });
+            const autres = sa.nums.filter((n) => rangees.indexOf(n) < 0);
+            if (autres.length) lignes.push({ cellules: [cellule("Autres questions", { colspan: 6, gras: true, fond: "niveau-moyenne" })] });
+            lignes = lignes.concat(autres.map(ligneQ));
+          } else lignes = sa.nums.map(ligneQ);
           blocs.push({ type: "tableau", largeurs: [0.5, 0.1, 0.1, 0.1, 0.1, 0.1], petit: true, entetes: true, lignes: [
-            { entete: true, cellules: [cellule("Question", { gras: true, fond: "entete" })].concat(ECHELLE_AUTO.map((e) => cellule(e, { gras: true, fond: "entete", align: "center" }))) },
-          ].concat(nums.map((n) => ({ cellules: [cellule(texte(reg.autoQuestions[n - 1]).trim() || "Question " + n)]
-            .concat(ECHELLE_AUTO.map((e, k) => cellule(d.auto.reponses[n] === k ? "X" : "", { align: "center", gras: true }))) }))) });
+            { entete: true, cellules: [cellule("Question", { gras: true, fond: "entete" })].concat(ECHELLE_AUTO.map((e, k) => cellule(e + " (" + k + ")", { gras: true, fond: "entete", align: "center" }))) },
+          ].concat(lignes).concat([{ cellules: [cellule("Nombre de réponses dans chaque colonne", { gras: true, align: "right" })].concat(sa.colonnes.map((n) => cellule(String(n), { align: "center", gras: true }))) }]) });
         }
       }
       if (s.id === "bhk") blocs.push.apply(blocs, blocGraphique(g, "bhk-criteres"));
@@ -1842,7 +1882,7 @@
   return {
     SCORE_MAX, NB_LIGNES, SCORE_TOTAL_MAX, CLASSES, AGES, DOMAINES, CRITERES, BAREME_TAILLE, REMARQUES, MODES_COPIE,
     PRISES, GRILLE, TYPES_SCORE, TESTS, BILANS_COURANTS, AMENAGEMENTS, PRECONISATIONS, CATEGORIES_PRECO, OCCUPATIONS, DISPOSITIFS, SECTIONS, APPRECIATIONS,
-    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO,
+    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, syntheseAuto,
     nombre, maj, min, age, formaterAge, formaterDS, formaterNombre, dateCourte, dateLongue, aujourdhui, quantileNormal,
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,

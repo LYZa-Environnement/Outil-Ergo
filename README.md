@@ -164,7 +164,7 @@ Le compte rendu présente les profils en graphiques : profil des résultats en d
 
 ### Questionnaires protégés
 
-Les questions et cartes du Profil sensoriel 2, de l'ESO, du SensOT-dir, de l'OT'Hope, du DCDQ et des questionnaires d'auto-évaluation ne sont pas reproduites. Pour l'ESO, les réponses se saisissent par numéro de question (0 à 10) ; l'ergothérapeute peut coller le texte de son propre exemplaire dans les réglages pour l'afficher à côté des réponses (il reste dans son navigateur). L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages ; ils restent dans son navigateur.
+Les questions et cartes du Profil sensoriel 2, de l'ESO, du SensOT-dir, de l'OT'Hope, du DCDQ et des questionnaires d'auto-évaluation ne sont pas reproduites. Pour l'ESO, les réponses se saisissent par numéro de question (0 à 10) ; l'ergothérapeute peut coller le texte de son propre exemplaire dans les réglages pour l'afficher à côté des réponses (il reste dans son navigateur). L'outil reçoit leurs scores, classifications et résultats. Pour le questionnaire d'auto-évaluation, l'ergothérapeute saisit elle-même les libellés dans les réglages, et range chaque question dans un domaine (lisibilité, satisfaction et émotions, vitesse) ; ils restent dans son navigateur. La version du cabinet peut les intégrer (`auto` dans les réglages intégrés : nom, questions, domaines), hors du dépôt. L'outil compte le nombre de réponses dans chaque colonne et, par domaine, les réponses « souvent » ou « toujours » ; le compte rendu reprend ce résumé et un tableau groupé par domaine.
 
 4. **Enregistrer le dossier** télécharge un fichier `.json` qu'on rouvre avec **Ouvrir un dossier**. Un brouillon du dossier en cours reste aussi dans le navigateur jusqu'à « Nouveau dossier » (désactivable dans les réglages, à faire sur un ordinateur partagé).
 
@@ -203,7 +203,7 @@ Les normes du BHK viennent du manuel édité par les Éditions et Applications P
 
 La clé facultative `calques.margeB` donne les pentes (décalage horizontal divisé par la hauteur) des lignes du calque B, dans l'ordre croissant : elle sert à proposer les points du critère 2 lors de l'analyse de la photo. Les valeurs ci-dessus sont fictives.
 
-Une version du cabinet peut aussi intégrer l'en-tête et les praticiens (variable `window.REGLAGES_INTEGRES`, avec `cabinet`, `praticiens` et, au besoin, `retires` : noms à retirer des réglages déjà enregistrés). Les praticiens intégrés sont ajoutés aux réglages s'ils n'y sont pas.
+Une version du cabinet peut aussi intégrer l'en-tête et les praticiens (variable `window.REGLAGES_INTEGRES`, avec `cabinet`, `praticiens`, au besoin `retires` : noms à retirer des réglages déjà enregistrés, et `auto` : questionnaire d'auto-évaluation du cabinet). Les praticiens intégrés sont ajoutés aux réglages s'ils n'y sont pas.
 
 Une clé `ado` donne les normes du BHK ado : `ado.vitesse.classe` et `ado.qualite.classe` (de `6e` à `3e`), et `ado.qualite.global` pour la norme de qualité tous niveaux.
 

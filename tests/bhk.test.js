@@ -171,7 +171,7 @@ test("Exner et Benbow, auto-évaluation", () => {
   assert.match(t.autoeval, /difficulté fréquente \(souvent ou toujours\) pour 2 questions sur 3/);
   const m = B.modeleDocument(d, reg);
   const tab = m.blocs.find((b) => b.type === "tableau" && b.lignes[0].cellules[0].runs[0].t === "Question");
-  assert.equal(tab.lignes[1].cellules[0].runs[0].t, "Question saisie par l'ergo");
+  assert.equal(tab.lignes[1].cellules[0].runs[0].t, "1. Question saisie par l'ergo");
   assert.equal(tab.lignes[1].cellules[5].runs[0].t, "X");
 });
 
@@ -861,4 +861,26 @@ test("EViC : textes de l'outil, consignes, copie exacte et feuille de passation"
   const m2 = U.modeleEvic(d, reg);
   assert.ok(!m2.blocs.some((b) => b.type === "saut"), "pas de texte à recopier avec le BHK");
   assert.ok(D.construire(m).length > 1000);
+});
+
+test("auto-évaluation : domaines, nombre de réponses par colonne, tableau groupé", () => {
+  const d = dossierTest();
+  // Réponses fictives ; libellés et domaines fictifs (les vrais restent dans les réglages du cabinet).
+  d.auto = { fait: "oui", reponses: { 1: 1, 2: 3, 3: 2, 4: 3, 5: 1, 6: 4 }, notes: "" };
+  const reg = reglagesTest();
+  reg.autoQuestions = ["A", "B", "C", "D", "E", "F"];
+  reg.autoDomaines = ["lisibilite", "lisibilite", "vitesse", "vitesse", "satisfaction", "inconnu"];
+  const n = B.normaliserReglages(reg);
+  assert.deepEqual(n.autoDomaines, ["lisibilite", "lisibilite", "vitesse", "vitesse", "satisfaction", ""]);
+  const sa = B.syntheseAuto(d.auto, n);
+  assert.deepEqual(sa.colonnes, [0, 2, 1, 2, 1]);
+  assert.deepEqual(sa.domaines.map((x) => [x.id, x.frequentes, x.repondues]), [["lisibilite", 1, 2], ["satisfaction", 0, 1], ["vitesse", 1, 2]]);
+  const t = B.rediger(d, n).autoeval;
+  assert.match(t, /pour 3 questions sur 6 : lisibilité 1 sur 2, vitesse 1 sur 2, satisfaction et émotions 0 sur 1\./);
+  assert.match(t, /Réponses : 2 « rarement », 1 « parfois », 2 « souvent », 1 « toujours »\./);
+  const tab = B.modeleDocument(d, n).blocs.find((b) => b.type === "tableau" && b.lignes[0].cellules[0].runs[0].t === "Question");
+  const textes = tab.lignes.map((l) => l.cellules[0].runs[0].t);
+  assert.equal(textes[1], "Lisibilité : difficulté fréquente pour 1 question sur 2");
+  assert.ok(textes.indexOf("Autres questions") > 0);
+  assert.deepEqual(tab.lignes[tab.lignes.length - 1].cellules.slice(1).map((c) => c.runs[0].t), ["0", "2", "1", "2", "1"]);
 });
