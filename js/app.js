@@ -62,6 +62,10 @@
       if (integres.eso && typeof integres.eso === "object" && !(r.esoLibelles.sp.length + r.esoLibelles.p.length + r.esoLibelles.l.length)) {
         r.esoLibelles = B.normaliserReglages({ esoLibelles: integres.eso }).esoLibelles;
       }
+      // Logo du cabinet (documents et PDF), s'il n'a pas été choisi sur cet appareil.
+      if (integres.logo && !r.logoCabinet) r.logoCabinet = B.normaliserReglages({ logoCabinet: integres.logo }).logoCabinet;
+      // Questionnaire d'autonomie (AVQ) rempli par les parents : texte des questions, s'il n'est pas déjà enregistré.
+      if (integres.avq && typeof integres.avq === "object" && !nbAvqLibelles(r.avqLibelles)) r.avqLibelles = B.normaliserReglages({ avqLibelles: integres.avq }).avqLibelles;
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
       const q = integres.auto;
       if (q && Array.isArray(q.questions) && q.questions.length && !r.autoQuestions.some((x) => String(x).trim())) {
@@ -85,6 +89,10 @@
       const deja = reglages.esoLibelles.sp.length + reglages.esoLibelles.p.length + reglages.esoLibelles.l.length;
       if (remplacer || !deja) { reglages.esoLibelles = eso; faits.push("texte des questions de l'ESO"); }
     }
+    const logo = obj.logo ? B.normaliserReglages({ logoCabinet: obj.logo }).logoCabinet : null;
+    if (logo && (remplacer || !reglages.logoCabinet)) { reglages.logoCabinet = logo; faits.push("logo du cabinet"); }
+    const avq = obj.avq && typeof obj.avq === "object" ? B.normaliserReglages({ avqLibelles: obj.avq }).avqLibelles : null;
+    if (avq && nbAvqLibelles(avq) && (remplacer || !nbAvqLibelles(reglages.avqLibelles))) { reglages.avqLibelles = avq; faits.push("texte du questionnaire d'autonomie (AVQ)"); }
     const q = obj.auto && Array.isArray(obj.auto.questions) && obj.auto.questions.length ? obj.auto : null;
     if (q && remplacer) {
       const base = B.normaliserReglages({ autoNom: q.nom || reglages.autoNom, autoQuestions: q.questions, autoDomaines: q.domaines || [] });
@@ -94,6 +102,7 @@
     return faits;
   }
 
+  function nbAvqLibelles(l) { return l && l.domaines ? Object.keys(l.domaines).reduce((t, k) => t + (l.domaines[k] || []).length, 0) : 0; }
   function chargerReglages() { return avecNormesIntegrees(B.normaliserReglages(lireStockage(CLE_REGLAGES))); }
   function sauverReglages() { ecrireStockage(CLE_REGLAGES, reglages); }
 
@@ -351,7 +360,7 @@
       <div class="barre-actions barre-eso-pdf">
         <button type="button" class="bouton bouton-second bouton-petit" data-action="eso-pdf">📄 PDF à remplir pour les parents</button>
         <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
-          <input type="file" accept="application/pdf,.pdf" data-action="eso-importer-pdf" class="masque"></label>
+          <input type="file" accept="application/pdf,.pdf" data-action="importer-pdf-parents" class="masque"></label>
       </div>
       <p class="calcule etat-eso-parents" aria-live="polite"></p>
       <p class="note">Avec le PDF, les réponses des parents arrivent toutes seules. Sur papier, reportez le chiffre entouré pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
@@ -367,8 +376,8 @@
     return h;
   }
 
-  /* ESO : PDF à remplir par les parents avant le rendez-vous, puis import des réponses */
-  const PE = window.PdfEso;
+  /* Questionnaires pour les parents en PDF à remplir (ESO, autonomie au quotidien) : modèles vierges, puis import */
+  const PE = window.PdfFormulaire;
   function libellesEsoPresents() { const l = reglages.esoLibelles; return l.sp.length + l.p.length + l.l.length > 0; }
   function dateDepuisTexte(t) {
     const s = String(t || "").trim();
@@ -380,69 +389,73 @@
     if (d.getFullYear() !== a || d.getMonth() !== m - 1 || d.getDate() !== j) return "";
     return a + "-" + String(m).padStart(2, "0") + "-" + String(j).padStart(2, "0");
   }
-  function majEtatEsoParents(items) {
+  const net = (x) => String(x || "").trim();
+  function majEtatQuestionnairesParents(items) {
     const e = (dossier.senso && dossier.senso.eso) || {};
     const n = (items || S.itemsEso(S.normaliser(dossier.senso).eso)).reduce((t, x) => t + x.n, 0);
-    let t;
-    if (!libellesEsoPresents()) t = "Pour créer le PDF, le texte des questions doit être sur cet appareil : importez une fois le fichier du cabinet dans les Réglages.";
-    else if (e.pdfImporte) t = "✅ Réponses des parents importées le " + B.dateCourte(e.pdfImporte) + " : " + n + " sur " + S.NB_ITEMS_ESO * 3 + ".";
-    else if (e.pdfCree) t = "📤 PDF créé le " + B.dateCourte(e.pdfCree) + ". En attente des réponses des parents.";
-    else t = "";
-    $$(".etat-eso-parents").forEach((el) => { el.textContent = t; el.hidden = !t; });
+    const tEso = !libellesEsoPresents() ? "Pour créer ce PDF, importez une fois le fichier du cabinet dans les Réglages."
+      : e.pdfImporte ? "✅ Réponses importées le " + B.dateCourte(e.pdfImporte) + " : " + n + " sur " + S.NB_ITEMS_ESO * 3 + "." : "";
+    $$(".etat-eso-parents").forEach((el) => { el.textContent = tEso; el.hidden = !tEso; });
+    const q = O.normaliserAvqParents(dossier.avqParents);
+    const nq = O.DOMAINES_AVQP.reduce((t, d) => t + Object.keys(q.domaines[d.id].reponses).length, 0);
+    const total = O.DOMAINES_AVQP.reduce((t, d) => t + O.nbQuestionsAvqp(d.id, reglages.avqLibelles), 0);
+    const tAvq = !nbAvqLibelles(reglages.avqLibelles) ? "Pour créer ce PDF, importez une fois le fichier du cabinet dans les Réglages."
+      : q.pdfImporte ? "✅ Réponses importées le " + B.dateCourte(q.pdfImporte) + " : " + nq + " sur " + total + "." : "";
+    $$(".etat-avq-parents").forEach((el) => { el.textContent = tAvq; el.hidden = !tAvq; });
   }
-  async function exporterPdfEso() {
-    if (!libellesEsoPresents()) {
-      if (await demander("Le texte des questions de l'ESO n'est pas encore sur cet appareil. Importez une fois le fichier du cabinet dans les Réglages, puis revenez ici.", "Ouvrir les Réglages")) afficherOnglet("reglages");
-      return;
-    }
-    const prenom = String(dossier.prenom || "").trim(), nom = String(dossier.nom || "").trim();
-    if (!prenom && !nom) {
-      annoncer("Écrivez d'abord le prénom de l'enfant dans le dossier : il figure en haut du PDF.");
-      afficherOnglet("dossier");
-      const champ = $('[data-champ="prenom"]');
-      if (champ) champ.focus();
-      return;
-    }
-    assurerId();
+  // En-tête du PDF : cabinet et ergothérapeute signataire (aucune donnée de l'enfant : le modèle sert pour tous).
+  function enteteCabinetPdf() {
     const sig = reglages.praticiens[reglages.signataire] || reglages.praticiens[0] || {};
-    const net = (x) => String(x || "").trim();
-    const entete = [reglages.cabinet.nom].concat(net(reglages.cabinet.adresse).split("\n")).map(net).filter(Boolean).slice(0, 3);
+    const lignes = [reglages.cabinet.nom].concat(net(reglages.cabinet.adresse).split("\n")).map(net).filter(Boolean).slice(0, 3);
     const coord = [sig.tel, sig.email].map(net).filter(Boolean).join(" – ");
-    if (net(sig.nom)) entete.push(net(sig.nom) + (coord ? " · " + coord : ""));
+    if (net(sig.nom)) lignes.push(net(sig.nom) + (coord ? " · " + coord : ""));
+    return { cabinet: lignes, logo: reglages.logoCabinet ? reglages.logoCabinet.donnees : null, contact: net(sig.email), mention: "Document confidentiel : à renvoyer uniquement à votre ergothérapeute." };
+  }
+  async function exporterPdfParents(quoi) {
+    const avq = quoi === "avq";
+    if (avq ? !nbAvqLibelles(reglages.avqLibelles) : !libellesEsoPresents()) {
+      if (await demander("Le texte des questions " + (avq ? "du questionnaire d'autonomie" : "de l'ESO") + " n'est pas encore sur cet appareil. Importez une fois le fichier du cabinet dans les Réglages, puis revenez ici.", "Ouvrir les Réglages")) afficherOnglet("reglages");
+      return;
+    }
+    const en = enteteCabinetPdf();
     let octets;
     try {
-      octets = PE.creerFormulaireEso({
-        titre: "Questionnaire ESO : engagement sensori-occupationnel",
-        enfant: [prenom, nom].filter(Boolean).join(" "),
-        naissance: B.dateCourte(dossier.naissance),
-        cabinet: entete,
-        contact: net(sig.email),
-        libelles: reglages.esoLibelles,
-        meta: { type: "outil-ergo-eso", v: 1, dossier: dossier.id, enfant: nomEnfant(dossier), cree: B.aujourdhui() },
-        mention: "Document confidentiel : à renvoyer uniquement à votre ergothérapeute.",
-      });
+      octets = avq ? PE.creerFormulaire(O.specAvqParents({ libelles: reglages.avqLibelles, cabinet: en.cabinet, logo: en.logo, contact: en.contact, mention: en.mention }))
+        : PE.creerFormulaireEso({ cabinet: en.cabinet, logo: en.logo, contact: en.contact, mention: en.mention, libelles: reglages.esoLibelles });
     } catch (err) {
       annoncer("Le PDF n'a pas pu être créé : " + (err && err.message ? err.message : "erreur inconnue") + ".");
       return;
     }
-    const ok = await telecharger(nomFichier("ESO_a_remplir", "pdf"), octets, "application/pdf", "PDF créé : joignez-le à un e-mail pour les parents");
-    if (!ok) return;
-    ecrireChemin(dossier, "senso.eso.pdfCree", B.aujourdhui());
-    nonEnregistre = true;
-    sauverBrouillon();
-    majEtatEsoParents();
+    await telecharger(avq ? "Questionnaire_autonomie_AVQ_parents.pdf" : "Questionnaire_ESO_parents.pdf", octets, "application/pdf",
+      "PDF prêt : joignez-le à un e-mail pour les parents (le même pour tous les enfants)");
   }
-  async function importerPdfEso(f) {
+
+  // Le PDF rempli va dans le dossier ouvert : on vérifie le nom écrit par les parents.
+  function sansAccents(t) { return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  async function accordEnfant(nomPdf, naissancePdf) {
+    if (!net(dossier.prenom) && !net(dossier.nom)) throw new Error("Ouvrez d'abord le dossier de l'enfant (ou créez-le avec son prénom), puis importez le PDF." + (nomPdf ? " Ce questionnaire concerne « " + nomPdf + " »." : ""));
+    const mots = sansAccents(nomPdf).split(/[^a-z]+/).filter(Boolean);
+    const cle = sansAccents(net(dossier.prenom) || net(dossier.nom)).split(/[^a-z]+/).filter(Boolean);
+    if (nomPdf && cle.length && cle.every((m) => mots.indexOf(m) >= 0)) return true;
+    return demander((nomPdf ? "Ce questionnaire concerne « " + nomPdf + " »" + (naissancePdf ? ", né(e) le " + naissancePdf : "") + "." : "Le nom de l'enfant n'est pas écrit dans le PDF.")
+      + " L'importer dans le dossier « " + nomEnfant(dossier) + " » ?", "Importer dans ce dossier");
+  }
+  async function importerPdfParents(f) {
     if (!/\.pdf$/i.test(f.name || "") && f.type !== "application/pdf") throw new Error("Choisissez le fichier PDF renvoyé par les parents (son nom se termine par .pdf).");
-    let r;
-    try { r = await PE.lireFormulaireEso(new Uint8Array(await f.arrayBuffer())); }
-    catch (e) { throw new Error("Ce PDF n'a pas pu être lu. Demandez aux parents de le renvoyer, ou reportez les réponses à la main."); }
-    if (!r.formulaire) throw new Error("Ce PDF n'est pas le questionnaire ESO créé par l'outil. S'il a été imprimé puis scanné, reportez les réponses à la main dans l'ESO (🌈 Sensoriel).");
-    if (!r.nombre) throw new Error("Ce PDF ne contient aucune réponse. Les parents l'ont peut-être rempli sans l'enregistrer : demandez-leur de cliquer sur « Enregistrer » avant de vous le renvoyer.");
-    const pour = (r.meta && r.meta.enfant) || "un autre enfant";
-    if (!net(dossier.prenom) && !net(dossier.nom)) throw new Error("Ouvrez d'abord le dossier de " + pour + " (ou écrivez son prénom dans un nouveau dossier), puis importez le PDF.");
-    if (r.meta && r.meta.dossier && r.meta.dossier !== dossier.id
-      && !(await demander("Ce questionnaire a été créé pour le dossier « " + pour + " ». L'importer quand même dans le dossier « " + nomEnfant(dossier) + " » ?", "Importer quand même"))) return;
+    let lu;
+    try { lu = await PE.lireChampsPdf(new Uint8Array(await f.arrayBuffer())); }
+    catch (e) { throw new Error("Ce PDF n'a pas pu être lu. Demandez aux parents de le renvoyer, ou saisissez les réponses à la main."); }
+    const type = lu.meta && lu.meta.type;
+    const noms = Object.keys(lu.champs);
+    if (type === "outil-ergo-avq" || noms.some((k) => /^avq_/.test(k))) return importerAvqParents(lu);
+    if (type === "outil-ergo-eso" || noms.some((k) => /^eso_/.test(k))) return importerEso(lu);
+    throw new Error("Ce PDF n'est pas un questionnaire créé par l'outil. S'il a été imprimé puis scanné, saisissez les réponses à la main.");
+  }
+  const SANS_REPONSE = "Ce PDF ne contient aucune réponse. Les parents l'ont peut-être rempli sans l'enregistrer : demandez-leur de cliquer sur « Enregistrer » avant de vous le renvoyer.";
+  async function importerEso(lu) {
+    const r = PE.depuisChampsEso(lu);
+    if (!r.nombre) throw new Error(SANS_REPONSE);
+    if (!(await accordEnfant(r.enfant, r.naissance))) return;
     const eso = lireChemin(dossier, "senso.eso") || {};
     const avant = S.itemsEso(S.normaliser(dossier.senso).eso).reduce((t, x) => t + x.n, 0);
     if (avant && !(await demander(avant + (avant > 1 ? " réponses sont déjà saisies" : " réponse est déjà saisie") + " dans l'ESO. Les remplacer par les " + r.nombre + " réponses du PDF ?", "Remplacer"))) return;
@@ -451,20 +464,42 @@
     if (!net(eso.repondant) && r.repondant) ecrireChemin(dossier, "senso.eso.repondant", r.repondant.slice(0, 120));
     if (!eso.date) ecrireChemin(dossier, "senso.eso.date", dateDepuisTexte(r.date) || B.aujourdhui());
     ecrireChemin(dossier, "senso.eso.pdfImporte", B.aujourdhui());
+    apresImport("sensoriel", "#bloc-eso", "details.eso-domaine");
+    const manque = S.NB_ITEMS_ESO * 3 - r.nombre;
+    annoncer(r.nombre + " réponses importées dans l'ESO" + (manque ? " (" + manque + " sans réponse)" : ""));
+  }
+  async function importerAvqParents(lu) {
+    const r = O.depuisChampsAvqParents(lu.champs);
+    if (!r.nombre && !r.autres) throw new Error(SANS_REPONSE);
+    if (!(await accordEnfant(r.donnees.enfant, r.naissance))) return;
+    const q = O.normaliserAvqParents(dossier.avqParents);
+    const avant = O.DOMAINES_AVQP.reduce((t, d) => t + Object.keys(q.domaines[d.id].reponses).length, 0);
+    if (avant && !(await demander(avant + (avant > 1 ? " réponses sont déjà saisies" : " réponse est déjà saisie") + " dans le questionnaire d'autonomie. Les remplacer par celles du PDF (" + r.nombre + ") ? Vos commentaires sont gardés.", "Remplacer"))) return;
+    const n = r.donnees;
+    // Les commentaires de l'ergothérapeute restent ; le reste vient du PDF.
+    O.DOMAINES_AVQP.forEach((d) => { n.domaines[d.id].commentaire = q.domaines[d.id].commentaire; });
+    n.commentaire = q.commentaire;
+    n.fait = "oui";
+    n.repondant = net(q.repondant) || n.repondant.slice(0, 120);
+    n.date = q.date || dateDepuisTexte(n.date) || B.aujourdhui();
+    n.pdfImporte = B.aujourdhui();
+    dossier.avqParents = n;
+    apresImport("occupations", "#bloc-avq-parents", "details.avq-domaine");
+    const total = O.DOMAINES_AVQP.reduce((t, d) => t + O.nbQuestionsAvqp(d.id, reglages.avqLibelles), 0);
+    annoncer(r.nombre + " réponses importées dans « Autonomie dans les activités quotidiennes »" + (total > r.nombre ? " (" + (total - r.nombre) + " sans réponse)" : ""));
+  }
+  function apresImport(onglet, bloc, details) {
     nonEnregistre = true;
     remplirFormulaire();
     majTout();
     sauverBrouillon();
-    afficherOnglet("sensoriel");
-    const bloc = $("#bloc-eso");
-    if (bloc) {
-      const premier = $("details.eso-domaine", bloc);
+    afficherOnglet(onglet);
+    const b = $(bloc);
+    if (b) {
+      const premier = $(details, b);
       if (premier) premier.open = true;
-      bloc.scrollIntoView({ block: "start" });
+      b.scrollIntoView({ block: "start" });
     }
-    const manque = S.NB_ITEMS_ESO * 3 - r.nombre;
-    annoncer(r.nombre + " réponses importées dans l'ESO" + (manque ? " (" + manque + " sans réponse)" : ""));
-    function net(x) { return String(x || "").trim(); }
   }
 
   function htmlSensot() {
@@ -582,8 +617,85 @@
 
   /* ---------- Occupations : autonomie, MCRO, OT'Hope, tri de cartes ; DCDQ ---------- */
 
+  // Questionnaire d'autonomie rempli par les parents : PDF, réponses (importées ou saisies), commentaires, synthèse.
+  function htmlAvqParents() {
+    const c = "avqParents", lib = reglages.avqLibelles;
+    const freq = O.FREQ_AVQP.map((f, k) => [String(k), f]);
+    const domaine = (d) => {
+      const libs = (lib.domaines && lib.domaines[d.id]) || [];
+      const ch = c + ".domaines." + d.id;
+      const items = Array.from({ length: O.nbQuestionsAvqp(d.id, lib) }, (_, i) => {
+        const n = i + 1, texteQ = libs[i] || "Question " + n;
+        return `<div class="item-avqp"><span class="item-label"><span class="eso-num">${n}</span>${esc(texteQ)}</span>
+          ${pastilles("avqp-" + d.id + "-" + n, ch + ".reponses." + n, freq)}
+          <input type="text" class="remarque" data-chemin="${ch}.remarques.${n}" placeholder="Remarque des parents" aria-label="Remarque des parents, ${esc(d.nom)}, question ${n}"></div>`;
+      }).join("");
+      return `<details class="avq-domaine" data-avqp="${d.id}"><summary>${esc(d.nom)} <span class="avq-compte" id="avqp-n-${d.id}"></span></summary>
+        ${d.question ? `<div class="champ"><span>Autonome dans ce domaine, selon les parents</span>${pastilles("avqp-auto-" + d.id, ch + ".autonome", [["oui", "Oui"], ["non", "Non"]])}</div>` : ""}
+        <div class="avqp-items">${items}</div>
+        ${d.question ? champZone("Aides mises en place, selon les parents", ch + ".aides") : champZone("Autres éléments rapportés par les parents", c + ".complement")}
+        ${champZone("💬 Votre commentaire sur ce domaine (repris dans le compte rendu)", ch + ".commentaire")}
+      </details>`;
+    };
+    return `<div class="sous-bloc" id="bloc-avq-parents">
+      <h4 class="sous-groupe">📨 Questionnaire des parents</h4>
+      <p class="note">${esc(lib.titre || "Questionnaire sur l'autonomie dans les activités de la vie quotidienne")}${lib.source ? " (" + esc(B.min(lib.source)) + ")" : ""}. Un PDF à remplir, le même pour tous les enfants : envoyez-le avant le rendez-vous, puis importez le PDF rempli. Sur papier, cochez ici les réponses à la main.
+        ${nbAvqLibelles(lib) ? "" : `Pour voir le texte des questions et créer le PDF, importez une fois le fichier du cabinet dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
+      <div class="barre-actions barre-eso-pdf">
+        <button type="button" class="bouton bouton-second bouton-petit" data-action="avq-pdf">📄 PDF à remplir pour les parents</button>
+        <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
+          <input type="file" accept="application/pdf,.pdf" data-action="importer-pdf-parents" class="masque"></label>
+      </div>
+      <p class="calcule etat-avq-parents" aria-live="polite"></p>
+      <label class="case case-titre case-avqp"><input type="checkbox" data-chemin="${c}.fait" data-bascule="#corps-avq-parents"><span>Réponses des parents</span></label>
+      <div id="corps-avq-parents" hidden>
+        <div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
+        <div class="grille3">${champTexte("Classe (selon les parents)", c + ".classe")}
+          <div class="champ"><span>AESH (AVS)</span>${pastilles("avqp-aesh", c + ".aesh", [["oui", "Oui"], ["non", "Non"]])}</div>
+          ${champTexte("Nombre d'heures", c + ".heures")}</div>
+        <p class="note">Nom écrit par les parents dans le PDF : <strong id="avqp-enfant">–</strong></p>
+        ${O.DOMAINES_AVQP.map(domaine).join("")}
+        <details class="avq-domaine"><summary>Priorités des parents <span class="avq-compte" id="avqp-n-priorites"></span></summary>
+          <p class="note">Ordre de 1 (le plus important) à ${O.DOMAINES_AVQP.length}.</p>
+          ${O.DOMAINES_AVQP.map((d) => `<div class="priorite-avqp"><span class="item-label">${esc(d.nom)}</span>
+            <input type="text" inputmode="numeric" maxlength="1" data-chemin="${c}.priorites.${d.id}.rang" aria-label="Ordre de priorité, ${esc(d.nom)}">
+            <input type="text" data-chemin="${c}.priorites.${d.id}.precision" placeholder="Précisions" aria-label="Précisions, ${esc(d.nom)}"></div>`).join("")}
+        </details>
+        ${champZone("💬 Commentaire de l'ergothérapeute (repris à la fin de la synthèse)", c + ".commentaire", 3)}
+        <h5 class="titre-apercu">Synthèse pour le compte rendu</h5>
+        <div class="apercu-synthese" id="apercu-avq-parents"></div>
+        <p class="note">Elle suit les réponses et vos commentaires. Pour la retoucher : onglet Compte rendu, section « Autonomie au quotidien : questionnaire des parents ».</p>
+      </div>
+    </div>`;
+  }
+  function majAvqParents() {
+    const q = O.normaliserAvqParents(dossier.avqParents);
+    O.analyseAvqParents(q, reglages.avqLibelles).forEach((d) => {
+      const o = $("#avqp-n-" + d.id);
+      if (!o) return;
+      const m = [];
+      if (d.autonome) m.push(d.autonome === "oui" ? "autonome" : "non autonome");
+      if (d.repondues) m.push(d.repondues + "/" + d.nb + " réponses");
+      if (d.difficultes.length) m.push(d.difficultes.length + " difficulté" + (d.difficultes.length > 1 ? "s" : ""));
+      o.textContent = m.join(" · ");
+    });
+    const np = O.DOMAINES_AVQP.filter((d) => q.priorites[d.id].rang).length;
+    const op = $("#avqp-n-priorites");
+    if (op) op.textContent = np ? np + " domaine" + (np > 1 ? "s" : "") + " classé" + (np > 1 ? "s" : "") : "";
+    const oe = $("#avqp-enfant");
+    if (oe) oe.textContent = q.enfant || "–";
+    const ap = $("#apercu-avq-parents");
+    if (ap) {
+      const t = genere.avqParents || "";
+      ap.innerHTML = t ? t.split("\n").map((l) => `<p>${esc(l)}</p>`).join("") : `<p class="note">Saisissez ou importez les réponses.</p>`;
+      if (cr.avqParents && cr.avqParents.modifie) ap.insertAdjacentHTML("beforeend", `<p class="note">Vous avez retouché cette section dans l'onglet Compte rendu : c'est votre version qui est utilisée.</p>`);
+    }
+  }
+
   function htmlAvq() {
     return `<fieldset class="groupe"><legend>Autonomie dans les activités quotidiennes</legend>
+      ${htmlAvqParents()}
+      <h4 class="sous-groupe">Grille de l'ergothérapeute</h4>
       <p class="note">À remplir avec les parents. La grille complète les lignes « À la maison » et « À l'école » du compte rendu ; un besoin d'aide s'ajoute aux occupations du diagnostic.</p>
       ${O.DOMAINES_AVQ.map((dm) => `<h4 class="sous-groupe">${esc(dm.nom)}</h4>` + dm.items.map((it) =>
         `<div class="item-grille item-avq"><span class="item-label">${esc(B.maj(it.nom))}</span>${pastilles("avq-" + it.id, "avq." + it.id, O.NIVEAUX_AVQ.map((n) => [n.id, n.label]))}</div>`).join("")).join("")}
@@ -1734,6 +1846,13 @@
     $("#lieu-visite").placeholder = villes[0] || "Ville du cabinet";
     $("#villes-cabinet").innerHTML = villes.map((v) => `<option value="${esc(v)}">`).join("");
 
+    // Logo du cabinet (Réglages)
+    const lg = $("#apercu-logo-cabinet"), lc = reglages.logoCabinet;
+    if (lg) {
+      lg.hidden = !lc;
+      if (lc) { if (lg.getAttribute("src") !== lc.donnees) lg.src = lc.donnees; } else lg.removeAttribute("src");
+      $("[data-action='retirer-logo-cabinet']").hidden = !lc;
+    }
     // Photo du cabinet
     const img = $("#apercu-photo-cabinet"), ph = reglages.photoCabinet;
     img.hidden = !ph;
@@ -2010,6 +2129,9 @@
       ? "Texte enregistré dans ce navigateur : " + lib.sp.length + " questions (soins personnels), " + lib.p.length + " (travail scolaire), " + lib.l.length + " (loisirs)."
       : "Aucun texte enregistré : la saisie se fait par numéro de question.";
     $("[data-action='effacer-eso']").hidden = !nEso;
+    const nAvq = nbAvqLibelles(reglages.avqLibelles);
+    const etatAvq = $("#etat-avq-libelles");
+    if (etatAvq) etatAvq.textContent = nAvq ? "Questionnaire d'autonomie (AVQ) : " + nAvq + " questions enregistrées dans ce navigateur." : "Questionnaire d'autonomie (AVQ) : texte non importé (le PDF pour les parents ne peut pas encore être créé).";
     if ($("#profil")) majProfil();
     $("#note-brouillon").textContent = reglages.brouillon
       ? "Rien n'est envoyé en ligne : les dossiers restent dans ce navigateur, sur cet appareil. La copie de sécurité les met dans un fichier que vous pouvez ranger ou transférer sur un autre appareil."
@@ -2364,7 +2486,7 @@
     majEnfantCourant();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
     items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
-    majEtatEsoParents(items);
+    majEtatQuestionnairesParents(items);
 
     // Réévaluation
     const p = dossier.precedent;
@@ -2383,6 +2505,7 @@
       ta.placeholder = genere[s.id] ? "" : "Section vide : elle n'apparaîtra pas dans le compte rendu.";
       $(`[data-retablir="${s.id}"]`).hidden = !cr[s.id].modifie;
     });
+    majAvqParents();
     majACompleter();
     majGalerie();
     sauverBrouillon();
@@ -2412,7 +2535,8 @@
     const cols = [];
     if (m.entete.cabinet.nom || m.entete.cabinet.lignes.length) cols.push([m.entete.cabinet.nom].concat(m.entete.cabinet.lignes));
     m.entete.praticiens.forEach((p) => cols.push([p.nom].concat(p.lignes)));
-    if (cols.length) h += `<div class="doc-entete">${cols.map((c) => `<div><strong>${esc(c[0])}</strong>${c.slice(1).map((l) => "<br>" + esc(l)).join("")}</div>`).join("")}</div>`;
+    const logo = m.entete.logo && m.entete.logo.donnees ? `<div class="doc-logo"><img src="${esc(m.entete.logo.donnees)}" alt="Logo du cabinet"></div>` : "";
+    if (cols.length || logo) h += `<div class="doc-entete">${logo}${cols.map((c) => `<div><strong>${esc(c[0])}</strong>${c.slice(1).map((l) => "<br>" + esc(l)).join("")}</div>`).join("")}</div>`;
     m.blocs.forEach((b) => {
       if (b.type === "titre") h += `<h1>${esc(b.texte)}</h1>`;
       else if (b.type === "h") h += `<h${b.niveau}>${esc(b.texte)}</h${b.niveau}>`;
@@ -2540,6 +2664,7 @@
 .doc h1{font-size:16pt;text-align:center;text-transform:uppercase;color:#1f3a5f;margin:12pt 0 16pt}.doc h2{font-size:13pt;color:#1f3a5f;border-bottom:1px solid #8ea3c2;padding-bottom:2pt;margin:16pt 0 6pt;break-after:avoid}
 .doc h3{font-size:11.5pt;color:#2e5c8a;margin:12pt 0 4pt;break-after:avoid}.doc p{margin:0 0 4pt}.doc p.petit{font-size:9pt}.doc p.grand,.doc p.grand span{line-height:1.9!important}.doc .saut-page{break-after:page}.doc ul{margin:0 0 6pt;padding-left:18pt}.doc mark{background:#fff36b}
 .doc-entete{display:flex;gap:12px;justify-content:space-around;text-align:center;font-size:8pt;border-bottom:1px solid #8ea3c2;padding-bottom:6pt;margin-bottom:8pt}
+.doc-logo{flex:0 0 auto;text-align:left;align-self:center}.doc-logo img{display:block;max-height:1.7cm;max-width:4.2cm}
 .doc-pied{text-align:center;font-size:8pt;color:#4a5568;border-top:1px solid #8ea3c2;padding-top:6pt;margin-top:18pt}.doc-signature{text-align:right;font-weight:700;margin-top:18pt}
 .doc-table{width:100%;border-collapse:collapse;margin:4pt 0 8pt;font-size:10pt;table-layout:fixed}.doc-table.petit{font-size:9pt}.doc-table tr{break-inside:avoid}
 .doc-table th,.doc-table td{border:1px solid #a6b4c8;padding:2pt 4pt;vertical-align:middle;text-align:left;overflow-wrap:anywhere;white-space:pre-line}.a-center{text-align:center!important}.gras{font-weight:700}
@@ -3839,6 +3964,13 @@
         return;
       case "fermer-form-seance": $("#form-seance").hidden = true; return;
       case "programmer-seances": return programmerPlan();
+      case "retirer-logo-cabinet":
+        demander("Retirer le logo du cabinet des documents ?", "Retirer").then((ok) => {
+          if (!ok) return;
+          reglages.logoCabinet = null;
+          sauverReglages(); majTout();
+        });
+        return;
       case "retirer-photo-cabinet":
         demander("Retirer la photo du cabinet de cet appareil ?", "Retirer").then((ok) => {
           if (!ok) return;
@@ -3864,7 +3996,8 @@
         sauverReglages(); remplirReglages(); construireSenso(); remplirFormulaire(); majTout();
         annoncer("Texte des questions effacé de ce navigateur");
         return;
-      case "eso-pdf": return exporterPdfEso();
+      case "eso-pdf": return exporterPdfParents("eso");
+      case "avq-pdf": return exporterPdfParents("avq");
       case "exporter-reglages":
         return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
     }
@@ -3883,10 +4016,10 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
       chargerPhoto(f).then(garderPhotoCopie).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
-    } else if (action === "eso-importer-pdf") {
+    } else if (action === "importer-pdf-parents") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
-      importerPdfEso(f).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+      importerPdfParents(f).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "restaurer") {
       lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {
@@ -3901,6 +4034,14 @@
         sauverReglages(); majTout();
         annoncer("Photo du cabinet enregistrée sur cet appareil");
       }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "logo-cabinet") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return true;
+      chargerPhoto(f, 600).then((ph) => {
+        reglages.logoCabinet = { donnees: ph.donnees, l: ph.l, h: ph.h };
+        sauverReglages(); majTout();
+        annoncer("Logo enregistré : il apparaît en haut des documents et des PDF pour les parents");
+      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "photo-carte") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
@@ -3912,7 +4053,7 @@
       lireFichier(e.target).then((obj) => {
         const faits = appliquerContenusCabinet(obj, true);
         if (!faits.length) throw new Error("Ce fichier ne contient ni normes du BHK ni texte de questionnaire.");
-        sauverReglages(); construireNormes(); remplirReglages(); construireAuto(); construireSenso(); remplirFormulaire(); majTout();
+        sauverReglages(); construireNormes(); remplirReglages(); construireAuto(); construireSenso(); construireOccupation(); remplirFormulaire(); majTout();
         annoncer("Importé : " + faits.join(", "));
       }).catch((err) => annoncer(err.message));
     } else if (action === "importer-reglages") {

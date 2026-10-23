@@ -145,7 +145,7 @@
       otipis: { fait: "", parent: "", main: "", oeil: "", pied: "", scores: {}, notes: {}, temps20: "", temps22: "", erreursMD: "", erreursMG: "", autres: "", comportement: "", discussion: "" },
       dunnEnfant: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       dunnScolaire: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
-      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfCree: "", pdfImporte: "" },
+      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfImporte: "" },
       sensot: { fait: "", date: "", themes: {}, priorites: [], notes: "" },
     };
     return s;
@@ -174,7 +174,7 @@
       }));
     });
     const e = src.eso || {};
-    copierTexte(s.eso, e, ["fait", "repondant", "date", "notes", "pdfCree", "pdfImporte"]);
+    copierTexte(s.eso, e, ["fait", "repondant", "date", "notes", "pdfImporte"]);
     DOMAINES_ESO.forEach((dm) => SECTEURS_ESO.forEach((sc) => {
       const v = e.roues && e.roues[dm[0]] && e.roues[dm[0]][sc];
       if (v !== undefined && v !== null && v !== "") s.eso.roues[dm[0]][sc] = texte(v);

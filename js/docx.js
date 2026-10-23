@@ -95,6 +95,7 @@
   /* ---------- WordprocessingML ---------- */
 
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const NS_DESSIN = ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
   const LARGEUR = 9638; // A4 (11906) moins deux marges de 2 cm (1134)
   const FONDS = {
     entete: "DCE3F0",
@@ -159,7 +160,7 @@
         pr += '<w:vAlign w:val="center"/>';
         const base = { b: !!c.gras, taille: o.taille || (t.petit ? 18 : 20) };
         const lignes = (o.multiLignes && c.lignes) ? c.lignes : null;
-        const contenu = lignes
+        const contenu = c.xml ? c.xml : lignes
           ? lignes.map((l) => para(l, { align: c.align, espace: [0, 0], base: base })).join("")
           : para(c.runs, { align: c.align, espace: [0, 0], base: base });
         xml += "<w:tc><w:tcPr>" + pr + "</w:tcPr>" + contenu + "</w:tc>";
@@ -245,7 +246,29 @@
     return xml;
   }
 
-  function entete(modele) {
+  // Logo du cabinet en haut de chaque page (image de l'en-tête, hauteur 1,7 cm au plus, largeur 4,2 cm au plus).
+  function logoEntete(modele) {
+    const lg = modele.entete && modele.entete.logo;
+    const src = lg ? depuisDataUrl(lg.donnees) : null;
+    if (!src || !lg.l || !lg.h) return null;
+    let cy = Math.round(1.7 * 360000), cx = Math.round((cy * lg.l) / lg.h);
+    const maxCx = Math.round(4.2 * 360000);
+    if (cx > maxCx) { cy = Math.round((cy * maxCx) / cx); cx = maxCx; }
+    return { octets: src.octets, nom: "logo." + src.ext, cx: cx, cy: cy };
+  }
+  function paraLogo(lg) {
+    return '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="left"/></w:pPr><w:r><w:drawing>' +
+      '<wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="' + lg.cx + '" cy="' + lg.cy + '"/>' +
+      '<wp:docPr id="900" name="Logo du cabinet" descr="Logo du cabinet"/>' +
+      '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+      '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>' +
+      '<pic:nvPicPr><pic:cNvPr id="900" name="' + lg.nom + '"/><pic:cNvPicPr/></pic:nvPicPr>' +
+      '<pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+      '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + lg.cx + '" cy="' + lg.cy + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>' +
+      "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>";
+  }
+
+  function entete(modele, logo) {
     const e = modele.entete || {};
     const colonnes = [];
     if (e.cabinet && (e.cabinet.nom || e.cabinet.lignes.length)) {
@@ -255,17 +278,20 @@
       colonnes.push([[{ t: p.nom, b: true }]].concat(p.lignes.map((l) => [{ t: l }])));
     });
     let xml = "";
-    if (colonnes.length) {
+    if (colonnes.length || logo) {
       const n = colonnes.length;
+      const partLogo = logo ? (n ? 0.26 : 1) : 0;
+      const cellules = colonnes.map((lignes) => ({ lignes: lignes, runs: [], align: "center" }));
+      if (logo) cellules.unshift({ xml: paraLogo(logo) });
       xml += tableau({
-        largeurs: colonnes.map(() => 1 / n),
-        lignes: [{ cellules: colonnes.map((lignes) => ({ lignes: lignes, runs: [], align: "center" })) }],
+        largeurs: (logo ? [partLogo] : []).concat(colonnes.map(() => (1 - partLogo) / n)),
+        lignes: [{ cellules: cellules }],
       }, { sansBordure: true, taille: 15, multiLignes: true });
       xml += para([], { bordureBas: true, espace: [0, 0] });
     } else {
       xml += para([]);
     }
-    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ' + NS + ">" + xml + "</w:hdr>";
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ' + NS + (logo ? NS_DESSIN : "") + ">" + xml + "</w:hdr>";
   }
 
   function champ(code) {
@@ -309,6 +335,8 @@
 
   function construire(modele) {
     const images = preparerImages(modele);
+    const logo = logoEntete(modele);
+    if (logo) images.push({ nom: "word/media/" + logo.nom, donnees: logo.octets });
     const NS_DOC = NS + ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
     const relsImages = modele.blocs.filter((b) => b._image).map((b) =>
       '<Relationship Id="' + b._image.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + b._image.nom + '"/>').join("");
@@ -345,9 +373,10 @@
       { nom: "word/numbering.xml", donnees: numerotation() },
       { nom: "word/settings.xml", donnees: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings ' + NS + '><w:defaultTabStop w:val="708"/><w:characterSpacingControl w:val="doNotCompress"/>' +
         '<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>' },
-      { nom: "word/header1.xml", donnees: entete(modele) },
+      { nom: "word/header1.xml", donnees: entete(modele, logo) },
       { nom: "word/footer1.xml", donnees: pied(modele) },
-    ].concat(images));
+    ].concat(logo ? [{ nom: "word/_rels/header1.xml.rels", donnees: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + logo.nom + '"/></Relationships>' }] : []).concat(images));
   }
 
   return { construire: construire, zip: zip, crc32: crc32 };

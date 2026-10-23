@@ -679,6 +679,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .doc ul { margin: 0 0 6pt; padding-left: 18pt; list-style: "– "; }
 .doc mark { background: #fff36b; color: #222; }
 .doc-entete { display: flex; gap: 12px; justify-content: space-around; text-align: center; font-size: 8pt; border-bottom: 1px solid #8ea3c2; padding-bottom: 6pt; margin-bottom: 8pt; }
+.doc-logo { flex: 0 0 auto; text-align: left; align-self: center; }
+.doc-logo img { display: block; max-height: 1.7cm; max-width: 4.2cm; }
 .doc-pied { text-align: center; font-size: 8pt; color: #4a5568; border-top: 1px solid #8ea3c2; padding-top: 6pt; margin-top: 18pt; }
 .doc-signature { text-align: right; font-weight: 700; margin-top: 18pt; }
 .doc-table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 10pt; table-layout: fixed; }
@@ -1205,3 +1207,29 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .etapes-eso li { margin: 0.3rem 0; }
 .barre-eso-pdf { margin: 0.3rem 0 0.4rem; }
 .etat-eso-parents { margin: 0.4rem 0; }
+
+/* Questionnaires pour les parents : bloc du dossier et questionnaire d'autonomie (AVQ) */
+.questionnaires-parents { display: grid; gap: 10px; margin: .4rem 0; }
+@media (min-width: 700px) { .questionnaires-parents { grid-template-columns: 1fr 1fr; } }
+.questionnaire-parents { border: 1.5px solid var(--seyes-fin); border-radius: var(--rayon); padding: 10px 14px; }
+.questionnaire-parents p { margin: 0 0 .5rem; }
+.questionnaire-parents .calcule { margin: .5rem 0 0; }
+.sous-bloc { margin: 0 0 1.2rem; padding-bottom: .8rem; border-bottom: 1.5px dashed var(--seyes-fin); }
+.case-avqp { margin: .6rem 0; }
+.avq-domaine { margin: .5rem 0; border: 1.5px solid var(--seyes-fin); border-radius: var(--rayon); padding: 0 12px; }
+.avq-domaine summary { cursor: pointer; min-height: 46px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-weight: 700; }
+.avq-compte { font-weight: 400; color: var(--gris); font-size: .9rem; }
+.avqp-items { padding: 0 0 6px; }
+.item-avqp { display: grid; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--seyes-fin); }
+.item-avqp .item-label { display: flex; gap: 8px; align-items: center; }
+.item-avqp .choix span { padding: 6px 9px; font-size: .84rem; }
+.item-avqp .remarque { min-height: 38px; padding: 5px 10px; font-size: .9rem; }
+@media (min-width: 900px) { .item-avqp { grid-template-columns: minmax(220px, 1fr) auto; } .item-avqp .remarque { grid-column: 1 / -1; } }
+.priorite-avqp { display: grid; grid-template-columns: 1fr 60px; gap: 6px 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--seyes-fin); }
+.priorite-avqp input[inputmode="numeric"] { text-align: center; }
+.priorite-avqp input:not([inputmode]) { grid-column: 1 / -1; }
+@media (min-width: 700px) { .priorite-avqp { grid-template-columns: 240px 60px 1fr; } .priorite-avqp input:not([inputmode]) { grid-column: auto; } }
+.titre-apercu { margin: 1rem 0 .4rem; font-size: 1rem; }
+.apercu-synthese { background: var(--papier-2); border-radius: var(--rayon); padding: 8px 14px; }
+.apercu-synthese p { margin: .35rem 0; }
+.apercu-logo { display: block; max-height: 90px; max-width: 240px; margin: .3rem 0; background: #fff; border-radius: 8px; padding: 6px; }

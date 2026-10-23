@@ -616,7 +616,9 @@
       autoDomaines: QUESTIONS_AUTO.map((q) => q[1]),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
+      avqLibelles: { titre: "", source: "", domaines: {} },
       photoCabinet: null,
+      logoCabinet: null,
       phrases: PHRASES_EXEMPLES.slice(),
       normes: normesVides(),
     };
@@ -654,7 +656,16 @@
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
+    if (r.avqLibelles && typeof r.avqLibelles === "object") {
+      out.avqLibelles.titre = texte(r.avqLibelles.titre).slice(0, 300);
+      out.avqLibelles.source = texte(r.avqLibelles.source).slice(0, 300);
+      Occup.DOMAINES_AVQP.forEach((d) => {
+        const l = r.avqLibelles.domaines && r.avqLibelles.domaines[d.id];
+        if (Array.isArray(l) && l.length) out.avqLibelles.domaines[d.id] = l.slice(0, Occup.MAX_AVQP).map((t) => texte(t).slice(0, 300));
+      });
+    }
     out.photoCabinet = Accueil.normaliserPhoto(r.photoCabinet);
+    out.logoCabinet = Accueil.normaliserPhoto(r.logoCabinet);
     if (Array.isArray(r.phrases)) out.phrases = r.phrases.map((t) => texte(t).trim().slice(0, 400)).filter(Boolean).slice(0, 300);
     if (r.normes) out.normes = normaliserNormes(r.normes);
     return out;
@@ -1029,6 +1040,7 @@
     { id: "environnement", titre: "Environnement de {enfant}", niveau: 2 },
     { id: "maison", titre: "À la maison", niveau: 3, groupes: ["occupations"] },
     { id: "ecole", titre: "À l'école", niveau: 3, groupes: ["occupations"] },
+    { id: "avqParents", titre: "Autonomie au quotidien : questionnaire des parents", niveau: 3, groupes: ["occupations"] },
     { id: "mcro", titre: "Priorités de {enfant} et de sa famille (MCRO)", niveau: 3, groupes: ["occupations"] },
     { id: "othope", titre: "Auto-évaluation des occupations par {enfant} (OT'Hope)", niveau: 3, groupes: ["occupations"] },
     { id: "cartesActivites", titre: "Tri de cartes : activités du quotidien", niveau: 3, groupes: ["occupations"] },
@@ -1411,6 +1423,7 @@
       if (s.sensot.fait === "oui") l.push("SensOT-dir (version enfant)");
       if (d.manip.fait === "oui") l.push("Exner et Benbow : évaluation des manipulations fines dans la main");
       if (d.auto.fait === "oui") l.push(reg.autoNom);
+      if (d.avqParents.fait === "oui") l.push("Questionnaire sur l'autonomie dans les activités de la vie quotidienne, rempli par " + (d.avqParents.repondant.trim() || "les parents") + (reg.avqLibelles.source.trim() ? " (" + min(reg.avqLibelles.source.trim().replace(/[.]+$/, "")) + ")" : ""));
       if (Object.keys(d.avq).length) l.push("Grille d'autonomie dans les activités quotidiennes");
       if (d.mcro.fait === "oui") l.push("Mesure canadienne du rendement occupationnel (MCRO)");
       if (d.othope.fait === "oui") l.push("OT'Hope : auto-évaluation des occupations par " + a.sujetMin);
@@ -1467,6 +1480,9 @@
       if (autonomie) l.push("Autonomie en classe : " + autonomie);
       out.ecole = l.join("\n");
     }
+
+    // Questionnaire d'autonomie rempli par les parents
+    out.avqParents = Occup.redigerAvqParents(d.avqParents, reg.avqLibelles, a);
 
     // Bilans centrés sur l'occupation
     out.mcro = Occup.redigerMcro(d.mcro, a);
@@ -1937,6 +1953,7 @@
     const sig = signataire(reg);
     return {
       entete: {
+        logo: reg.logoCabinet || null,
         cabinet: { nom: reg.cabinet.nom, lignes: texte(reg.cabinet.adresse).split("\n").map((x) => x.trim()).filter(Boolean) },
         praticiens: reg.praticiens.filter((p) => p.nom).map((p) => ({
           nom: p.nom, lignes: [p.titre, p.tel, p.email, p.siret ? "N° SIRET : " + p.siret : "", p.adeli ? "N° ADELI : " + p.adeli : ""].filter(Boolean),

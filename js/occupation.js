@@ -80,6 +80,196 @@
     return DOMAINES_AVQ.filter((d) => d.items.some((it) => AIDE_AVQ.indexOf(avq[it.id]) >= 0)).map((d) => d.occ);
   }
 
+  /* ================= Questionnaire d'autonomie rempli par les parents ================= */
+  // Questionnaire du cabinet sur l'autonomie dans les activités de la vie quotidienne : le texte des questions vient
+  // du fichier du cabinet (réglages.avqLibelles), il n'est pas reproduit ici. Sept domaines, réponses de « jamais » à « toujours ».
+
+  const FREQ_AVQP = ["Jamais", "Rarement", "Parfois", "Fréquemment", "Toujours"];
+  const DOMAINES_AVQP = [
+    { id: "habillage", nom: "Habillage", le: "l'habillage", n: 9, question: true },
+    { id: "toilette", nom: "Toilette et soins personnels", le: "la toilette", n: 11, question: true },
+    { id: "repas", nom: "Alimentation et repas", le: "les repas", n: 11, question: true },
+    { id: "loisirs", nom: "Loisirs", le: "les loisirs", n: 14, question: true, note: "Dans les remarques, précisez si possible la durée et la fréquence des principaux jeux." },
+    { id: "deplacements", nom: "Déplacements", le: "les déplacements", n: 8, question: true },
+    { id: "ecole", nom: "École", le: "la vie scolaire", n: 22, question: true },
+    { id: "comportement", nom: "Comportement et vécu des difficultés", le: "le vécu des difficultés", n: 11, question: false },
+  ];
+  const MAX_AVQP = 40;
+  // Lecture des réponses, question par question : « + » une réponse basse signale une difficulté ;
+  // « - » une réponse haute la signale ; « 0 » habitude ou goût (loisirs pratiqués). Par défaut « + ».
+  const SENS_AVQP = { loisirs: "000000000+++++", comportement: "---------++" };
+  function sensAvqp(dom, n) { const t = SENS_AVQP[dom] || ""; return t.charAt(n - 1) || "+"; }
+  function nbQuestionsAvqp(dom, libelles) {
+    const d = DOMAINES_AVQP.find((x) => x.id === dom);
+    const l = libelles && libelles.domaines && libelles.domaines[dom];
+    return Array.isArray(l) && l.length ? Math.min(MAX_AVQP, l.length) : d ? d.n : 0;
+  }
+
+  function avqParentsVide() {
+    const o = { fait: "", repondant: "", date: "", pdfImporte: "", enfant: "", classe: "", aesh: "", heures: "", domaines: {}, priorites: {}, complement: "", commentaire: "" };
+    DOMAINES_AVQP.forEach((d) => {
+      o.domaines[d.id] = { autonome: "", reponses: {}, remarques: {}, aides: "", commentaire: "" };
+      o.priorites[d.id] = { rang: "", precision: "" };
+    });
+    return o;
+  }
+  function normaliserAvqParents(src) {
+    const o = avqParentsVide();
+    if (!src || typeof src !== "object") return o;
+    o.fait = oui(src.fait);
+    ["repondant", "date", "pdfImporte", "enfant", "classe", "heures", "complement", "commentaire"].forEach((k) => { if (src[k] !== undefined && src[k] !== null) o[k] = texte(src[k]).slice(0, 2000); });
+    o.aesh = src.aesh === "oui" || src.aesh === "non" ? src.aesh : "";
+    DOMAINES_AVQP.forEach((d) => {
+      const x = (src.domaines && src.domaines[d.id]) || {}, c = o.domaines[d.id];
+      c.autonome = x.autonome === "oui" || x.autonome === "non" ? x.autonome : "";
+      c.aides = texte(x.aides).slice(0, 2000);
+      c.commentaire = texte(x.commentaire).slice(0, 2000);
+      Object.keys(x.reponses || {}).forEach((k) => {
+        const v = nombre(x.reponses[k]);
+        if (/^\d+$/.test(k) && +k >= 1 && +k <= MAX_AVQP && v !== null && v >= 0 && v <= 4) c.reponses[k] = Math.round(v);
+      });
+      Object.keys(x.remarques || {}).forEach((k) => {
+        const t = texte(x.remarques[k]).slice(0, 500);
+        if (/^\d+$/.test(k) && +k >= 1 && +k <= MAX_AVQP && t.trim()) c.remarques[k] = t;
+      });
+      const p = (src.priorites && src.priorites[d.id]) || {};
+      const r = nombre(p.rang);
+      o.priorites[d.id] = { rang: r !== null && r >= 1 && r <= DOMAINES_AVQP.length ? String(Math.round(r)) : "", precision: texte(p.precision).slice(0, 1000) };
+    });
+    return o;
+  }
+
+  // Réponses d'un PDF rempli (champs avq_…), dans la forme du dossier. ch : valeur d'un bouton radio sans « / ».
+  function depuisChampsAvqParents(champs) {
+    const ch = (v) => { const t = texte(v).trim().replace(/^\//, ""); return t === "Off" ? "" : t; };
+    const tx = (v) => texte(v).trim();
+    const o = avqParentsVide();
+    let nombre = 0;
+    DOMAINES_AVQP.forEach((d) => {
+      const c = o.domaines[d.id], pre = "avq_" + d.id + "_";
+      const a = ch(champs[pre + "auto"]);
+      if (a === "oui" || a === "non") c.autonome = a;
+      c.aides = tx(champs[pre + "aides"]);
+      for (let n = 1; n <= MAX_AVQP; n++) {
+        const nom = pre + String(n).padStart(2, "0");
+        const v = ch(champs[nom]);
+        if (/^[0-4]$/.test(v)) { c.reponses[n] = Number(v); nombre++; }
+        const r = tx(champs[nom + "_r"]);
+        if (r) c.remarques[n] = r;
+      }
+      const rang = tx(champs["avq_prio_" + d.id]).replace(/\D/g, "");
+      o.priorites[d.id] = { rang: rang && +rang >= 1 && +rang <= DOMAINES_AVQP.length ? String(+rang) : "", precision: tx(champs["avq_prio_" + d.id + "_p"]) };
+    });
+    o.complement = tx(champs.avq_complement);
+    o.enfant = tx(champs.avq_enfant);
+    o.classe = tx(champs.avq_classe);
+    o.heures = tx(champs.avq_heures);
+    o.repondant = tx(champs.avq_repondant);
+    o.date = tx(champs.avq_date);
+    const aesh = ch(champs.avq_aesh);
+    if (aesh === "oui" || aesh === "non") o.aesh = aesh;
+    const autres = DOMAINES_AVQP.some((d) => o.domaines[d.id].autonome || o.domaines[d.id].aides || Object.keys(o.domaines[d.id].remarques).length || o.priorites[d.id].rang || o.priorites[d.id].precision) || o.complement;
+    return { donnees: o, nombre: nombre, autres: !!autres, naissance: tx(champs.avq_naissance), formulaire: Object.keys(champs).some((k) => /^avq_/.test(k)) };
+  }
+
+  // Modèle vierge du PDF (le même pour tous les enfants), pour js/pdf.js.
+  // o : { libelles: { titre, source, domaines }, cabinet: [lignes], logo, contact, mention }
+  function specAvqParents(o) {
+    const lib = o.libelles || {};
+    const valeurs = FREQ_AVQP.map((_, k) => String(k));
+    return {
+      titre: texte(lib.titre).trim() || "Autonomie dans les activités de la vie quotidienne : questionnaire pour les parents",
+      source: texte(lib.source).trim(), cabinet: o.cabinet, logo: o.logo, mention: o.mention, meta: { type: "outil-ergo-avq", v: 1 },
+      entete: [
+        [{ type: "texte", nom: "avq_enfant", libelle: "Enfant (prénom et nom)", largeur: 214 }, { type: "texte", nom: "avq_naissance", libelle: "Né(e) le" }],
+        [{ type: "texte", nom: "avq_classe", libelle: "Classe", largeur: 110 }, { type: "choix", nom: "avq_aesh", libelle: "AESH (AVS)", options: [["oui", "Oui"], ["non", "Non"]] }, { type: "texte", nom: "avq_heures", libelle: "Nombre d'heures" }],
+        [{ type: "texte", nom: "avq_repondant", libelle: "Rempli par", largeur: 264 }, { type: "texte", nom: "avq_date", libelle: "Le" }],
+      ],
+      consignes: [
+        "Pour chaque phrase, cliquez sur la fréquence qui correspond le mieux à votre enfant : jamais, rarement, parfois, fréquemment ou toujours. Vous pouvez ajouter une remarque dans la colonne de droite. Il n'y a pas de bonne ou de mauvaise réponse.",
+        "Pour chaque domaine, indiquez aussi si votre enfant est autonome et quelles aides vous avez mises en place. À la fin, classez les domaines que vous aimeriez voir progresser.",
+        "Une fois rempli, enregistrez le fichier (« Enregistrer » ou « Télécharger » dans votre lecteur PDF) et renvoyez-le" + (o.contact ? " à " + o.contact : " au cabinet") + ".",
+        "Vous préférez le papier ? Imprimez-le, cochez les ronds et écrivez dans les cadres.",
+      ],
+      sections: DOMAINES_AVQP.map((d) => {
+        const libs = (lib.domaines && lib.domaines[d.id]) || [];
+        return {
+          titre: d.nom, note: d.note, remarques: true,
+          question: d.question ? { nom: "avq_" + d.id + "_auto", libelle: "Votre enfant est-il autonome dans ce domaine ?", options: [["oui", "Oui"], ["non", "Non"]] } : null,
+          echelle: { valeurs: valeurs, libelles: FREQ_AVQP },
+          items: Array.from({ length: nbQuestionsAvqp(d.id, lib) }, (_, i) => ({ nom: "avq_" + d.id + "_" + String(i + 1).padStart(2, "0"), texte: texte(libs[i]).trim() || "Question " + (i + 1), aide: d.nom + ", question " + (i + 1) })),
+          zone: d.question ? { nom: "avq_" + d.id + "_aides", libelle: "Quelles aides avez-vous mises en place pour votre enfant ? Sont-elles efficaces ?", hauteur: 40 }
+            : { nom: "avq_complement", libelle: "Avez-vous d'autres éléments à ajouter ?", hauteur: 56 },
+        };
+      }),
+      fin: [{ type: "priorites", titre: "Quels domaines aimeriez-vous voir progresser ?", note: "Numérotez les domaines par ordre de priorité, de 1 (le plus important) à 7, et précisez si vous le souhaitez.",
+        lignes: DOMAINES_AVQP.map((d) => ({ libelle: d.nom, rang: "avq_prio_" + d.id, precision: "avq_prio_" + d.id + "_p" })) }],
+    };
+  }
+
+  // Classement d'une réponse : « difficulte », « parfois », « acquis » ; pour une habitude : « frequent », « parfois », « rare ».
+  function classeAvqp(sens, v) {
+    if (v === undefined || v === null) return "";
+    if (sens === "0") return v >= 3 ? "frequent" : v <= 1 ? "rare" : "parfois";
+    const bon = sens === "-" ? 4 - v : v;
+    return bon <= 1 ? "difficulte" : bon === 2 ? "parfois" : "acquis";
+  }
+  function analyseAvqParents(q, libelles) {
+    return DOMAINES_AVQP.map((d) => {
+      const libs = (libelles && libelles.domaines && libelles.domaines[d.id]) || [];
+      const x = q.domaines[d.id];
+      const items = Object.keys(x.reponses).map(Number).sort((a, b) => a - b).map((n) => {
+        const sens = sensAvqp(d.id, n), v = x.reponses[n];
+        return { n: n, libelle: texte(libs[n - 1]).trim() || "question " + n, v: v, reponse: FREQ_AVQP[v], sens: sens, classe: classeAvqp(sens, v), remarque: texte(x.remarques[n]).trim() };
+      });
+      const de = (c) => items.filter((it) => it.classe === c);
+      return {
+        id: d.id, nom: d.nom, le: d.le, autonome: x.autonome, repondues: items.length, nb: nbQuestionsAvqp(d.id, libelles), items: items,
+        difficultes: de("difficulte"), parfois: de("parfois"), acquis: de("acquis"), frequents: de("frequent"), rares: de("rare"),
+        aides: texte(x.aides).trim(), commentaire: texte(x.commentaire).trim(),
+      };
+    });
+  }
+
+  // Synthèse pour le compte rendu (texte modifiable ensuite dans l'onglet Compte rendu).
+  function redigerAvqParents(q, libelles, a) {
+    if (!q || q.fait !== "oui") return "";
+    const an = analyseAvqParents(q, libelles);
+    const l = ["Questionnaire sur l'autonomie dans les activités de la vie quotidienne, rempli par " + (q.repondant.trim() || "les parents") + (q.date ? " le " + (dateCourte(q.date) || q.date) : "") + "."];
+    const ouiL = an.filter((d) => d.autonome === "oui").map((d) => d.le), nonL = an.filter((d) => d.autonome === "non").map((d) => d.le);
+    if (ouiL.length || nonL.length) {
+      const m = [];
+      if (ouiL.length) m.push("est autonome pour " + joindre(ouiL));
+      if (nonL.length) m.push((ouiL.length ? "mais " : "") + "n'est pas autonome pour " + joindre(nonL));
+      l.push("Selon ses parents, " + a.sujetMin + " " + m.join(" ") + ".");
+    }
+    if (q.aesh === "oui") l.push("Accompagnement par une AESH" + (q.heures.trim() ? " : " + sansPoint(q.heures) + (/\d$/.test(q.heures.trim()) ? " h" : "") : "") + ".");
+    else if (q.aesh === "non") l.push("Pas d'accompagnement par une AESH.");
+    const liste = (its) => its.map((it) => min(sansPoint(it.libelle)) + (it.remarque ? " (" + sansPoint(it.remarque).slice(0, 140) + ")" : "")).join(" ; ");
+    const calmes = [];
+    an.forEach((d) => {
+      const m = [];
+      const plus = d.difficultes.filter((it) => it.sens === "+"), moins = d.difficultes.filter((it) => it.sens === "-");
+      if (plus.length) m.push("Jamais ou rarement : " + liste(plus) + ".");
+      if (moins.length) m.push("Fréquemment ou toujours : " + liste(moins) + ".");
+      const parfois = d.parfois.filter((it) => it.sens !== "0");
+      if (parfois.length) m.push("Parfois : " + liste(parfois) + ".");
+      if (d.frequents.length) m.push("Activités fréquentes : " + liste(d.frequents) + ".");
+      if (d.rares.length) m.push("Rarement ou jamais pratiqué : " + liste(d.rares) + ".");
+      if (d.aides) m.push("Aides mises en place : " + point(sansPoint(d.aides)));
+      if (d.commentaire) m.push(point(maj(d.commentaire)));
+      if (m.length) l.push("– " + d.nom + ". " + m.join(" "));
+      else if (d.repondues) calmes.push(d.le);
+    });
+    if (calmes.length) l.push("Pas de difficulté signalée pour " + joindre(calmes) + ".");
+    if (q.complement.trim()) l.push("Autres éléments rapportés par les parents : " + point(sansPoint(q.complement)));
+    const prio = DOMAINES_AVQP.map((d) => ({ d: d, p: q.priorites[d.id] })).filter((x) => x.p.rang).sort((x, y) => +x.p.rang - +y.p.rang);
+    if (prio.length) l.push("Priorités des parents : " + prio.map((x) => x.p.rang + ". " + x.d.le + (x.p.precision.trim() ? " (" + sansPoint(x.p.precision) + ")" : "")).join(" ; ") + ".");
+    if (q.commentaire.trim()) l.push(point(maj(q.commentaire.trim())));
+    if (l.length === 1) l.push("[Réponses à saisir.]");
+    return l.join("\n");
+  }
+
   /* ================= MCRO, OT'Hope, DCDQ ================= */
 
   const NB_MCRO = 5;
@@ -199,6 +389,7 @@
   function vide() {
     return {
       avq: {},
+      avqParents: avqParentsVide(),
       mcro: { fait: "", date: "", date2: "", repondant: "", problemes: Array.from({ length: NB_MCRO }, problemeVide), notes: "" },
       othope: { fait: "", items: Array.from({ length: NB_OTHOPE }, () => ({ activite: "", niveau: "", objectif: "" })), notes: "" },
       dcdq: { fait: "", repondant: "", reponses: {}, notes: "" },
@@ -212,6 +403,7 @@
     if (src.avq && typeof src.avq === "object") {
       ITEMS_AVQ.forEach((it) => { if (NIVEAUX_AVQ.some((n) => n.id === src.avq[it.id])) o.avq[it.id] = src.avq[it.id]; });
     }
+    o.avqParents = normaliserAvqParents(src.avqParents);
     const m = src.mcro || {};
     o.mcro.fait = oui(m.fait);
     ["date", "date2", "repondant", "notes"].forEach((k) => { if (m[k] !== undefined) o.mcro[k] = texte(m[k]); });
@@ -420,11 +612,13 @@
 
   // Le volet occupationnel est-il commencé ?
   function commence(o) {
-    return Object.keys(o.avq).length > 0 || ["mcro", "othope", "dcdq"].some((k) => o[k].fait === "oui") || Object.keys(JEUX).some((j) => o.cartes[j].fait === "oui");
+    return Object.keys(o.avq).length > 0 || (o.avqParents && o.avqParents.fait === "oui") || ["mcro", "othope", "dcdq"].some((k) => o[k].fait === "oui") || Object.keys(JEUX).some((j) => o.cartes[j].fait === "oui");
   }
 
   return {
-    NIVEAUX_AVQ, DOMAINES_AVQ, ITEMS_AVQ, AIDE_AVQ, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, FACTEURS_DCDQ, SEUILS_DCDQ,
+    NIVEAUX_AVQ, DOMAINES_AVQ, ITEMS_AVQ, AIDE_AVQ,
+    FREQ_AVQP, DOMAINES_AVQP, MAX_AVQP, SENS_AVQP, sensAvqp, nbQuestionsAvqp, avqParentsVide, normaliserAvqParents, depuisChampsAvqParents,
+    specAvqParents, classeAvqp, analyseAvqParents, redigerAvqParents, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, FACTEURS_DCDQ, SEUILS_DCDQ,
     JEUX, MAX_CARTES_PERSO, pilesDe, cartesDuJeu, normaliserCartesPerso, problemeVide,
     vide, normaliser, calculMcro, calculDcdq, phraseAvq, occupationsAvq, redigerMcro, redigerOthope, redigerDcdq, redigerCartes, constats, commence,
   };
