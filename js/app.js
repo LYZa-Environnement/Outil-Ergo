@@ -380,10 +380,14 @@
   function construireAuto() {
     const n = reglages.autoQuestions.length;
     const nomDomaine = (id) => (B.DOMAINES_AUTO.find((x) => x[0] === id) || [])[1];
-    let h = `<p class="note">Libellés des questions, domaines et nom du questionnaire : onglet Réglages.</p>`;
+    const avecLibelles = reglages.autoQuestions.some((q) => String(q).trim());
+    const utilises = B.DOMAINES_AUTO.filter((x) => reglages.autoDomaines.indexOf(x[0]) >= 0);
+    let h = avecLibelles
+      ? (utilises.length ? `<p class="legende-auto">${utilises.map((x) => `<span class="domaine-auto domaine-${x[0]}">${esc(x[1])}</span>`).join("")}</p>` : "")
+      : `<p class="note">Les questions ne sont pas encore là : importez le fichier de normes du cabinet (Réglages › Normes), ou saisissez-les dans les Réglages.</p>`;
     for (let i = 1; i <= n; i++) {
       const dm = reglages.autoDomaines[i - 1];
-      h += `<div class="item-grille"><span class="item-label"><span id="lq-${i}">${i}. ${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>${dm ? `<span class="domaine-auto domaine-${dm}">${esc(nomDomaine(dm))}</span>` : ""}</span>
+      h += `<div class="item-grille item-auto${dm ? " theme-" + dm : ""}"><span class="item-label"><span id="lq-${i}">${i}. ${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>${dm ? `<span class="domaine-auto domaine-${dm}">${esc(nomDomaine(dm))}</span>` : ""}</span>
         ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e + " (" + k + ")"]))}</div>`;
     }
     h += `<div class="synthese-auto" id="synthese-auto" aria-live="polite"></div>`;
@@ -3619,10 +3623,16 @@
     } else if (action === "importer-normes") {
       lireFichier(e.target).then((obj) => {
         const n = obj && obj.qualite ? obj : obj && obj.normes ? obj.normes : null;
-        if (!n) throw new Error("Ce fichier ne contient pas de normes BHK.");
-        reglages.normes = B.normaliserNormes(n);
-        sauverReglages(); construireNormes(); majTout();
-        annoncer("Normes importées");
+        const q = obj && obj.auto && Array.isArray(obj.auto.questions) && obj.auto.questions.length ? obj.auto : null;
+        if (!n && !q) throw new Error("Ce fichier ne contient pas de normes BHK.");
+        if (n) reglages.normes = B.normaliserNormes(n);
+        // Le fichier du cabinet apporte aussi le questionnaire d'auto-appréciation (questions et thématiques).
+        if (q) {
+          const base = B.normaliserReglages({ autoNom: q.nom || reglages.autoNom, autoQuestions: q.questions, autoDomaines: q.domaines || [] });
+          reglages.autoNom = base.autoNom; reglages.autoQuestions = base.autoQuestions; reglages.autoDomaines = base.autoDomaines;
+        }
+        sauverReglages(); construireNormes(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
+        annoncer(n && q ? "Normes et questionnaire d'auto-appréciation importés" : q ? "Questionnaire d'auto-appréciation importé" : "Normes importées");
       }).catch((err) => annoncer(err.message));
     } else if (action === "importer-reglages") {
       lireFichier(e.target).then((obj) => {
