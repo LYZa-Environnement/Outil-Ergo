@@ -466,11 +466,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .table-saisie select { min-width: 150px; min-height: 42px; padding: 6px 8px; }
 .table-saisie output { font-weight: 700; color: var(--encre-fonce); white-space: nowrap; }
 .priorite { padding: 6px 0 10px; border-bottom: 1px solid var(--seyes-fin); }
-.graphique, .vignette-graphique {
+.graphique {
   margin: 1rem 0; padding: 10px; border-radius: var(--rayon);
   background: #fff; border: 1px solid var(--seyes-fin); overflow-x: auto;
 }
-.graphique svg, .vignette-graphique svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; }
+.graphique svg { display: block; width: 100%; height: auto; max-width: 760px; margin: 0 auto; }
 .ds-critere { display: block; margin: 4px 0 0 40px; font-size: .88rem; font-weight: 700; }
 .critere-global .ds-critere { margin-left: 10px; display: inline; }
 .ds-critere.niveau-patho { color: var(--marge); }
@@ -537,10 +537,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .carte-ajout { border-style: dashed; }
 .carte-ajout .profil-rond { background: var(--encre-claire); color: var(--encre-fonce); }
 .carte-exports .barre-actions { margin: .4rem 0; }
-.galerie { display: grid; gap: 12px; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .galerie { grid-template-columns: 1fr 1fr; } }
-.vignette-graphique { margin: 0; }
-.vignette-graphique figcaption { font-size: .82rem; color: #555; text-align: center; margin-top: 4px; }
 .section-cr { margin: 1rem 0; padding: 12px 14px; background: var(--papier); border-radius: var(--rayon-carte); border: 1px solid var(--seyes-fin); box-shadow: var(--ombre); }
 .section-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .section-tete h3 { margin: 0 0 .4rem; color: var(--encre-fonce); }
@@ -1322,3 +1318,12 @@ h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
 @media print { .bouton-repli, .barre-replis, .resume-repli { display: none !important; } }
 /* Sous-parties imbriquées : plus discrètes */
 .sous-corps h4.sous-groupe.repliable { background: transparent; border-bottom: 2px solid var(--accent-fond); border-radius: 0; padding-left: 4px; font-size: .95rem; }
+
+/* Diagnostic ergothérapique pré-rempli */
+.champ-propose { margin-bottom: .2rem; }
+.champ-propose .champ { margin-bottom: .2rem; }
+.source-prop { margin: 0 0 .8rem; font-size: .86rem; color: var(--gris); background: var(--accent-fond); border-radius: 8px; padding: 5px 10px; }
+.source-prop .bouton-lien { font-size: .86rem; margin-left: 6px; }
+.cases-occupations label.occ-proposee > span { border-color: color-mix(in srgb, var(--accent) 45%, var(--seyes)); }
+.raison-occ { display: block; margin-top: 3px; font-size: .8rem; font-weight: 400; color: var(--gris); }
+.cases-occupations .occ-texte { display: block; flex: 1; font-weight: inherit; }

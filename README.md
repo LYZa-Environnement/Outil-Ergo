@@ -24,18 +24,19 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 | 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : questionnaire d'autonomie rempli par les parents (PDF à remplir, import, commentaires de l'ergothérapeute, synthèse pour le compte rendu), grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
 | ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie (prise avec la caméra de l'appareil dans l'outil, ou choisie dans les fichiers) et son analyse, résultats, observations pendant la copie, douleur (EVA). **Clavier** : EViC, vitesse de frappe au clavier, chronométrée dans l'outil |
 | 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (réponses détaillées, import du PDF rempli par les parents, roues, systèmes, graphiques et interprétation calculés avec la grille de cotation du cabinet), SensOT-dir, tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.OS, EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
-| 📄 Compte rendu | Les cinq documents (aperçu, impression, Word) : compte rendu, bilan synthétique (une à deux pages : identité, motif, bilans réalisés, tableau des résultats principaux, diagnostic ergothérapique, objectifs et préconisations, en reprenant les textes retouchés), synthèse pour l'école, plan de suivi, carnet pour les parents ; diagnostic ergothérapique, objectifs et préconisations proposées d'après les résultats, graphiques, texte modifiable section par section, réglage du plan de suivi |
+| 📄 Compte rendu | Diagnostic ergothérapique pré-rempli d'après les bilans et questionnaires (avec la source de chaque proposition), objectifs et préconisations proposées d'après les résultats, plan de suivi, puis la section **📄 Documents** (aperçu, impression, Word) : compte rendu, bilan synthétique (une à deux pages : identité, motif, bilans réalisés, tableau des résultats principaux, diagnostic ergothérapique, objectifs et préconisations, en reprenant les textes retouchés), synthèse pour l'école, plan de suivi, carnet pour les parents ; enfin le texte du compte rendu, modifiable section par section |
 | 📅 Séances | Planning de toutes les séances de suivi, pour tous les enfants : séances faites, prévues, annulées ; filtres ; programmation du plan de suivi ; impression |
 
 Chaque partie a sa couleur (Dossier bleu, Entretien violet, Écriture vert, Bilans orange, Compte rendu bleu-vert, Séances rose), reprise par l'onglet actif, le liseré des cartes et les titres. Chaque carte se replie en touchant son titre (un résumé indique le nombre de réponses), les blocs de bilans se cochent puis se replient avec la flèche, les sous-parties (par exemple, dans l'ESO : réponses, cotation, graphiques, synthèse ; dans le texte du compte rendu : présentation, occupations, écriture, sensoriel, conclusion) se replient aussi ; « Tout replier » et « Tout déplier » en haut de chaque onglet. L'état replié est gardé sur l'appareil. Le bouton 🌙 / ☀️ passe du mode jour (par défaut) au mode nuit ; le choix est gardé sur l'appareil. L'onglet du navigateur et l'icône d'écran d'accueil (iPad, iPhone) reprennent le logo de l'outil.
 
 ### Documents
 
-L'onglet Compte rendu propose quatre documents, chacun avec **Aperçu**, **Imprimer** et **Word** :
+Dans l'onglet Compte rendu, la section **📄 Documents** (placée après le plan de suivi) propose cinq documents, chacun avec **Aperçu**, **Imprimer** et **Word** :
 
 | Document | Pour qui |
 | --- | --- |
 | Compte rendu de bilan | Famille et médecin |
+| Bilan synthétique | Famille et médecin (une à deux pages, avec le diagnostic ergothérapique) |
 | Synthèse pour l'école | Équipe éducative (sans anamnèse ni informations familiales) |
 | Plan de suivi | Ergothérapeute seulement |
 | Carnet d'activités | Parents, à imprimer et à garder à la maison |
@@ -46,7 +47,21 @@ Dans la version ouverte depuis le lien claude.ai, l'impression directe n'est pas
 
 ### Diagnostic et préconisations
 
-Le diagnostic regroupe les constats du bilan sur le plan de la personne, de l'environnement et des occupations, puis formule l'énoncé : « X présente des difficultés dans [occupations], en lien avec [facteurs] », suivi des points d'appui.
+Le diagnostic regroupe les constats du bilan sur le plan de la personne, de l'environnement et des occupations, puis formule l'énoncé : « X présente des difficultés dans [occupations], en lien avec [facteurs] », suivi des points d'appui et de la phrase « Ce diagnostic s'appuie sur [bilans et questionnaires saisis], ainsi que sur l'entretien avec X et sa famille ».
+
+**Pré-remplissage expliqué.** L'outil remplit d'avance les champs du diagnostic à partir de ce qui est saisi, et indique sous chaque champ d'où vient la proposition (« 💡 D'après : … ») :
+
+| Champ | Sources utilisées |
+| --- | --- |
+| Occupations en difficulté | BHK (qualité ou vitesse inférieure à la moyenne), auto-appréciation, questionnaire d'autonomie des parents (domaine où l'enfant n'est pas autonome, priorité des parents, ou au moins un tiers de réponses en difficulté ; questions sur l'école), ESO (domaine sous 2 sur 3), grille d'autonomie, tri de cartes, DCDQ. La raison est écrite sous chaque occupation cochée. |
+| Retentissement au quotidien | Questionnaire d'autonomie (domaines non autonomes, difficultés à l'école, priorités des parents), fatigue relevée à la grille d'observation, MCRO (activités cotées 5 ou moins) |
+| Obstacles dans l'environnement | Signes d'hyperréactivité ou d'hyporéactivité sensorielle (ESO, profil de Dunn, OTIPIS), SensOT-dir, absence d'aménagement à l'école alors que des difficultés sont relevées |
+| Facilitateurs | Aides en place à la maison, AESH (questionnaire d'autonomie), environnement humain à l'école (anamnèse) |
+| Contexte | Suivis en cours et parcours scolaire (anamnèse) |
+| Autres constats | Gêne exprimée par l'enfant (auto-appréciation), comportement et vécu des difficultés (questionnaire d'autonomie) |
+| Points d'appui | Résultats dans la moyenne (BHK, autres bilans), frappe efficace (EViC), domaines où l'enfant est autonome sans difficulté notable, appuis relevés par les parents, engagement adapté (ESO) |
+
+Les propositions se mettent à jour quand les résultats changent. Un champ modifié à la main n'est plus remplacé ; « ↻ Reproposer » revient à la proposition. Une occupation proposée peut être décochée : elle reste écartée. Un aperçu montre le diagnostic tel qu'il apparaîtra dans le compte rendu.
 
 L'outil propose les préconisations justifiées par les résultats (par exemple un tiers-temps quand la vitesse du BHK est inférieure à la moyenne). L'ergothérapeute coche celles qu'elle retient ; le compte rendu indique pour chacune le constat qui la justifie.
 
@@ -60,7 +75,7 @@ L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touch
 
 ### Synthèse pour l'école
 
-Un second document Word, court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Son texte est modifiable dans l'onglet Compte rendu.
+Un document Word court, pour l'équipe éducative : constats, points d'appui, aménagements scolaires et sensoriels retenus, suivi. Il ne contient ni l'anamnèse ni les informations familiales. Il reprend le diagnostic et les préconisations retenues ; on le prépare depuis la section Documents (aperçu, impression, Word).
 
 ### Frappe au clavier (EViC)
 
@@ -152,7 +167,7 @@ Un troisième document Word, réservé à l'ergothérapeute : analyse approfondi
 
 ### Graphiques
 
-Les graphiques ont une légende détaillée : critères du BHK (barre = score de dégradation de 0 à 5, écart en DS avec les enfants du même âge ou de la même classe et son sens, couleurs des niveaux avec leurs bornes), profil des résultats (point = résultat en DS, zones colorées avec leurs bornes). Le graphique des critères s'affiche aussi sous les résultats, dans l'onglet BHK. Le compte rendu présente les profils en graphiques : profil des résultats en déviations standard, score de chaque critère du BHK, MCRO, DCDQ, évolution depuis le bilan précédent, OTIPIS, Profil sensoriel 2, ESO (roues, systèmes, réponses détaillées). Ils sont visibles dans l'onglet Compte rendu et insérés dans le Word.
+Les graphiques ont une légende détaillée : critères du BHK (barre = score de dégradation de 0 à 5, écart en DS avec les enfants du même âge ou de la même classe et son sens, couleurs des niveaux avec leurs bornes), profil des résultats (point = résultat en DS, zones colorées avec leurs bornes). Le graphique des critères s'affiche aussi sous les résultats, dans l'onglet BHK. Le compte rendu présente les profils en graphiques : profil des résultats en déviations standard, score de chaque critère du BHK, MCRO, DCDQ, évolution depuis le bilan précédent, OTIPIS, Profil sensoriel 2, ESO (roues, systèmes, réponses détaillées). Ils s'affichent dans les blocs de bilans concernés, et sont insérés dans l'aperçu et le Word du compte rendu.
 
 ### Ne rien perdre
 

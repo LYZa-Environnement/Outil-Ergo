@@ -106,7 +106,8 @@ test("rédaction : accords, BHK, conclusion, préconisations", () => {
   assert.match(t.conclusion, /Sur le plan de la personne :\n/);
   assert.match(t.conclusion, /une lenteur d'écriture marquée \(BHK : DS −1,50\)/);
   assert.match(t.conclusion, /des difficultés visuo-perceptives et visuo-motrices \(DTVP-3 : coordination œil-main DS −1,67\)/);
-  assert.match(t.conclusion, /Diagnostic ergothérapique : Léa présente des difficultés \[occupations à préciser\], en lien avec une lenteur d'écriture/);
+  assert.match(t.conclusion, /Diagnostic ergothérapique : Léa présente des difficultés dans la production écrite en classe, la copie et la prise de notes et les évaluations écrites, en lien avec une lenteur d'écriture/);
+  assert.match(t.conclusion, /Ce diagnostic s'appuie sur le BHK, l'observation de l'écriture et le DTVP-3, ainsi que sur l'entretien avec Léa et sa famille\./);
   assert.match(t.conclusion, /Points d'appui : volontaire et attentive ; une bonne prise d'informations visuelles en copie\./);
   assert.match(t.preconisations, /Aménagements scolaires à formaliser dans un PAP :\n– Accorder un tiers-temps .* \(en lien avec la lenteur d'écriture, BHK : DS −1,50\)\./);
   assert.match(t.salutations, /scolarisation de Léa/);
@@ -287,7 +288,7 @@ test("grille d'autonomie : texte « À la maison », occupations et préconisati
   assert.match(t.maison, /Alimentation : Ne sait pas encore couper ses aliments au couteau\./);
   assert.match(t.maison, /Sommeil : RAS/);
   assert.match(t.ecole, /Autonomie en classe : Autonome mais lente pour préparer son cartable\./);
-  assert.match(t.conclusion, /difficultés dans l'habillage et les repas/);
+  assert.match(t.conclusion, /difficultés dans .*l'habillage et les repas/);
   assert.match(t.bilans, /Grille d'autonomie/);
   const p = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "adaptations");
   assert.match(p.raison, /faire ses lacets/);
@@ -1029,4 +1030,40 @@ test("graphiques du BHK : légende détaillée (barres, DS, niveaux)", () => {
   assert.match(sans.svg, /Sans normes : vert = aucune dégradation/);
   const ds = G.dessiner("profil-ds", { seuils: { patho: 2, inferieur: 1, superieur: 1 }, lignes: [{ bilan: "BHK", epreuve: "Qualité", ds: -2.3, niveau: "patho" }, { bilan: "BHK", epreuve: "Vitesse", ds: 0, niveau: "moyenne" }] });
   assert.match(ds.svg, /Fond coloré : zones/);
+});
+
+test("diagnostic ergothérapique pré-rempli : propositions expliquées, occupations écartées", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.envSuivis = "orthophonie depuis 2024";
+  d.ecoleAmenagements = "";
+  d.avqParents = { fait: "oui", aesh: "oui", heures: "12", domaines: {
+    habillage: { autonome: "non", reponses: { 1: 0, 2: 1, 3: 4 }, aides: "lacets élastiques, efficace" },
+    repas: { autonome: "oui", reponses: { 1: 4 } },
+    ecole: { reponses: { 10: 0, 2: 1 } },
+    comportement: { reponses: { 1: 4, 3: 3, 10: 4 } },
+  }, priorites: { ecole: { rang: "1" }, habillage: { rang: "2" } } };
+  d.senso.eso = { fait: "oui", roues: { sp: { OR: "0,5", SS: "2", DS: "2" }, p: { OR: "1", SS: "3" }, l: { OR: "0,8", SS: "3" } }, systemes: {} };
+  const p = B.propositionsDiagnostic(d, reg);
+  const occ = (id) => p.occupations.find((x) => x.id === id);
+  assert.ok(occ("habillage").sources.some((s) => /questionnaire d'autonomie.*habillage \(pas autonome, priorité des parents/.test(s)));
+  assert.ok(!occ("repas"), "autonome pour les repas : pas proposé");
+  assert.ok(occ("outils") && occ("ecrit-classe") && occ("toilette"));
+  assert.match(p.champs.diagImpact.texte, /^N'est pas autonome pour l'habillage selon ses parents/);
+  assert.match(p.champs.diagImpact.texte, /priorités des parents : la vie scolaire, l'habillage/);
+  assert.match(p.champs.envFacilitateurs.texte, /^Aides en place à la maison pour l'habillage : lacets élastiques, efficace ; accompagnement par une AESH \(12 h\)/);
+  assert.match(p.champs.envObstacles.texte, /environnements bruyants ou très stimulants/);
+  assert.match(p.champs.envObstacles.texte, /pas d'aménagement en place à l'école/);
+  assert.match(p.champs.conclusionContexte.texte, /^Suivis en cours : orthophonie depuis 2024\./);
+  assert.match(p.champs.conclusionPoints.texte, /selon ses parents, léa : « se bloque face à une difficulté », « se dévalorise »/i);
+  assert.match(p.champs.conclusionForces.texte, /« est sensible aux encouragements » selon ses parents/);
+  assert.match(p.champs.conclusionForces.texte, /autonome pour les repas selon ses parents/);
+  assert.ok(p.champs.diagImpact.sources.indexOf("questionnaire d'autonomie (parents)") >= 0);
+  // Occupation proposée mais écartée par l'ergothérapeute
+  d.occRefusees = ["toilette"];
+  const ret = B.occupationsRetenues(B.normaliserDossier(d), p).map((o) => o.id);
+  assert.ok(ret.indexOf("toilette") < 0 && ret.indexOf("habillage") >= 0);
+  const t = B.rediger(d, reg).conclusion;
+  assert.ok(!/la toilette et les soins personnels/.test(t.split("Diagnostic ergothérapique :")[1]));
+  assert.match(t, /Ce diagnostic s'appuie sur .*l'ESO.*le questionnaire d'autonomie rempli par les parents/);
 });

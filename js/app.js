@@ -246,7 +246,6 @@
     $("#prise").innerHTML = `<option value="">Non précisé</option>` + B.PRISES.map((p) => `<option value="${p.id}">${esc(p.label)}</option>`).join("");
     $("#mode-copie").innerHTML = `<option value="">Non précisée</option>` + B.MODES_COPIE.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join("");
     $("#remarques").innerHTML = B.REMARQUES.map((x) => `<label><input type="checkbox" value="${x.id}" data-liste="remarques"><span>${esc(x.label)}</span></label>`).join("");
-    $("#occupations").innerHTML = B.OCCUPATIONS.map((x) => `<label><input type="checkbox" value="${x.id}" data-liste="occDifficultes"><span>${esc(B.maj(x.texte))}</span></label>`).join("");
     $$(".critere-global .critere-tete").forEach((t, i) => { t.insertAdjacentHTML("beforeend", `<output class="ds-critere" id="dsc-${i + 1}"></output>`); });
     $("#c1").innerHTML = `<option value="">Selon la taille</option>` + [0, 1, 2, 3, 4, 5].map((v) => `<option value="${v}">${v} (saisi)</option>`).join("");
     $("#c2").innerHTML = radios("c2", [0, 1, 2, 3, 4, 5].map((v) => [String(v), String(v)]), 'data-champ="c2"');
@@ -2077,7 +2076,7 @@
       h += html([sec]);
     });
     $("#sections").innerHTML = h;
-    $("#sections-ecole").innerHTML = html(B.SECTIONS_ECOLE);
+
   }
 
   /* ================= Réglages ================= */
@@ -2311,6 +2310,14 @@
     } else if (el.dataset.champ) {
       if (el.type === "radio" && !el.checked) return;
       dossier[el.dataset.champ] = el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value;
+      if (B.CHAMPS_DIAG.indexOf(el.dataset.champ) >= 0 && e.type === "input") { dossier.diagAuto = dossier.diagAuto || {}; dossier.diagAuto[el.dataset.champ] = "manuel"; }
+    } else if (el.dataset.occ) {
+      if (e.type !== "change") return;
+      const id = el.dataset.occ, dif = new Set(dossier.occDifficultes || []), ref = new Set(dossier.occRefusees || []);
+      if (el.checked) { ref.delete(id); dif.add(id); }
+      else { dif.delete(id); if (propsDiag && propsDiag.occupations.some((x) => x.id === id)) ref.add(id); }
+      dossier.occDifficultes = Array.from(dif);
+      dossier.occRefusees = Array.from(ref);
     } else if (el.dataset.liste) {
       const l = new Set(dossier[el.dataset.liste]);
       if (el.checked) l.add(el.value); else l.delete(el.value);
@@ -2478,8 +2485,68 @@
     if (cr.eso && cr.eso.modifie) ap.insertAdjacentHTML("beforeend", `<p class="note">Vous avez retouché cette section dans l'onglet Compte rendu : c'est votre version qui est utilisée.</p>`);
   }
 
+  // Diagnostic ergothérapique pré-rempli : propositions de l'outil tant que le champ n'a pas été modifié à la main.
+  let propsDiag = null, sigOccDiag = "";
+  function majDiagnosticPropose() {
+    propsDiag = B.propositionsDiagnostic(dossier, reglages);
+    dossier.diagAuto = dossier.diagAuto || {};
+    B.CHAMPS_DIAG.forEach((k) => {
+      const p = propsDiag.champs[k], etat = dossier.diagAuto[k];
+      if (etat === "manuel") return;
+      if (etat === "auto" || !String(dossier[k] || "").trim()) {
+        if (p.texte) { dossier[k] = p.texte; dossier.diagAuto[k] = "auto"; }
+        else if (etat === "auto") { dossier[k] = ""; delete dossier.diagAuto[k]; }
+        const el = $(`[data-champ="${k}"]`);
+        if (el && document.activeElement !== el && el.value !== (dossier[k] || "")) { el.value = dossier[k] || ""; ajuster(el); }
+      }
+    });
+  }
+  function rendreDiagnosticPropose() {
+    if (!propsDiag) return;
+    const d = B.normaliserDossier(dossier);
+    B.CHAMPS_DIAG.forEach((k) => {
+      const z = $(`[data-source="${k}"]`);
+      if (!z) return;
+      const p = propsDiag.champs[k], etat = (dossier.diagAuto || {})[k];
+      if (!p.texte) { z.innerHTML = ""; z.dataset.sig = ""; z.hidden = true; return; }
+      z.hidden = false;
+      const manuel = etat === "manuel" && String(dossier[k] || "").trim() !== p.texte;
+      const html = (manuel ? "💡 L'outil propose d'après : " : "💡 D'après : ") + esc(p.sources.join(" ; ")) +
+        (manuel ? ` <button type="button" class="bouton-lien" data-reproposer-diag="${k}">↻ Reproposer</button>` : "");
+      // Réécrire seulement si le contenu change : sinon le bouton disparaîtrait sous le clic.
+      if (z.dataset.sig !== html) { z.dataset.sig = html; z.innerHTML = html; }
+    });
+    const retenues = new Set(B.occupationsRetenues(d, propsDiag).map((o) => o.id));
+    const sig = JSON.stringify([Array.from(retenues), propsDiag.occupations]);
+    const zone = $("#occupations");
+    if (zone && sig !== sigOccDiag) {
+      sigOccDiag = sig;
+      zone.innerHTML = B.OCCUPATIONS.map((x) => {
+        const p = propsDiag.occupations.find((y) => y.id === x.id);
+        return `<label class="${p ? "occ-proposee" : ""}"><input type="checkbox" value="${x.id}" data-occ="${x.id}"${retenues.has(x.id) ? " checked" : ""}><span><b class="occ-texte">${esc(B.maj(x.texte))}${p ? `<small class="raison-occ">💡 ${esc(p.sources.slice(0, 3).join(" ; "))}${p.sources.length > 3 ? "…" : ""}</small>` : ""}</b></span></label>`;
+      }).join("");
+    }
+    const ap = $("#apercu-diagnostic");
+    if (ap) {
+      const t = cr.conclusion && cr.conclusion.modifie ? cr.conclusion.texte : genere.conclusion || "";
+      ap.innerHTML = t.split("\n").filter((l) => l.trim()).map((l) => `<p>${esc(l)}</p>`).join("");
+    }
+  }
+  async function reproposerDiagnostic(k) {
+    if (!propsDiag || !propsDiag.champs[k].texte) return;
+    if (String(dossier[k] || "").trim() && !(await demander("Remplacer votre texte par la proposition de l'outil ?", "Remplacer"))) return;
+    dossier[k] = propsDiag.champs[k].texte;
+    dossier.diagAuto = dossier.diagAuto || {};
+    dossier.diagAuto[k] = "auto";
+    const el = $(`[data-champ="${k}"]`);
+    if (el) { el.value = dossier[k]; ajuster(el); }
+    nonEnregistre = true;
+    majTout();
+  }
+
   function majTout() {
     majCotationEso();
+    majDiagnosticPropose();
     // La synthèse proposée de l'auto-évaluation est mise à jour avant la rédaction du compte rendu.
     if (dossier.auto && dossier.auto.fait === "oui") majSyntheseAuto(false);
     const r = B.calculerBHK(dossier, reglages);
@@ -2572,6 +2639,7 @@
     genere = B.rediger(dossier, reglages);
     TOUTES_SECTIONS.forEach((s) => {
       const ta = $(`[data-section="${s.id}"]`);
+      if (!ta) { if (!cr[s.id] || !cr[s.id].modifie) cr[s.id] = { texte: genere[s.id], modifie: false }; return; }
       $(`#h-${s.id}`).textContent = B.titreSection(s.titre, dossier);
       if (!cr[s.id] || !cr[s.id].modifie) {
         cr[s.id] = { texte: genere[s.id], modifie: false };
@@ -2582,9 +2650,9 @@
     });
     majAvqParents();
     majApercuEso();
+    rendreDiagnosticPropose();
     $$("fieldset.groupe.replie").forEach(majResumeRepli);
     majACompleter();
-    majGalerie();
     sauverBrouillon();
   }
 
@@ -3243,20 +3311,6 @@
     await telecharger(nomFichier("Plan_suivi", "docx"), octets, MIME_DOCX, "Plan de suivi téléchargé");
   }
 
-  /* ---------- Graphiques du compte rendu ---------- */
-
-  let minuteurGalerie = null;
-  function majGalerie() {
-    clearTimeout(minuteurGalerie);
-    minuteurGalerie = setTimeout(() => {
-      const zone = $("#galerie");
-      if (!zone || $("#p-compte-rendu").hidden) return;
-      const blocs = modele().blocs.filter((b) => b.type === "graphique");
-      const figures = blocs.map((b) => { const g = window.Graph.deBloc(b, dossier.senso); return g ? `<figure class="vignette-graphique">${g.svg}<figcaption>${esc(b.alt)}</figcaption></figure>` : ""; }).join("");
-      zone.innerHTML = figures || `<p class="vide">Les graphiques apparaissent ici dès que les résultats sont saisis (BHK, autres bilans, MCRO, DCDQ, bilan sensoriel).</p>`;
-    }, 250);
-  }
-
   /* ---------- Parties repliables : cartes et sous-parties ---------- */
   // Chaque carte (fieldset.groupe) se replie en touchant son titre ; les sous-parties (h4.sous-groupe) aussi.
   // Les blocs de bilans gardent leur case à cocher (faire / ne pas faire) et se replient avec la flèche une fois cochés.
@@ -3417,7 +3471,8 @@
     const src = obj.compteRendu || {};
     TOUTES_SECTIONS.forEach((s) => {
       if (src[s.id] && src[s.id].modifie && typeof src[s.id].texte === "string") cr[s.id] = { texte: src[s.id].texte, modifie: true };
-      $(`[data-section="${s.id}"]`).value = cr[s.id] ? cr[s.id].texte : "";
+      const ta = $(`[data-section="${s.id}"]`);
+      if (ta) ta.value = cr[s.id] ? cr[s.id].texte : "";
     });
     remplirFormulaire();
     majTout();
@@ -3909,7 +3964,7 @@
     $("#bouton-reglages").setAttribute("aria-pressed", String(nom === "reglages"));
     $$("[role=tabpanel]").forEach((p) => { p.hidden = p.id !== "p-" + nom; });
     window.scrollTo(0, 0);
-    if (nom === "compte-rendu") { $$("[data-section]").forEach(ajuster); majGalerie(); }
+    if (nom === "compte-rendu") $$("#p-compte-rendu textarea").forEach(ajuster);
     if (nom === "dossier") afficherMesDossiers();
     if (nom === "seances") agendaPret = rendreAgenda();
     if (nom === "tableau") rendreTableau();
@@ -3960,6 +4015,7 @@
       }
     }
     if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
+    if (el.dataset.reproposerDiag) return reproposerDiagnostic(el.dataset.reproposerDiag);
     if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
     if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });
     if (el.dataset.etapeBas) return modifierPlanning((l) => { const i = +el.dataset.etapeBas; if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); });

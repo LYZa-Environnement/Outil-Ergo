@@ -680,55 +680,21 @@
           <li>Téléchargez le compte rendu Word. Le bilan synthétique (une à deux pages, avec le diagnostic ergothérapique), la synthèse pour l'école et le plan de suivi (pour vous) se téléchargent aussi ici.</li>
         </ol>
       </details>
-      <section class="documents" aria-labelledby="h-documents">
-        <h2 id="h-documents">Les documents</h2>
-        <div class="documents-grille">
-          <article class="doc-carte">
-            <span class="doc-icone" aria-hidden="true">📄</span>
-            <h3>Compte rendu de bilan</h3>
-            <p>Pour la famille et le médecin.</p>
-            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="compte-rendu" data-faire="word">Word</button></div>
-          </article>
-          <article class="doc-carte">
-            <span class="doc-icone" aria-hidden="true">📋</span>
-            <h3>Bilan synthétique</h3>
-            <p>Une à deux pages : résultats principaux et diagnostic ergothérapique.</p>
-            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="bilan-synthese" data-faire="word">Word</button></div>
-          </article>
-          <article class="doc-carte">
-            <span class="doc-icone" aria-hidden="true">🏫</span>
-            <h3>Synthèse pour l'école</h3>
-            <p>Pour l'équipe éducative, sans informations familiales.</p>
-            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="ecole" data-faire="word">Word</button></div>
-          </article>
-          <article class="doc-carte">
-            <span class="doc-icone" aria-hidden="true">🗂️</span>
-            <h3>Plan de suivi</h3>
-            <p>Pour vous : analyse détaillée, axes de travail, calendrier, exercices.</p>
-            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="suivi" data-faire="word">Word</button></div>
-          </article>
-          <article class="doc-carte">
-            <span class="doc-icone" aria-hidden="true">🌱</span>
-            <h3>Carnet d'activités</h3>
-            <p>Pour les parents : activités à la maison et tableau de la semaine.</p>
-            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="livret" data-faire="word">Word</button></div>
-          </article>
-        </div>
-        <p class="note" id="a-completer"></p>
-        <button type="button" class="bouton-lien" data-action="copier">Copier le texte du compte rendu</button>
-      </section>
-
       <fieldset class="groupe">
-        <legend>Diagnostic ergothérapique</legend>
-        <div class="champ"><span>Occupations en difficulté</span><div class="cases" id="occupations"></div></div>
-        <label class="champ"><span>Retentissement au quotidien</span><textarea data-champ="diagImpact" rows="2" placeholder="ne prend pas tous ses cours, devoirs très longs…"></textarea></label>
+        <legend>🧭 Diagnostic ergothérapique</legend>
+        <p class="note">L'outil pré-remplit ce diagnostic à partir des bilans et questionnaires saisis. Sous chaque champ, « 💡 D'après » indique d'où vient la proposition. Modifiez librement : un champ modifié n'est plus remplacé (« ↻ Reproposer » pour revenir à la proposition).</p>
+        <div class="champ"><span>Occupations en difficulté</span>
+          <p class="note">Cochées d'office quand un bilan ou un questionnaire les signale (avec la raison) ; décochez celles que vous ne retenez pas.</p>
+          <div class="cases cases-occupations" id="occupations"></div></div>
+        <div class="champ-propose"><label class="champ"><span>Retentissement au quotidien</span><textarea data-champ="diagImpact" rows="2" placeholder="ne prend pas tous ses cours, devoirs très longs…"></textarea></label><p class="source-prop" data-source="diagImpact"></p></div>
         <div class="grille2">
-          <label class="champ"><span>Obstacles dans l'environnement</span><textarea data-champ="envObstacles" rows="2" placeholder="classe bruyante, pas d'aménagement…"></textarea></label>
-          <label class="champ"><span>Facilitateurs dans l'environnement</span><textarea data-champ="envFacilitateurs" rows="2" placeholder="enseignante attentive, parents disponibles…"></textarea></label>
+          <div class="champ-propose"><label class="champ"><span>Obstacles dans l'environnement</span><textarea data-champ="envObstacles" rows="2" placeholder="classe bruyante, pas d'aménagement…"></textarea></label><p class="source-prop" data-source="envObstacles"></p></div>
+          <div class="champ-propose"><label class="champ"><span>Facilitateurs dans l'environnement</span><textarea data-champ="envFacilitateurs" rows="2" placeholder="enseignante attentive, parents disponibles…"></textarea></label><p class="source-prop" data-source="envFacilitateurs"></p></div>
         </div>
-        <label class="champ"><span>Contexte (après la présentation de l'enfant)</span><textarea data-champ="conclusionContexte" rows="2" placeholder="Difficultés présentes depuis le CP, sans aménagement jusqu'ici…"></textarea></label>
-        <label class="champ"><span>Autres constats (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2" placeholder="fatigabilité importante en fin de journée"></textarea></label>
-        <label class="champ"><span>Points d'appui</span><input type="text" data-champ="conclusionForces" placeholder="volontaire, bonne compréhension des consignes…"></label>
+        <div class="champ-propose"><label class="champ"><span>Contexte (après la présentation de l'enfant)</span><textarea data-champ="conclusionContexte" rows="2" placeholder="Difficultés présentes depuis le CP, sans aménagement jusqu'ici…"></textarea></label><p class="source-prop" data-source="conclusionContexte"></p></div>
+        <div class="champ-propose"><label class="champ"><span>Autres constats (un par ligne)</span><textarea data-champ="conclusionPoints" rows="2" placeholder="fatigabilité importante en fin de journée"></textarea></label><p class="source-prop" data-source="conclusionPoints"></p></div>
+        <div class="champ-propose"><label class="champ"><span>Points d'appui</span><textarea data-champ="conclusionForces" rows="2" placeholder="volontaire, bonne compréhension des consignes…"></textarea></label><p class="source-prop" data-source="conclusionForces"></p></div>
+        <details class="detail-resultats"><summary>Aperçu du diagnostic tel qu'il apparaîtra dans le compte rendu</summary><div class="apercu-synthese" id="apercu-diagnostic"></div></details>
       </fieldset>
 
       <fieldset class="groupe">
@@ -765,10 +731,42 @@
         </div>
       </fieldset>
 
-      <fieldset class="groupe" id="bloc-galerie">
-        <legend>📊 Graphiques du compte rendu</legend>
-        <p class="note">Ils sont ajoutés au Word, chacun à sa place.</p>
-        <div class="galerie" id="galerie"></div>
+      <fieldset class="groupe documents" id="bloc-documents">
+        <legend>📄 Documents</legend>
+        <div class="documents-grille">
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">📄</span>
+            <h3>Compte rendu de bilan</h3>
+            <p>Pour la famille et le médecin.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="compte-rendu" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">📋</span>
+            <h3>Bilan synthétique</h3>
+            <p>Une à deux pages : résultats principaux et diagnostic ergothérapique.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="bilan-synthese" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🏫</span>
+            <h3>Synthèse pour l'école</h3>
+            <p>Pour l'équipe éducative, sans informations familiales.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="ecole" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="ecole" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🗂️</span>
+            <h3>Plan de suivi</h3>
+            <p>Pour vous : analyse détaillée, axes de travail, calendrier, exercices.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="suivi" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="suivi" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">🌱</span>
+            <h3>Carnet d'activités</h3>
+            <p>Pour les parents : activités à la maison et tableau de la semaine.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="livret" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="livret" data-faire="word">Word</button></div>
+          </article>
+        </div>
+        <p class="note" id="a-completer"></p>
+        <button type="button" class="bouton-lien" data-action="copier">Copier le texte du compte rendu</button>
       </fieldset>
 
       <fieldset class="groupe" id="bloc-texte-cr">
@@ -777,11 +775,6 @@
         <div id="sections"></div>
       </fieldset>
 
-      <fieldset class="groupe" id="bloc-texte-ecole">
-        <legend>🏫 Texte de la synthèse pour l'école</legend>
-        <p class="note">Document court pour l'équipe éducative : constats, points d'appui, aménagements et suivi, sans l'anamnèse ni les informations familiales.</p>
-        <div id="sections-ecole"></div>
-      </fieldset>
     </section>
 
     <!-- ============ Réglages ============ -->

@@ -692,7 +692,7 @@
     "photoCopie", "photoL", "photoH", "adoQualite", "adoTermine",
     "id", "creeLe", "auteur",
   ];
-  const CHAMPS_LISTE = ["bilansUtilises", "remarques", "amenagements", "occDifficultes"];
+  const CHAMPS_LISTE = ["bilansUtilises", "remarques", "amenagements", "occDifficultes", "occRefusees"];
 
   function testVide(t) {
     return { fait: "", notes: "", lignes: t.lignes.map((l) => ({ id: l[0], epreuve: l[1], type: l[2], valeur: "", moy: "", et: "", sens: "haut", commentaire: "" })) };
@@ -702,6 +702,7 @@
     const d = {};
     CHAMPS_TEXTE.forEach((k) => { d[k] = ""; });
     CHAMPS_LISTE.forEach((k) => { d[k] = []; });
+    d.diagAuto = {};
     d.passation = aujourdhui();
     d.reference = "classe";
     d.normesSexe = "auto";
@@ -739,6 +740,9 @@
     if (!src || typeof src !== "object") return d;
     CHAMPS_TEXTE.forEach((k) => { if (src[k] !== undefined && src[k] !== null) d[k] = texte(src[k]); });
     CHAMPS_LISTE.forEach((k) => { if (Array.isArray(src[k])) d[k] = src[k].map(texte); });
+    // Champs du diagnostic : « auto » = texte proposé par l'outil, « manuel » = modifié par l'ergothérapeute.
+    d.diagAuto = {};
+    if (src.diagAuto && typeof src.diagAuto === "object") CHAMPS_DIAG.forEach((k) => { if (src.diagAuto[k] === "auto" || src.diagAuto[k] === "manuel") d.diagAuto[k] = src.diagAuto[k]; });
     if (d.reference !== "age") d.reference = "classe";
     if (d.normesSexe !== "ensemble") d.normesSexe = "auto";
     d.senso = Senso.normaliser(src.senso);
@@ -1232,6 +1236,178 @@
     return { raisons: raisons, facteurs: facteurs, constats: constats, objectifs: s.objectifs.concat(o.objectifs), occupations: o.occupations, occ: o.occ };
   }
 
+  /* ================= Diagnostic ergothérapique : propositions à partir des bilans et questionnaires ================= */
+  // Chaque proposition garde sa source, affichée dans l'outil sous le champ (« d'après … »).
+  const CHAMPS_DIAG = ["diagImpact", "envObstacles", "envFacilitateurs", "conclusionContexte", "conclusionPoints", "conclusionForces"];
+  const OCC_CARTES = {
+    habiller: "habillage", manteau: "habillage", lacets: "habillage", laver: "toilette", dents: "toilette", couverts: "repas", verser: "repas", gouter: "repas",
+    ecrire: "ecrit-classe", "ecrire-vite": "ecrit-classe", copier: "copie", decouper: "outils", colorier: "outils", regle: "outils", cartable: "outils",
+    devoirs: "devoirs", clavier: "ecrit-classe", ballon: "sport", velo: "sport", nager: "sport", courir: "sport", construire: "jeux", dessiner: "jeux",
+    recre: "social", dormir: "sommeil",
+  };
+  const OCC_AVQP = { habillage: "habillage", toilette: "toilette", repas: "repas", loisirs: "jeux", deplacements: "deplacements", comportement: "transitions" };
+  // Questions « école » du questionnaire d'autonomie (texte de l'outil) rattachées aux occupations.
+  const OCC_ECOLE_AVQP = { outils: [2, 3, 4, 5, 17, 18], "ecrit-classe": [7, 9, 10, 11, 12, 13, 14, 15, 16], devoirs: [6, 8] };
+  const DOMAINES_AUTO_DE = { lisibilite: "la lisibilité", satisfaction: "le vécu (satisfaction, émotions)", vitesse: "la vitesse" };
+
+  function propositionsDiagnostic(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const a = accords(d);
+    const r = calculerBHK(d, reg);
+    const tests = calculerTests(d, reg);
+    const faible = (n) => n === "patho" || n === "inferieur";
+    const occ = {};
+    const ajoutOcc = (id, source) => { if (!id) return; if (!occ[id]) occ[id] = []; if (occ[id].indexOf(source) < 0) occ[id].push(source); };
+    const champs = {};
+    CHAMPS_DIAG.forEach((k) => { champs[k] = []; });
+    const ajout = (k, t, source) => { if (t && !champs[k].some((x) => x.texte === t)) champs[k].push({ texte: t, source: source }); };
+    const cite = (t) => "« " + min(texte(t).trim().replace(/\s*\((ex|par ex)[^)]*\)/gi, "").replace(/[.\s]+$/, "")) + " »";
+    const rien = (t) => !texte(t).trim() || /^(ras|rien|aucun|aucune|néant|non)\.?$/i.test(texte(t).trim());
+    const sansPoint = (t) => texte(t).trim().replace(/[.;]+$/, "");
+    // Minuscule en début de texte saisi, sauf sigle (CMP, AESH…).
+    const minS = (t) => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(t) ? min(t) : t;
+
+    // BHK et tests
+    if (faible(r.niveauQ)) ajoutOcc("ecrit-classe", r.nomTest + " : qualité, DS " + formaterDS(r.dsQ));
+    if (faible(r.niveauV)) {
+      const src = r.nomTest + " : vitesse, DS " + formaterDS(r.dsV);
+      ajoutOcc("ecrit-classe", src); ajoutOcc("copie", src);
+      if (r.niveauV === "patho") ajoutOcc("evaluations", src);
+    }
+    if (r.niveauQ && !faible(r.niveauQ)) ajout("conclusionForces", "une qualité d'écriture " + (r.niveauQ === "superieur" ? "supérieure à" : "dans") + " la moyenne", r.nomTest);
+    if (r.niveauV && !faible(r.niveauV)) ajout("conclusionForces", "une vitesse d'écriture " + (r.niveauV === "superieur" ? "supérieure à" : "dans") + " la moyenne", r.nomTest);
+    tests.filter((t) => t.fait).forEach((t) => {
+      const l = t.lignes.filter((x) => x.niveau);
+      if (l.length && l.every((x) => !faible(x.niveau))) ajout("conclusionForces", "des résultats dans la moyenne au " + t.court, t.court);
+    });
+    if (d.grille["lisibilite.fatigue"] === "oui") ajout("diagImpact", "une fatigue en cours de tâche écrite", "grille d'observation de l'écriture");
+    const frappe = Clavier.indicateur(d.clavier);
+    if (frappe && frappe.cle === "clavierEfficace") ajout("conclusionForces", "une frappe au clavier efficace", "EViC");
+
+    // Auto-appréciation de l'écriture
+    if (d.auto.fait === "oui") {
+      const sa = syntheseAuto(d.auto, reg);
+      const g = sa.domaines.filter((x) => x.frequentes > 0).sort((x, y) => y.frequentes - x.frequentes);
+      if (g.length) ajout("conclusionPoints", a.sujet + " exprime une gêne fréquente pour " + joindre(g.map((x) => DOMAINES_AUTO_DE[x.id] || min(x.nom))) + " de son écriture", "auto-appréciation de l'écriture");
+      g.forEach((x) => { if (x.id === "lisibilite") ajoutOcc("ecrit-classe", "auto-appréciation : lisibilité"); if (x.id === "vitesse") ajoutOcc("copie", "auto-appréciation : vitesse"); });
+    }
+
+    // Questionnaire d'autonomie rempli par les parents
+    if (d.avqParents.fait === "oui") {
+      const q = d.avqParents, SRC = "questionnaire d'autonomie (parents)";
+      const an = Occup.analyseAvqParents(q, reg.avqLibelles);
+      const libDefaut = JSON.stringify(Occup.libellesAvqp(reg.avqLibelles).domaines.ecole) === JSON.stringify(Occup.LIBELLES_AVQP.domaines.ecole);
+      const non = an.filter((x) => x.autonome === "non"), oui = an.filter((x) => x.autonome === "oui");
+      if (non.length) ajout("diagImpact", "n'est pas autonome pour " + joindre(non.map((x) => x.le)) + " selon ses parents", SRC);
+      // Domaine retenu : pas autonome, priorité des parents, ou difficultés nombreuses (au moins un tiers des réponses).
+      // Un domaine où l'enfant est dit autonome n'est retenu que si la moitié des réponses au moins sont des difficultés.
+      const enDifficulte = [];
+      an.forEach((x) => {
+        if (x.id === "ecole" || !OCC_AVQP[x.id]) return;
+        const nd = x.difficultes.length, seuil = Math.max(2, Math.ceil(x.repondues / 3));
+        const pourquoi = [];
+        if (x.autonome === "non") pourquoi.push("pas autonome");
+        if (q.priorites[x.id] && q.priorites[x.id].rang) pourquoi.push("priorité des parents");
+        if (nd >= seuil && (x.autonome !== "oui" || nd >= Math.ceil(x.repondues / 2))) pourquoi.push(nd + " difficulté" + (nd > 1 ? "s" : "") + " sur " + x.repondues + " réponses");
+        if (pourquoi.length) { enDifficulte.push(x.id); ajoutOcc(OCC_AVQP[x.id], SRC + " : " + min(x.nom) + " (" + pourquoi.join(", ") + ")"); }
+      });
+      const ecole = an.find((x) => x.id === "ecole");
+      if (ecole && ecole.difficultes.length) {
+        if (libDefaut) Object.keys(OCC_ECOLE_AVQP).forEach((id) => { if (ecole.difficultes.some((it) => OCC_ECOLE_AVQP[id].indexOf(it.n) >= 0)) ajoutOcc(id, SRC + " : école"); });
+        else if (ecole.difficultes.length >= 2) ajoutOcc("ecrit-classe", SRC + " : école");
+        ajout("diagImpact", "à l'école, difficultés relevées par les parents (jamais ou rarement) : " + ecole.difficultes.slice(0, 4).map((it) => cite(it.libelle)).join(", "), SRC);
+      }
+      const prio = Occup.DOMAINES_AVQP.map((x) => ({ x: x, p: q.priorites[x.id] })).filter((y) => y.p.rang).sort((y, z) => +y.p.rang - +z.p.rang);
+      if (prio.length) ajout("diagImpact", "priorités des parents : " + prio.map((y) => y.x.le).join(", "), SRC);
+      an.filter((x) => x.aides).forEach((x) => ajout("envFacilitateurs", "aides en place à la maison pour " + x.le + " : " + minS(sansPoint(x.aides)), SRC));
+      if (q.aesh === "oui") ajout("envFacilitateurs", "accompagnement par une AESH" + (q.heures.trim() ? " (" + sansPoint(q.heures) + (/\d$/.test(q.heures.trim()) ? " h" : "") + ")" : ""), SRC);
+      const comp = an.find((x) => x.id === "comportement");
+      if (comp) {
+        const diff = comp.difficultes.filter((it) => it.sens === "-");
+        if (diff.length) ajout("conclusionPoints", "selon ses parents, " + a.sujetMin + " : " + diff.slice(0, 4).map((it) => cite(it.libelle)).join(", ") + " (fréquemment ou toujours)", SRC + " : comportement");
+        const appuis = comp.acquis.filter((it) => it.sens === "+");
+        if (appuis.length) ajout("conclusionForces", appuis.map((it) => cite(it.libelle)).join(", ") + " selon ses parents", SRC + " : comportement");
+      }
+      const ouiNet = oui.filter((x) => enDifficulte.indexOf(x.id) < 0);
+      if (ouiNet.length) ajout("conclusionForces", "autonome pour " + joindre(ouiNet.map((x) => x.le)) + " selon ses parents", SRC);
+    }
+
+    // Bilan sensoriel (ESO, profil de Dunn, SensOT-dir)
+    if (d.senso.eso.fait === "oui") {
+      const an = Senso.analyseEso(d.senso.eso);
+      const vers = { sp: "toilette", p: "ecrit-classe", l: "jeux" };
+      const noms = { sp: "les soins personnels", p: "le travail scolaire", l: "les loisirs" };
+      an.domaines.forEach((x) => { if (x.moyenne !== null && x.moyenne < 2) ajoutOcc(vers[x.id], "ESO : " + min(x.nom) + ", " + formaterNombre(x.moyenne, 1) + " sur 3"); });
+      const bons = an.domaines.filter((x) => x.moyenne !== null && x.moyenne >= 2.5);
+      if (bons.length && bons.length < an.domaines.length) ajout("conclusionForces", "un engagement adapté dans " + joindre(bons.map((x) => noms[x.id])), "ESO");
+      const g = (id) => an.globaux.find((x) => x.id === id);
+      if (g("UR") && g("UR").moyenne < 2) ajout("envObstacles", "les consignes données sans s'assurer de son attention, les environnements peu stimulants", "ESO : hyporéactivité sensorielle");
+    }
+    const sc = Senso.constats(d.senso);
+    const sens = ["sensibilite", "evitement", "auditif"].map((k) => sc.raisons[k]).filter(Boolean);
+    if (sens.length) ajout("envObstacles", "les environnements bruyants ou très stimulants (cantine, classe agitée, foule), difficiles à supporter", sens[0]);
+    if (d.senso.sensot.fait === "oui") {
+      const genes = Senso.themesSensot(d.senso.sensot).filter((x) => x.gene > 0).sort((x, y) => y.gene - x.gene);
+      if (genes.length) ajout("envObstacles", "des situations sensorielles gênantes au quotidien (" + joindre(genes.slice(0, 3).map((x) => min(x.nom))) + ")", "SensOT-dir");
+    }
+
+    // Occupations : grille d'autonomie, MCRO, tri de cartes, DCDQ
+    Occup.occupationsAvq(d.avq).forEach((id) => ajoutOcc(id, "grille d'autonomie"));
+    const m = Occup.calculMcro(d.mcro);
+    if (d.mcro.fait === "oui") {
+      const peu = m.problemes.filter((pb) => pb.r1 !== null && pb.r1 <= 5);
+      if (peu.length) ajout("diagImpact", "activités prioritaires peu réussies : " + peu.map((pb) => min(pb.activite) + " (" + formaterNombre(pb.r1) + "/10)").join(", "), "MCRO");
+    }
+    const ta = d.cartes.activites;
+    if (ta.fait === "oui") ta.resultats.filter((x) => x.pile === "difficile").forEach((x) => ajoutOcc(OCC_CARTES[x.id], "tri de cartes : " + x.rapport));
+    const qd = Occup.calculDcdq(d.dcdq, ageMois(d));
+    if (d.dcdq.fait === "oui" && qd.indication === true) ajoutOcc("sport", "DCDQ " + qd.total + "/75");
+
+    // Environnement : aucun aménagement alors que des difficultés sont relevées
+    if (Object.keys(occ).length && rien(d.ecoleAmenagements)) ajout("envObstacles", "pas d'aménagement en place à l'école pour l'instant", "anamnèse : aménagements");
+    if (!rien(d.ecoleHumain)) ajout("envFacilitateurs", sansPoint(minS(d.ecoleHumain.trim())), "anamnèse : environnement humain à l'école");
+
+    // Contexte : suivis et parcours scolaire
+    if (!rien(d.envSuivis)) ajout("conclusionContexte", "Suivis en cours : " + sansPoint(minS(d.envSuivis.trim())) + ".", "anamnèse : accompagnements et suivis");
+    if (!rien(d.envParcours)) ajout("conclusionContexte", "Parcours scolaire : " + sansPoint(minS(d.envParcours.trim())) + ".", "anamnèse : parcours scolaire");
+
+    const sep = { conclusionContexte: " ", conclusionPoints: "\n" };
+    const out = { occupations: OCCUPATIONS.filter((o) => occ[o.id]).map((o) => ({ id: o.id, texte: o.texte, sources: occ[o.id] })), champs: {} };
+    CHAMPS_DIAG.forEach((k) => {
+      const l = champs[k];
+      const t = l.map((x) => x.texte).join(sep[k] || " ; ");
+      out.champs[k] = { texte: k === "conclusionContexte" || k === "conclusionPoints" ? t : maj(t), sources: l.map((x) => x.source).filter((x, i, arr) => arr.indexOf(x) === i) };
+    });
+    return out;
+  }
+  // Occupations retenues : cochées par l'ergothérapeute, ou proposées par l'outil et non écartées.
+  function occupationsRetenues(d, props) {
+    const p = props || propositionsDiagnostic(d);
+    return OCCUPATIONS.filter((o) => d.occRefusees.indexOf(o.id) < 0 && (d.occDifficultes.indexOf(o.id) >= 0 || p.occupations.some((x) => x.id === o.id)));
+  }
+  // Bilans et questionnaires sur lesquels s'appuie le diagnostic.
+  function sourcesDiagnostic(d, reg) {
+    const r = calculerBHK(d, reg), l = [];
+    if (r.complet || r.vitesse !== null) l.push("le " + r.nomTest);
+    if (Object.keys(d.grille).length) l.push("l'observation de l'écriture");
+    if (d.auto.fait === "oui") l.push("l'auto-appréciation de l'écriture");
+    if (d.clavier.fait === "oui") l.push("l'EViC");
+    calculerTests(d, reg).filter((t) => t.fait).forEach((t) => l.push("le " + t.court));
+    const s = d.senso;
+    if (s.otipis.fait === "oui") l.push("les observations cliniques OTIPIS");
+    if (s.dunnEnfant.fait === "oui" || s.dunnScolaire.fait === "oui") l.push("le profil sensoriel 2 de Dunn");
+    if (s.eso.fait === "oui") l.push("l'ESO");
+    if (s.sensot.fait === "oui") l.push("le SensOT-dir");
+    if (d.avqParents.fait === "oui") l.push("le questionnaire d'autonomie rempli par les parents");
+    if (Object.keys(d.avq).length) l.push("la grille d'autonomie");
+    if (d.mcro.fait === "oui") l.push("la MCRO");
+    if (d.othope.fait === "oui") l.push("l'OT'Hope");
+    if (d.dcdq.fait === "oui") l.push("le DCDQ");
+    if (d.cartes.activites.fait === "oui" || d.cartes.sensoriel.fait === "oui") l.push("les tris de cartes");
+    return l;
+  }
+
   function ageMois(d) {
     const a = age(d.naissance, d.passation);
     return a ? a.ans * 12 + a.mois : null;
@@ -1276,7 +1452,7 @@
     if (d.dcdq.fait === "oui" && q.indication === true) preuves.push("DCDQ en faveur (" + q.total + "/75)");
     const aide = Occup.ITEMS_AVQ.filter((it) => Occup.AIDE_AVQ.indexOf(d.avq[it.id]) >= 0).length;
     if (aide) preuves.push("besoin d'aide pour " + aide + " activité" + (aide > 1 ? "s" : "") + " de la grille d'autonomie");
-    const occ = OCCUPATIONS.filter((o) => d.occDifficultes.indexOf(o.id) >= 0).map((o) => o.texte);
+    const occ = occupationsRetenues(d, propositionsDiagnostic(d, reg)).map((o) => o.texte);
     if (occ.length) preuves.push("difficultés dans " + joindre(occ));
     const mc = Occup.calculMcro(d.mcro);
     if (d.mcro.fait === "oui" && mc.problemes.length) preuves.push("activités prioritaires à la MCRO");
@@ -1700,7 +1876,7 @@
       if (d.envObstacles.trim()) env.push("obstacles : " + min(d.envObstacles.trim()).replace(/\.$/, ""));
       if (d.envFacilitateurs.trim()) env.push("facilitateurs : " + min(d.envFacilitateurs.trim()).replace(/\.$/, ""));
       if (env.length) liste("Sur le plan de l'environnement :", env);
-      const occ = OCCUPATIONS.filter((o) => d.occDifficultes.indexOf(o.id) >= 0 || ind.occ.indexOf(o.id) >= 0).map((o) => o.texte);
+      const occ = occupationsRetenues(d, propositionsDiagnostic(d, reg)).map((o) => o.texte);
       const occItems = [];
       if (occ.length) occItems.push("difficultés dans " + joindre(occ));
       ind.occupations.forEach((x) => occItems.push(x));
@@ -1718,6 +1894,8 @@
           (d.envObstacles.trim() ? " ; facteurs environnementaux : " + min(d.envObstacles.trim()).replace(/\.$/, "") : "") + ".";
       }
       l.push("", "Diagnostic ergothérapique : " + enonce);
+      const appuiSur = sourcesDiagnostic(d, reg);
+      if (appuiSur.length && (ind.facteurs.length || occ.length)) l.push("Ce diagnostic s'appuie sur " + joindre(appuiSur) + ", ainsi que sur l'entretien avec " + a.sujetMin + " et sa famille.");
       const appui = [];
       if (d.conclusionForces.trim()) appui.push(min(d.conclusionForces.trim()).replace(/\.$/, ""));
       if (d.reperage === "bon") appui.push("une bonne prise d'informations visuelles en copie");
@@ -2108,7 +2286,7 @@
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
-    SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
+    SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
