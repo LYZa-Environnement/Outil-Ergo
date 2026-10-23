@@ -64,8 +64,6 @@
       }
       // Logo du cabinet (documents et PDF), s'il n'a pas été choisi sur cet appareil.
       if (integres.logo && !r.logoCabinet) r.logoCabinet = B.normaliserReglages({ logoCabinet: integres.logo }).logoCabinet;
-      // Questionnaire d'autonomie (AVQ) rempli par les parents : texte des questions, s'il n'est pas déjà enregistré.
-      if (integres.avq && typeof integres.avq === "object" && !nbAvqLibelles(r.avqLibelles)) r.avqLibelles = B.normaliserReglages({ avqLibelles: integres.avq }).avqLibelles;
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
       const q = integres.auto;
       if (q && Array.isArray(q.questions) && q.questions.length && !r.autoQuestions.some((x) => String(x).trim())) {
@@ -399,8 +397,7 @@
     const q = O.normaliserAvqParents(dossier.avqParents);
     const nq = O.DOMAINES_AVQP.reduce((t, d) => t + Object.keys(q.domaines[d.id].reponses).length, 0);
     const total = O.DOMAINES_AVQP.reduce((t, d) => t + O.nbQuestionsAvqp(d.id, reglages.avqLibelles), 0);
-    const tAvq = !nbAvqLibelles(reglages.avqLibelles) ? "Pour créer ce PDF, importez une fois le fichier du cabinet dans les Réglages."
-      : q.pdfImporte ? "✅ Réponses importées le " + B.dateCourte(q.pdfImporte) + " : " + nq + " sur " + total + "." : "";
+    const tAvq = q.pdfImporte ? "✅ Réponses importées le " + B.dateCourte(q.pdfImporte) + " : " + nq + " sur " + total + "." : "";
     $$(".etat-avq-parents").forEach((el) => { el.textContent = tAvq; el.hidden = !tAvq; });
   }
   // En-tête du PDF : cabinet et ergothérapeute signataire (aucune donnée de l'enfant : le modèle sert pour tous).
@@ -413,8 +410,8 @@
   }
   async function exporterPdfParents(quoi) {
     const avq = quoi === "avq";
-    if (avq ? !nbAvqLibelles(reglages.avqLibelles) : !libellesEsoPresents()) {
-      if (await demander("Le texte des questions " + (avq ? "du questionnaire d'autonomie" : "de l'ESO") + " n'est pas encore sur cet appareil. Importez une fois le fichier du cabinet dans les Réglages, puis revenez ici.", "Ouvrir les Réglages")) afficherOnglet("reglages");
+    if (!avq && !libellesEsoPresents()) {
+      if (await demander("Le texte des questions de l'ESO n'est pas encore sur cet appareil. Importez une fois le fichier du cabinet dans les Réglages, puis revenez ici.", "Ouvrir les Réglages")) afficherOnglet("reglages");
       return;
     }
     const en = enteteCabinetPdf();
@@ -619,7 +616,7 @@
 
   // Questionnaire d'autonomie rempli par les parents : PDF, réponses (importées ou saisies), commentaires, synthèse.
   function htmlAvqParents() {
-    const c = "avqParents", lib = reglages.avqLibelles;
+    const c = "avqParents", lib = O.libellesAvqp(reglages.avqLibelles);
     const freq = O.FREQ_AVQP.map((f, k) => [String(k), f]);
     const domaine = (d) => {
       const libs = (lib.domaines && lib.domaines[d.id]) || [];
@@ -639,8 +636,7 @@
     };
     return `<div class="sous-bloc" id="bloc-avq-parents">
       <h4 class="sous-groupe">📨 Questionnaire des parents</h4>
-      <p class="note">${esc(lib.titre || "Questionnaire sur l'autonomie dans les activités de la vie quotidienne")}${lib.source ? " (" + esc(B.min(lib.source)) + ")" : ""}. Un PDF à remplir, le même pour tous les enfants : envoyez-le avant le rendez-vous, puis importez le PDF rempli. Sur papier, cochez ici les réponses à la main.
-        ${nbAvqLibelles(lib) ? "" : `Pour voir le texte des questions et créer le PDF, importez une fois le fichier du cabinet dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
+      <p class="note">${esc(lib.titre)} (${esc(B.min(lib.source))}). Un PDF à remplir, le même pour tous les enfants : envoyez-le avant le rendez-vous, puis importez le PDF rempli. Sur papier, cochez ici les réponses à la main.</p>
       <div class="barre-actions barre-eso-pdf">
         <button type="button" class="bouton bouton-second bouton-petit" data-action="avq-pdf">📄 PDF à remplir pour les parents</button>
         <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
@@ -2129,9 +2125,7 @@
       ? "Texte enregistré dans ce navigateur : " + lib.sp.length + " questions (soins personnels), " + lib.p.length + " (travail scolaire), " + lib.l.length + " (loisirs)."
       : "Aucun texte enregistré : la saisie se fait par numéro de question.";
     $("[data-action='effacer-eso']").hidden = !nEso;
-    const nAvq = nbAvqLibelles(reglages.avqLibelles);
-    const etatAvq = $("#etat-avq-libelles");
-    if (etatAvq) etatAvq.textContent = nAvq ? "Questionnaire d'autonomie (AVQ) : " + nAvq + " questions enregistrées dans ce navigateur." : "Questionnaire d'autonomie (AVQ) : texte non importé (le PDF pour les parents ne peut pas encore être créé).";
+
     if ($("#profil")) majProfil();
     $("#note-brouillon").textContent = reglages.brouillon
       ? "Rien n'est envoyé en ligne : les dossiers restent dans ce navigateur, sur cet appareil. La copie de sécurité les met dans un fichier que vous pouvez ranger ou transférer sur un autre appareil."

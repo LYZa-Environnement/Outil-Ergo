@@ -81,8 +81,22 @@
   }
 
   /* ================= Questionnaire d'autonomie rempli par les parents ================= */
-  // Questionnaire du cabinet sur l'autonomie dans les activités de la vie quotidienne : le texte des questions vient
-  // du fichier du cabinet (réglages.avqLibelles), il n'est pas reproduit ici. Sept domaines, réponses de « jamais » à « toujours ».
+  // Questionnaire sur l'autonomie dans les activités de la vie quotidienne (libre d'utilisation), d'après le document de
+  // Doriane Madeline et Marjorie Carreau, cabinet d'ergothérapie de Vertou. Sept domaines, réponses de « jamais » à « toujours ».
+  // Quelques fautes de frappe du document d'origine sont corrigées.
+  const LIBELLES_AVQP = {
+    titre: "Questionnaire concernant l'autonomie dans les activités de la vie quotidienne",
+    source: "D'après le questionnaire de Doriane Madeline et Marjorie Carreau, cabinet d'ergothérapie de Vertou",
+    domaines: {
+      habillage: ["Peut choisir ses vêtements", "Enfile ses vêtements dans l'ordre", "Enfile ses vêtements à l'endroit", "Sait mettre ses chaussures", "Sait faire ses lacets", "Manipule efficacement les boutons", "Manipule efficacement les boutons à pression", "Manipule efficacement les fermetures Éclair", "S'habille dans un temps approprié pour son âge"],
+      toilette: ["Sait gérer la robinetterie (température, pression)", "Se lave et se rince le corps", "Se lave et se rince les cheveux", "Parvient à s'essuyer seul", "Se coiffe seul", "Met le dentifrice sur la brosse à dents", "Se brosse les dents efficacement", "Sait se rincer la bouche", "Va aux toilettes seul", "Peut se rhabiller seul après être allé aux toilettes", "Se lave dans un temps approprié à son âge"],
+      repas: ["Mange proprement avec la cuillère et la fourchette", "Manipule efficacement le couteau", "Parvient à couper les viandes fermes", "Se sert un verre sans renverser", "Peut mettre et débarrasser la table", "Sert les plats sur la table et dans l'assiette", "Ouvre les opercules", "Ouvre les contenants", "Tient en place à table le temps du repas", "A une alimentation variée", "Mange dans un temps approprié à son âge"],
+      loisirs: ["Pratique des activités sportives extrascolaires", "Pratique des activités artistiques extrascolaires", "Joue aux jeux de construction", "Aime les jeux d'extérieur", "Joue aux jeux d'imagination", "Joue aux jeux de balles et ballons", "Aime les activités manuelles", "Joue aux jeux vidéo", "Joue à l'ordinateur", "Peut jouer ou s'occuper seul", "Participe aux jeux d'équipe pendant la récréation", "Peut suivre les règles", "Sait nager seul sans aide", "Sait faire du vélo à deux roues"],
+      deplacements: ["Se déplace dans le logement aisément", "Se déplace à l'extérieur aisément", "Peut monter les escaliers seul", "Peut descendre les escaliers seul", "Se repère dans des lieux non habituels", "Connaît sa droite et sa gauche", "Utilise les transports en commun pour aller à l'école", "Utilise les transports en commun pour ses loisirs"],
+      ecole: ["Se rend volontiers à l'école", "Fait seul son cartable", "Parvient à ranger son casier à l'école et son bureau", "Tient ses cahiers proprement", "Colle correctement ses feuilles dans les cahiers", "Fait ses devoirs dans un temps approprié", "Présente de l'intérêt pour les activités graphiques", "Écrit tous les devoirs dans son agenda", "Écrit en respectant les lignes", "Parvient à relire son écriture", "Peut être relu par autrui", "Écrit sans ressentir de douleur", "Tient son crayon de façon adéquate", "A une vitesse d'écriture appropriée à son âge", "Sait poser les opérations en colonne", "Se repère efficacement sur une page ou un tableau", "Sait manipuler les outils scolaires en géométrie", "Parvient à représenter des figures géométriques", "Reste assis à son bureau en classe ou pour les devoirs", "Lit sans oublier de lettres ou de mots", "Comprend et peut appliquer les consignes simples", "Comprend et peut appliquer les consignes multiples"],
+      comportement: ["Se bloque face à une difficulté", "Est anxieux devant une activité potentiellement difficile", "Se dévalorise", "Persévère sans se rendre compte de son erreur", "Se rend compte de ses erreurs mais poursuit la tâche", "Exprime avoir réussi une tâche échouée", "Exprime avoir fini une tâche non terminée", "Peut manquer d'attention", "Est sensible aux critiques", "Est sensible aux encouragements", "Est tolérant à la frustration"],
+    },
+  };
 
   const FREQ_AVQP = ["Jamais", "Rarement", "Parfois", "Fréquemment", "Toujours"];
   const DOMAINES_AVQP = [
@@ -99,10 +113,19 @@
   // « - » une réponse haute la signale ; « 0 » habitude ou goût (loisirs pratiqués). Par défaut « + ».
   const SENS_AVQP = { loisirs: "000000000+++++", comportement: "---------++" };
   function sensAvqp(dom, n) { const t = SENS_AVQP[dom] || ""; return t.charAt(n - 1) || "+"; }
+  // Libellés à utiliser : ceux des réglages s'ils existent (domaine par domaine), sinon ceux de l'outil.
+  function libellesAvqp(libelles) {
+    const l = libelles && typeof libelles === "object" ? libelles : {};
+    const domaines = {};
+    DOMAINES_AVQP.forEach((d) => {
+      const x = l.domaines && l.domaines[d.id];
+      domaines[d.id] = Array.isArray(x) && x.some((t) => texte(t).trim()) ? x : LIBELLES_AVQP.domaines[d.id];
+    });
+    return { titre: texte(l.titre).trim() || LIBELLES_AVQP.titre, source: texte(l.source).trim() || LIBELLES_AVQP.source, domaines: domaines };
+  }
   function nbQuestionsAvqp(dom, libelles) {
-    const d = DOMAINES_AVQP.find((x) => x.id === dom);
-    const l = libelles && libelles.domaines && libelles.domaines[dom];
-    return Array.isArray(l) && l.length ? Math.min(MAX_AVQP, l.length) : d ? d.n : 0;
+    const l = libellesAvqp(libelles).domaines[dom];
+    return Array.isArray(l) ? Math.min(MAX_AVQP, l.length) : 0;
   }
 
   function avqParentsVide() {
@@ -173,9 +196,9 @@
   }
 
   // Modèle vierge du PDF (le même pour tous les enfants), pour js/pdf.js.
-  // o : { libelles: { titre, source, domaines }, cabinet: [lignes], logo, contact, mention }
+  // o : { libelles: { titre, source, domaines } (par défaut ceux de l'outil), cabinet: [lignes], logo, contact, mention }
   function specAvqParents(o) {
-    const lib = o.libelles || {};
+    const lib = libellesAvqp(o.libelles);
     const valeurs = FREQ_AVQP.map((_, k) => String(k));
     return {
       titre: texte(lib.titre).trim() || "Autonomie dans les activités de la vie quotidienne : questionnaire pour les parents",
@@ -215,8 +238,9 @@
     return bon <= 1 ? "difficulte" : bon === 2 ? "parfois" : "acquis";
   }
   function analyseAvqParents(q, libelles) {
+    const lib = libellesAvqp(libelles);
     return DOMAINES_AVQP.map((d) => {
-      const libs = (libelles && libelles.domaines && libelles.domaines[d.id]) || [];
+      const libs = lib.domaines[d.id] || [];
       const x = q.domaines[d.id];
       const items = Object.keys(x.reponses).map(Number).sort((a, b) => a - b).map((n) => {
         const sens = sensAvqp(d.id, n), v = x.reponses[n];
@@ -617,7 +641,7 @@
 
   return {
     NIVEAUX_AVQ, DOMAINES_AVQ, ITEMS_AVQ, AIDE_AVQ,
-    FREQ_AVQP, DOMAINES_AVQP, MAX_AVQP, SENS_AVQP, sensAvqp, nbQuestionsAvqp, avqParentsVide, normaliserAvqParents, depuisChampsAvqParents,
+    FREQ_AVQP, DOMAINES_AVQP, LIBELLES_AVQP, MAX_AVQP, SENS_AVQP, sensAvqp, libellesAvqp, nbQuestionsAvqp, avqParentsVide, normaliserAvqParents, depuisChampsAvqParents,
     specAvqParents, classeAvqp, analyseAvqParents, redigerAvqParents, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, FACTEURS_DCDQ, SEUILS_DCDQ,
     JEUX, MAX_CARTES_PERSO, pilesDe, cartesDuJeu, normaliserCartesPerso, problemeVide,
     vide, normaliser, calculMcro, calculDcdq, phraseAvq, occupationsAvq, redigerMcro, redigerOthope, redigerDcdq, redigerCartes, constats, commence,

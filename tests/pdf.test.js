@@ -208,3 +208,15 @@ test("Logo : dans l'en-tête de tous les documents Word", () => {
   const sans = enTexte(W.construire(Object.assign({ titre: "Essai", blocs: [] }, B.papier(B.reglagesParDefaut()))));
   assert.ok(!sans.includes("word/media/logo.jpeg"));
 });
+
+test("AVQ : questionnaire intégré à l'outil (libre d'utilisation), libellés des réglages prioritaires", () => {
+  const l = O.libellesAvqp(null);
+  assert.strictEqual(O.DOMAINES_AVQP.reduce((t, d) => t + l.domaines[d.id].length, 0), 86);
+  O.DOMAINES_AVQP.forEach((d) => assert.strictEqual(l.domaines[d.id].length, d.n, d.id));
+  assert.match(l.source, /Doriane Madeline et Marjorie Carreau/);
+  assert.strictEqual(B.reglagesParDefaut().avqLibelles.domaines.ecole.length, 22);
+  assert.strictEqual(B.normaliserReglages({ avqLibelles: { domaines: { habillage: [] } } }).avqLibelles.domaines.habillage.length, 9);
+  assert.strictEqual(O.libellesAvqp({ domaines: { habillage: ["A", "B"] } }).domaines.habillage.length, 2);
+  const s = enTexte(P.creerFormulaire(O.specAvqParents({ cabinet: [] })));
+  assert.strictEqual((s.match(/\/FT \/Btn \/Ff 49152/g) || []).length, 93);
+});

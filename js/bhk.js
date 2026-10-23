@@ -616,7 +616,7 @@
       autoDomaines: QUESTIONS_AUTO.map((q) => q[1]),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
-      avqLibelles: { titre: "", source: "", domaines: {} },
+      avqLibelles: Occup.libellesAvqp(null),
       photoCabinet: null,
       logoCabinet: null,
       phrases: PHRASES_EXEMPLES.slice(),
@@ -656,13 +656,11 @@
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
+    // Questionnaire d'autonomie : celui de l'outil par défaut ; des libellés enregistrés (domaine par domaine) le remplacent.
     if (r.avqLibelles && typeof r.avqLibelles === "object") {
-      out.avqLibelles.titre = texte(r.avqLibelles.titre).slice(0, 300);
-      out.avqLibelles.source = texte(r.avqLibelles.source).slice(0, 300);
-      Occup.DOMAINES_AVQP.forEach((d) => {
-        const l = r.avqLibelles.domaines && r.avqLibelles.domaines[d.id];
-        if (Array.isArray(l) && l.length) out.avqLibelles.domaines[d.id] = l.slice(0, Occup.MAX_AVQP).map((t) => texte(t).slice(0, 300));
-      });
+      const l = Occup.libellesAvqp(r.avqLibelles);
+      out.avqLibelles = { titre: l.titre.slice(0, 300), source: l.source.slice(0, 300), domaines: {} };
+      Occup.DOMAINES_AVQP.forEach((d) => { out.avqLibelles.domaines[d.id] = l.domaines[d.id].slice(0, Occup.MAX_AVQP).map((t) => texte(t).slice(0, 300)); });
     }
     out.photoCabinet = Accueil.normaliserPhoto(r.photoCabinet);
     out.logoCabinet = Accueil.normaliserPhoto(r.logoCabinet);
