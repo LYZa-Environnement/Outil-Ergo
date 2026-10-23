@@ -58,6 +58,10 @@
         if (r.signataire >= r.praticiens.length) r.signataire = 0;
         if (!r.cabinet.nom.trim() && integres.cabinet) r.cabinet = B.normaliserReglages({ cabinet: integres.cabinet }).cabinet;
       }
+      // Texte des questions de l'ESO (exemplaire du cabinet), s'il n'est pas déjà enregistré.
+      if (integres.eso && typeof integres.eso === "object" && !(r.esoLibelles.sp.length + r.esoLibelles.p.length + r.esoLibelles.l.length)) {
+        r.esoLibelles = B.normaliserReglages({ esoLibelles: integres.eso }).esoLibelles;
+      }
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
       const q = integres.auto;
       if (q && Array.isArray(q.questions) && q.questions.length && !r.autoQuestions.some((x) => String(x).trim())) {
@@ -69,6 +73,27 @@
     }
     return r;
   }
+  // Fichier du cabinet (jamais publié) : normes du BHK et texte des questionnaires protégés, gardés sur l'appareil.
+  // Accepte aussi un ancien fichier de normes seules. remplacer = false : ne complète que ce qui manque.
+  function appliquerContenusCabinet(obj, remplacer) {
+    const faits = [];
+    if (!obj || typeof obj !== "object") return faits;
+    const n = obj.qualite ? obj : obj.normes && typeof obj.normes === "object" ? obj.normes : null;
+    if (n && (remplacer || !B.normesPresentes(reglages && reglages.normes))) { reglages.normes = B.normaliserNormes(n); faits.push("normes du BHK"); }
+    const eso = obj.eso && typeof obj.eso === "object" ? B.normaliserReglages({ esoLibelles: obj.eso }).esoLibelles : null;
+    if (eso && eso.sp.length + eso.p.length + eso.l.length) {
+      const deja = reglages.esoLibelles.sp.length + reglages.esoLibelles.p.length + reglages.esoLibelles.l.length;
+      if (remplacer || !deja) { reglages.esoLibelles = eso; faits.push("texte des questions de l'ESO"); }
+    }
+    const q = obj.auto && Array.isArray(obj.auto.questions) && obj.auto.questions.length ? obj.auto : null;
+    if (q && remplacer) {
+      const base = B.normaliserReglages({ autoNom: q.nom || reglages.autoNom, autoQuestions: q.questions, autoDomaines: q.domaines || [] });
+      reglages.autoNom = base.autoNom; reglages.autoQuestions = base.autoQuestions; reglages.autoDomaines = base.autoDomaines;
+      faits.push("questionnaire d'auto-appréciation");
+    }
+    return faits;
+  }
+
   function chargerReglages() { return avecNormesIntegrees(B.normaliserReglages(lireStockage(CLE_REGLAGES))); }
   function sauverReglages() { ecrireStockage(CLE_REGLAGES, reglages); }
 
@@ -324,7 +349,7 @@
       </tbody></table></div>
       <h4 class="sous-groupe">Réponses détaillées au questionnaire (facultatif)</h4>
       <p class="note">Reportez le chiffre entouré par les parents pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
-        ${reglages.esoLibelles.sp.length ? "" : `Pour voir ici le texte des questions, collez-le une fois depuis votre exemplaire dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
+        ${reglages.esoLibelles.sp.length ? "" : `Pour voir ici le texte des questions, importez une fois le fichier du cabinet (ou collez le texte de votre exemplaire) dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
       ${S.DOMAINES_ITEMS_ESO.map((dm) => `<details class="eso-domaine"><summary>${esc(dm[1])} <span class="eso-compte" id="eso-n-${dm[0]}"></span></summary>
         <div class="eso-items${(reglages.esoLibelles[dm[0]] || []).length ? " avec-libelles" : ""}">${Array.from({ length: S.NB_ITEMS_ESO }, (_, i) => {
           const lib = (reglages.esoLibelles[dm[0]] || [])[i] || "";
@@ -3773,17 +3798,10 @@
       }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "importer-normes") {
       lireFichier(e.target).then((obj) => {
-        const n = obj && obj.qualite ? obj : obj && obj.normes ? obj.normes : null;
-        const q = obj && obj.auto && Array.isArray(obj.auto.questions) && obj.auto.questions.length ? obj.auto : null;
-        if (!n && !q) throw new Error("Ce fichier ne contient pas de normes BHK.");
-        if (n) reglages.normes = B.normaliserNormes(n);
-        // Le fichier du cabinet apporte aussi le questionnaire d'auto-appréciation (questions et thématiques).
-        if (q) {
-          const base = B.normaliserReglages({ autoNom: q.nom || reglages.autoNom, autoQuestions: q.questions, autoDomaines: q.domaines || [] });
-          reglages.autoNom = base.autoNom; reglages.autoQuestions = base.autoQuestions; reglages.autoDomaines = base.autoDomaines;
-        }
-        sauverReglages(); construireNormes(); remplirReglages(); construireAuto(); remplirFormulaire(); majTout();
-        annoncer(n && q ? "Normes et questionnaire d'auto-appréciation importés" : q ? "Questionnaire d'auto-appréciation importé" : "Normes importées");
+        const faits = appliquerContenusCabinet(obj, true);
+        if (!faits.length) throw new Error("Ce fichier ne contient ni normes du BHK ni texte de questionnaire.");
+        sauverReglages(); construireNormes(); remplirReglages(); construireAuto(); construireSenso(); remplirFormulaire(); majTout();
+        annoncer("Importé : " + faits.join(", "));
       }).catch((err) => annoncer(err.message));
     } else if (action === "importer-reglages") {
       lireFichier(e.target).then((obj) => {

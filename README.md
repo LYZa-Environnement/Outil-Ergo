@@ -11,7 +11,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 1. Ouvrir `index.html` dans un navigateur (ordinateur, tablette ou téléphone).
 2. Au lancement, l'outil demande le profil tant qu'aucun n'est choisi : chaque praticien choisit le sien (ou le crée), et ses bilans sont signés à son nom. On change de profil avec le bouton en haut à droite.
 3. **Réglages** (bouton ⚙️), une seule fois par appareil :
-   - importer le fichier de normes du BHK (`normes-bhk-enfant.json`, fourni à part, voir plus bas) ;
+   - importer le **fichier du cabinet** (fourni à part, jamais publié, voir plus bas) : normes du BHK et texte des questions de l'ESO ;
    - renseigner le cabinet et les praticiens (en-tête, pied de page et signature du compte rendu) ;
    - exporter les réglages pour les réinstaller sur un autre appareil.
 4. L'outil s'ouvre sur l'**accueil** (🏠, ou le logo) : séances du jour, rappels (séances prévues non notées, fin de forfait de la plateforme TND, copie de sécurité, code de verrouillage), dossiers récents, et deux boutons « Nouveau bilan » et « Noter une séance ». L'**enfant ouvert** est affiché en permanence en haut (« Léa M. ▾ ») : le toucher permet de changer d'enfant sans quitter l'onglet. Sur téléphone, les onglets sont en bas de l'écran.
@@ -186,7 +186,9 @@ Règles reprises du manuel (Charles, Soppelsa et Albaret) :
 
 ## Normes
 
-Les normes du BHK viennent du manuel édité par les Éditions et Applications Psychologiques. Elles **ne sont pas dans ce dépôt** (il est public) : on les importe une fois par appareil depuis un fichier JSON gardé à part. Pour un usage personnel, une version du fichier HTML peut les intégrer (variable `window.NORMES_INTEGREES` définie avant les scripts) : elle calcule sans import, et ne doit pas être publiée. Format :
+Les normes du BHK viennent du manuel édité par les Éditions et Applications Psychologiques. Elles **ne sont pas dans ce dépôt** (il est public) : on les importe une fois par appareil depuis un fichier JSON gardé à part.
+
+Le **fichier du cabinet** (`type: "outil-ergo-contenus"`) réunit en un seul import tout ce qui est protégé : `normes` (le fichier de normes décrit ci-dessous) et `eso` (texte des questions de l'ESO, `{ "sp": [36 textes], "p": [36], "l": [36] }`, tiré de l'exemplaire du cabinet). Réglages › « Importer le fichier du cabinet » ; un ancien fichier de normes seules reste accepté. La version du cabinet intègre ces contenus (`window.NORMES_INTEGREES`, `eso` dans `window.REGLAGES_INTEGRES`). D'autres questionnaires protégés pourront s'y ajouter de la même façon. Pour un usage personnel, une version du fichier HTML peut les intégrer (variable `window.NORMES_INTEGREES` définie avant les scripts) : elle calcule sans import, et ne doit pas être publiée. Format :
 
 ```json
 {
