@@ -391,41 +391,53 @@
         ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e + " (" + k + ")"]))}</div>`;
     }
     h += `<div class="synthese-auto" id="synthese-auto" aria-live="polite"></div>`;
-    h += `<div class="champ"><label for="notes-auto">Synthèse de l'auto-évaluation</label>
+    h += `<div class="champ"><label for="synthese-cr-auto">Synthèse pour le compte rendu</label>
+      <p class="note" id="etat-synthese-cr-auto"></p>
+      <textarea id="synthese-cr-auto" data-chemin="auto.synthese" rows="5"></textarea>
+      <div class="barre-actions"><button type="button" class="bouton bouton-second bouton-petit" data-action="reproposer-synthese-auto" data-quoi="synthese">Reproposer la synthèse</button></div></div>
+      <div class="champ"><label for="notes-auto">Analyse détaillée <small class="discret">(reste dans le dossier, n'est pas dans le compte rendu)</small></label>
       <p class="note" id="etat-synthese-auto"></p>
       <textarea id="notes-auto" data-chemin="auto.notes" rows="13"></textarea>
-      <div class="barre-actions"><button type="button" class="bouton bouton-second bouton-petit" data-action="reproposer-synthese-auto">Reproposer la synthèse</button></div></div>`;
+      <div class="barre-actions"><button type="button" class="bouton bouton-second bouton-petit" data-action="reproposer-synthese-auto" data-quoi="notes">Reproposer l'analyse</button></div></div>`;
     $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h);
   }
-  // Synthèse rédigée par l'outil dans le champ, tant que l'ergothérapeute ne l'a pas modifiée.
+  // Analyse détaillée et synthèse pour le compte rendu, rédigées par l'outil tant que l'ergothérapeute ne les a pas modifiées.
+  const TEXTES_AUTO = {
+    notes: { drapeau: "notesAuto", champ: "#notes-auto", etat: "#etat-synthese-auto", nom: "l'analyse", produire: () => B.syntheseAutoTexte(dossier, reglages) },
+    synthese: { drapeau: "syntheseAuto", champ: "#synthese-cr-auto", etat: "#etat-synthese-cr-auto", nom: "la synthèse", produire: () => B.syntheseAutoCourte(dossier, reglages) },
+  };
   function majSyntheseAuto(forcer) {
     if (!dossier.auto || typeof dossier.auto !== "object") return;
-    const propose = B.syntheseAutoTexte(dossier, reglages);
-    const actuel = String(dossier.auto.notes || "");
-    const libre = !actuel.trim() || dossier.auto.notesAuto === "oui";
-    if ((libre || forcer) && propose && actuel !== propose) {
-      dossier.auto.notes = propose;
-      dossier.auto.notesAuto = "oui";
-      const z = $("#notes-auto");
-      if (z && document.activeElement !== z) z.value = propose;
-      nonEnregistre = true;
-      sauverBrouillon();
-    }
-    const etat = $("#etat-synthese-auto");
-    if (etat) etat.textContent = !propose ? "Une synthèse sera proposée dès les premières réponses."
-      : dossier.auto.notesAuto === "oui" ? "Proposée par l'outil à partir des réponses et des résultats du bilan. Modifiez-la librement : dès que vous la modifiez, elle n'est plus changée automatiquement."
-      : "Synthèse modifiée par vous : elle n'est plus mise à jour automatiquement.";
+    Object.keys(TEXTES_AUTO).forEach((cle) => {
+      const t = TEXTES_AUTO[cle];
+      const propose = t.produire();
+      const actuel = String(dossier.auto[cle] || "");
+      const libre = !actuel.trim() || dossier.auto[t.drapeau] === "oui";
+      if ((libre || forcer === cle) && propose && actuel !== propose) {
+        dossier.auto[cle] = propose;
+        dossier.auto[t.drapeau] = "oui";
+        const z = $(t.champ);
+        if (z && document.activeElement !== z) z.value = propose;
+        nonEnregistre = true;
+        sauverBrouillon();
+      }
+      const etat = $(t.etat);
+      if (etat) etat.textContent = !propose ? "Proposée dès les premières réponses."
+        : dossier.auto[t.drapeau] === "oui" ? (cle === "synthese" ? "Version courte, reprise dans le compte rendu. " : "Lecture complète des réponses et du bilan, pour vous. ") + "Proposée par l'outil ; modifiez-la librement : une fois modifiée, elle n'est plus changée automatiquement."
+        : "Modifiée par vous : elle n'est plus mise à jour automatiquement.";
+    });
   }
-  async function reproposerSyntheseAuto() {
-    const propose = B.syntheseAutoTexte(dossier, reglages);
-    if (!propose) return annoncer("Saisissez d'abord des réponses au questionnaire.");
-    const modifiee = String(dossier.auto.notes || "").trim() && dossier.auto.notesAuto !== "oui";
-    if (modifiee && !(await demander("Remplacer votre synthèse par celle proposée par l'outil ?", "Remplacer"))) return;
-    majSyntheseAuto(true);
-    const z = $("#notes-auto");
-    if (z) z.value = dossier.auto.notes;
+  async function reproposerSyntheseAuto(cle) {
+    const t = TEXTES_AUTO[cle] || TEXTES_AUTO.synthese;
+    const k = TEXTES_AUTO[cle] ? cle : "synthese";
+    if (!t.produire()) return annoncer("Saisissez d'abord des réponses au questionnaire.");
+    const modifiee = String(dossier.auto[k] || "").trim() && dossier.auto[t.drapeau] !== "oui";
+    if (modifiee && !(await demander("Remplacer votre texte par " + t.nom + " proposée par l'outil ?", "Remplacer"))) return;
+    majSyntheseAuto(k);
+    const z = $(t.champ);
+    if (z) z.value = dossier.auto[k];
     majTout();
-    annoncer("Synthèse proposée");
+    annoncer(cle === "notes" ? "Analyse proposée" : "Synthèse proposée");
   }
   function majAuto() {
     const el = $("#synthese-auto");
@@ -640,6 +652,104 @@
       },
     });
     if (v === "go" && choix) demarrerPassation(choix);
+  }
+
+  /* ---------- Caméra : photo de la copie prise dans l'outil (tablette Windows, ordinateur, iPad) ---------- */
+
+  let camera = null; // { flux, appareils, index, cliche }
+  const OPTIONS_CAMERA = { width: { ideal: 2560 }, height: { ideal: 1920 } };
+
+  function cameraPermise() {
+    const pp = document.permissionsPolicy || document.featurePolicy;
+    try { return !(pp && pp.allowsFeature && !pp.allowsFeature("camera")); } catch (e) { return true; }
+  }
+  async function ouvrirCamera() {
+    const md = navigator.mediaDevices;
+    // Sans caméra accessible ici (navigateur ancien, page intégrée) : l'appareil photo du système, sinon les fichiers.
+    if (!md || !md.getUserMedia || !cameraPermise()) { $("#photo-camera-secours").click(); return; }
+    camera = { flux: null, appareils: [], index: -1, cliche: null };
+    afficherCliche(false);
+    $("#ecran-camera").hidden = false;
+    document.body.classList.add("sans-defilement");
+    $("#camera-message").textContent = "Ouverture de la caméra…";
+    try {
+      await demarrerFlux(null);
+      camera.appareils = (await md.enumerateDevices()).filter((d) => d.kind === "videoinput");
+      const piste = camera.flux.getVideoTracks()[0];
+      const reglage = piste && piste.getSettings ? piste.getSettings() : {};
+      camera.index = camera.appareils.findIndex((d) => d.deviceId === reglage.deviceId);
+      // Tablette Windows : la caméra arrière n'est pas toujours celle ouverte ; on la cherche par son nom.
+      if (reglage.facingMode !== "environment") {
+        const arriere = camera.appareils.findIndex((d) => /back|rear|arri[eè]re|environment/i.test(d.label));
+        if (arriere >= 0 && arriere !== camera.index) { await demarrerFlux(camera.appareils[arriere].deviceId); camera.index = arriere; }
+      }
+      $("#ecran-camera [data-action='changer-camera']").hidden = camera.appareils.length < 2;
+      $("#camera-message").textContent = "Cadrez la feuille entière, bien à plat, de face, avec une bonne lumière.";
+    } catch (err) {
+      fermerCamera();
+      annoncer(err && err.name === "NotAllowedError"
+        ? "La caméra n'est pas autorisée. Autorisez-la dans le navigateur (icône à gauche de l'adresse), ou touchez « Choisir un fichier »."
+        : "Aucune caméra n'est disponible ici : touchez « Choisir un fichier ».");
+    }
+  }
+  async function demarrerFlux(id) {
+    arreterFlux();
+    const video = Object.assign(id ? { deviceId: { exact: id } } : { facingMode: { ideal: "environment" } }, OPTIONS_CAMERA);
+    camera.flux = await navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+    const v = $("#camera-video");
+    v.srcObject = camera.flux;
+    try { await v.play(); } catch (e) { /* lecture automatique */ }
+  }
+  function arreterFlux() {
+    if (camera && camera.flux) camera.flux.getTracks().forEach((t) => t.stop());
+    if (camera) camera.flux = null;
+  }
+  function fermerCamera() {
+    arreterFlux();
+    camera = null;
+    $("#camera-video").srcObject = null;
+    $("#ecran-camera").hidden = true;
+    document.body.classList.remove("sans-defilement");
+  }
+  async function changerCamera() {
+    if (!camera || camera.appareils.length < 2) return;
+    camera.index = (camera.index + 1) % camera.appareils.length;
+    try { await demarrerFlux(camera.appareils[camera.index].deviceId); } catch (e) { annoncer("Cette caméra n'est pas disponible."); }
+  }
+  function afficherCliche(oui) {
+    $("#camera-cliche").hidden = !oui;
+    $(".camera-cadre").hidden = oui;
+    $("#camera-video").hidden = oui;
+    $("#ecran-camera [data-action='declencher-camera']").hidden = oui;
+    $("#ecran-camera [data-action='reprendre-cliche']").hidden = !oui;
+    $("#ecran-camera [data-action='garder-cliche']").hidden = !oui;
+    $("#ecran-camera [data-action='changer-camera']").hidden = oui || !camera || camera.appareils.length < 2;
+  }
+  function declencherCamera() {
+    const v = $("#camera-video");
+    if (!camera || !v.videoWidth) return;
+    const k = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight));
+    const l = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+    const c = document.createElement("canvas");
+    c.width = l; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, l, h);
+    ctx.drawImage(v, 0, 0, l, h);
+    camera.cliche = { donnees: c.toDataURL("image/jpeg", 0.82), l: l, h: h };
+    $("#camera-cliche").src = camera.cliche.donnees;
+    afficherCliche(true);
+    $("#camera-message").textContent = "La feuille est-elle entière et nette ?";
+  }
+  function garderCliche() {
+    if (!camera || !camera.cliche) return;
+    const p = camera.cliche;
+    fermerCamera();
+    garderPhotoCopie(p);
+  }
+  function garderPhotoCopie(p) {
+    dossier.photoCopie = p.donnees; dossier.photoL = String(p.l); dossier.photoH = String(p.h);
+    majPhoto(); nonEnregistre = true; majTout();
+    annoncer("Photo ajoutée");
   }
 
   // Aide au comptage de la copie à la main : on touche le dernier mot écrit par l'enfant.
@@ -1916,6 +2026,7 @@
       if (el.tagName === "SELECT" && el.value === "" && el.dataset.chemin.indexOf("manip.") === 0) effacerChemin(dossier, el.dataset.chemin);
       else ecrireChemin(dossier, el.dataset.chemin, el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value);
       if (el.dataset.chemin === "auto.notes" && e.type === "input") dossier.auto.notesAuto = "";
+      if (el.dataset.chemin === "auto.synthese" && e.type === "input") dossier.auto.syntheseAuto = "";
       if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
     } else if (el.dataset.champ) {
       if (el.type === "radio" && !el.checked) return;
@@ -3561,7 +3672,13 @@
       case "infos-enregistrement": return ouvrirInfosEnregistrement();
       case "preparer-evic": return preparerEvic();
       case "compter-copie": return compterCopieMain();
-      case "reproposer-synthese-auto": return reproposerSyntheseAuto();
+      case "ouvrir-camera": return ouvrirCamera();
+      case "fermer-camera": return fermerCamera();
+      case "changer-camera": return changerCamera();
+      case "declencher-camera": return declencherCamera();
+      case "reprendre-cliche": afficherCliche(false); $("#camera-message").textContent = "Cadrez la feuille entière, bien à plat, de face, avec une bonne lumière."; return;
+      case "garder-cliche": return garderCliche();
+      case "reproposer-synthese-auto": return reproposerSyntheseAuto(el.dataset.quoi);
       case "nouveau-bilan": return nouveau();
       case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
       case "voir-planning": return afficherOnglet("seances");
@@ -3632,11 +3749,7 @@
     } else if (action === "photo") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
-      chargerPhoto(f).then((p) => {
-        dossier.photoCopie = p.donnees; dossier.photoL = String(p.l); dossier.photoH = String(p.h);
-        majPhoto(); nonEnregistre = true; majTout();
-        annoncer("Photo ajoutée");
-      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+      chargerPhoto(f).then(garderPhotoCopie).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "restaurer") {
       lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {
@@ -3758,7 +3871,10 @@
       if (e.target.closest && e.target.closest("[data-accueil]")) { e.preventDefault(); allerAccueil(); return; }
       surClicRadio(e); surClic(e);
     });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#apercu").hidden) fermerApercu(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && camera) { fermerCamera(); return; }
+      if (e.key === "Escape" && !$("#apercu").hidden) fermerApercu();
+    });
     window.addEventListener("beforeprint", () => { $("#impression").innerHTML = htmlModele(aImprimer || modele()); });
     window.addEventListener("afterprint", () => { aImprimer = null; });
     window.addEventListener("beforeunload", (e) => {

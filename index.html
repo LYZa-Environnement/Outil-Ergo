@@ -508,8 +508,10 @@
         <legend>Photo de la copie</legend>
         <p class="note">Elle apparaît dans le compte rendu Word, sous les résultats du BHK. L'outil peut aussi la mesurer pour vous proposer certains critères : photographiez la feuille entière, bien à plat, de face, avec une bonne lumière.</p>
         <div class="barre-actions">
-          <label class="bouton bouton-second">📷 Ajouter une photo
-            <input type="file" accept="image/*" capture="environment" data-action="photo" class="masque"></label>
+          <button type="button" class="bouton bouton-second" data-action="ouvrir-camera"><span aria-hidden="true">📷</span> Prendre une photo</button>
+          <label class="bouton bouton-second"><span aria-hidden="true">🖼️</span> Choisir un fichier
+            <input type="file" accept="image/*" data-action="photo" class="masque"></label>
+          <input type="file" accept="image/*" capture="environment" data-action="photo" id="photo-camera-secours" class="masque" tabindex="-1" aria-hidden="true">
           <button type="button" class="bouton-lien" data-action="retirer-photo" hidden>Retirer la photo</button>
         </div>
         <img id="apercu-photo" class="apercu-photo" alt="Photo de la copie du BHK" hidden>
@@ -937,6 +939,21 @@
         <button type="button" class="bouton bouton-second" data-evic="passer">Passer cette épreuve</button>
         <button type="button" class="bouton-lien" data-evic="arreter">Arrêter la passation (les épreuves finies sont gardées)</button>
       </div>
+    </div>
+  </div>
+  <div class="ecran-camera" id="ecran-camera" role="dialog" aria-modal="true" aria-labelledby="titre-camera" hidden>
+    <div class="camera-tete"><strong id="titre-camera">Photo de la copie</strong><button type="button" class="bouton bouton-second bouton-petit" data-action="fermer-camera">Annuler</button></div>
+    <div class="camera-vue">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <img id="camera-cliche" alt="Photo prise" hidden>
+      <div class="camera-cadre" aria-hidden="true"></div>
+    </div>
+    <p class="camera-message" id="camera-message" aria-live="polite"></p>
+    <div class="camera-actions">
+      <button type="button" class="bouton bouton-second" data-action="changer-camera" hidden><span aria-hidden="true">🔄</span> Changer de caméra</button>
+      <button type="button" class="bouton camera-declencheur" data-action="declencher-camera"><span aria-hidden="true">📷</span> Prendre la photo</button>
+      <button type="button" class="bouton bouton-second" data-action="reprendre-cliche" hidden>Reprendre</button>
+      <button type="button" class="bouton" data-action="garder-cliche" hidden>✓ Garder cette photo</button>
     </div>
   </div>
   <div class="verrou" id="verrou" role="dialog" aria-modal="true" aria-labelledby="titre-verrou" hidden>

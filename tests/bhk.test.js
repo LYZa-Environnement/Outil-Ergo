@@ -878,7 +878,7 @@ test("auto-évaluation : domaines, nombre de réponses par colonne, tableau grou
   assert.deepEqual(sa.domaines.map((x) => [x.id, x.frequentes, x.repondues]), [["lisibilite", 1, 2], ["satisfaction", 0, 1], ["vitesse", 1, 2]]);
   const t = B.rediger(d, n).autoeval;
   assert.match(t, /pour 3 questions sur 6 : lisibilité 1 sur 2, vitesse 1 sur 2, satisfaction et émotions 0 sur 1\./);
-  assert.match(t, /Réponses : 2 « rarement », 1 « parfois », 2 « souvent », 1 « toujours »\./);
+  assert.doesNotMatch(t, /Réponses : /); // le nombre de réponses par colonne est dans le tableau du document
   const tab = B.modeleDocument(d, n).blocs.find((b) => b.type === "tableau" && b.lignes[0].cellules[0].runs[0].t === "Question");
   const textes = tab.lignes.map((l) => l.cellules[0].runs[0].t);
   assert.equal(textes[1], "Lisibilité : difficulté fréquente pour 1 question sur 2");
@@ -928,4 +928,26 @@ test("auto-appréciation : synthèse rédigée (profil, lecture des réponses, c
   // La synthèse gardée par le dossier, avec son statut.
   d.auto.notes = t; d.auto.notesAuto = "oui";
   assert.equal(B.normaliserDossier(d).auto.notesAuto, "oui");
+});
+
+test("auto-appréciation : version de synthèse dans le compte rendu, analyse détaillée hors compte rendu", () => {
+  const reg = reglagesTest();
+  const d = dossierTest({ sexe: "M", prenom: "Tom" });
+  d.auto = { fait: "oui", reponses: { 1: 1, 2: 3, 3: 2, 4: 3, 5: 1, 6: 2, 7: 1, 8: 1, 9: 3, 10: 3, 11: 3, 12: 1 }, notes: "", synthese: "" };
+  const courte = B.syntheseAutoCourte(d, reg);
+  assert.match(courte, /^Tom exprime une gêne surtout liée à la vitesse \(copie au tableau, lenteur ressentie, ratures fréquentes\), et dans une moindre mesure à la lisibilité \(écriture difficile à relire pour les autres\)/);
+  assert.match(courte, /Il ne souhaite pas, pour l'instant, écrire autrement qu'à la main\./);
+  assert.ok(courte.length < B.syntheseAutoTexte(d, reg).length / 2, "nettement plus courte que l'analyse");
+  // Compte rendu : la synthèse proposée, pas l'analyse détaillée.
+  d.auto.notes = B.syntheseAutoTexte(d, reg); d.auto.notesAuto = "oui";
+  let t = B.rediger(d, reg).autoeval;
+  assert.match(t, /Tom exprime une gêne surtout liée à la vitesse/);
+  assert.doesNotMatch(t, /allers-retours entre le tableau et le cahier/);
+  // Synthèse modifiée par l'ergothérapeute : c'est elle qui figure.
+  d.auto.synthese = "synthèse revue par l'ergothérapeute"; d.auto.syntheseAuto = "";
+  assert.match(B.rediger(d, reg).autoeval, /Synthèse revue par l'ergothérapeute\./);
+  // Anciennes notes écrites à la main, sans synthèse : reprises.
+  d.auto.synthese = ""; d.auto.notes = "notes écrites avant la synthèse automatique"; d.auto.notesAuto = "";
+  assert.match(B.rediger(d, reg).autoeval, /Notes écrites avant la synthèse automatique\./);
+  assert.deepEqual([B.normaliserDossier({ auto: { synthese: "x", syntheseAuto: "oui" } }).auto.synthese, B.normaliserDossier({ auto: { syntheseAuto: "oui" } }).auto.syntheseAuto], ["x", "oui"]);
 });

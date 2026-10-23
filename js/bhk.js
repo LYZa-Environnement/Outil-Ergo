@@ -405,6 +405,64 @@
     return blocs.filter(Boolean).join("\n");
   }
 
+  // Version de synthèse pour le compte rendu : deux ou trois phrases (gêne principale et ses raisons, rapport avec le bilan,
+  // position sur un autre moyen d'écrire). L'analyse détaillée reste dans le dossier.
+  function syntheseAutoCourte(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const sa = syntheseAuto(d.auto, reg);
+    if (!sa.repondues) return "";
+    const a = accords(d), e = a.e;
+    const q = {};
+    for (let n = 1; n <= 12; n++) {
+      const x = d.auto.reponses[n];
+      q[n] = reg.autoQuestions[n - 1] === (QUESTIONS_AUTO[n - 1] || [])[0] && x !== undefined && x !== null ? Number(x) : null;
+    }
+    const haut = (x) => x !== null && x >= 3, bas = (x) => x !== null && x <= 1, present = (x) => x !== null && x >= 2;
+    const soi = a.il === "elle" ? "elle-même" : "lui-même";
+    // Raisons, par thématique, tirées des réponses.
+    const raisons = {
+      vitesse: [present(q[3]) || haut(q[9]) ? "copie au tableau" : "", haut(q[11]) ? "lenteur ressentie" : "", haut(q[4]) ? "ratures fréquentes" : ""],
+      lisibilite: [haut(q[1]) && haut(q[2]) ? "écriture difficile à relire, y compris pour " + soi : haut(q[2]) ? "écriture difficile à relire pour les autres" : haut(q[1]) ? "difficulté à se relire" : ""],
+      satisfaction: [present(q[7]) ? "douleurs" : "", haut(q[8]) ? "fatigue" : "", haut(q[10]) ? "insatisfaction" : "", present(q[6]) ? "évitement des devoirs écrits" : "", haut(q[5]) ? "écriture vécue comme difficile" : ""],
+    };
+    const NOMS = { lisibilite: ["la lisibilité", "f"], vitesse: ["la vitesse", "f"], satisfaction: ["le vécu de l'écriture", "m"] };
+    const nom = (dm) => { const r = raisons[dm.id].filter(Boolean); return NOMS[dm.id][0].replace(/^le /, "au ").replace(/^la /, "à la ") + (r.length ? " (" + r.join(", ") + ")" : ""); };
+    const doms = sa.domaines.filter((dm) => dm.repondues).map((dm) => Object.assign({ part: dm.points / dm.max }, dm)).sort((x, y) => y.part - x.part);
+    const fortes = doms.filter((dm) => dm.part >= 0.625), moyennes = doms.filter((dm) => dm.part >= 0.4 && dm.part < 0.625), faibles = doms.filter((dm) => dm.part < 0.4);
+    const l = [];
+    if (fortes.length || moyennes.length) {
+      let t = a.sujet + " exprime une gêne surtout liée " + joindre((fortes.length ? fortes : moyennes).map(nom));
+      if (fortes.length && moyennes.length) t += ", et dans une moindre mesure " + joindre(moyennes.map(nom));
+      if (faibles.length) t += " ; " + joindre(faibles.map((dm) => NOMS[dm.id][0])) + (faibles.length > 1 ? " sont peu touchés" : " est peu touché" + (NOMS[faibles[0].id][1] === "m" ? "" : "e"));
+      l.push(t + ".");
+    } else l.push(a.sujet + " exprime peu de gêne dans son écriture.");
+    // Rapport avec le bilan.
+    const r = calculerBHK(d, reg);
+    const faible = (n) => n === "patho" || n === "inferieur";
+    const vitesse = sa.domaines.find((dm) => dm.id === "vitesse"), lisib = sa.domaines.find((dm) => dm.id === "lisibilite");
+    const lent = haut(q[11]) || !!(vitesse && vitesse.repondues && vitesse.frequentes / vitesse.repondues >= 0.5);
+    const pasLent = bas(q[11]) || !!(q[11] === null && vitesse && vitesse.repondues && vitesse.frequentes === 0);
+    const c = [];
+    if (r.niveauV) {
+      if (lent && faible(r.niveauV)) c.push("ce ressenti rejoint la lenteur mesurée au " + r.nomTest);
+      else if (lent) c.push("sa vitesse au " + r.nomTest + " étant dans la moyenne, la lenteur ressentie tient surtout aux situations de classe");
+      else if (pasLent && faible(r.niveauV)) c.push(a.il + " ne perçoit pas encore la lenteur mesurée au " + r.nomTest);
+    }
+    if (r.niveauQ && lisib && lisib.repondues) {
+      if (lisib.frequentes && faible(r.niveauQ)) c.push("la gêne de lisibilité rejoint la qualité d'écriture mesurée");
+      else if (lisib.frequentes) c.push("la qualité au " + r.nomTest + " étant dans la moyenne, la gêne de lisibilité apparaît surtout en classe");
+      else if (faible(r.niveauQ)) c.push(a.il + " ne perçoit pas les difficultés de lisibilité relevées au " + r.nomTest);
+    }
+    const eva = nombre(d.douleurEva);
+    if (present(q[7]) && eva !== null && eva > 0) c.push("les douleurs déclarées se retrouvent pendant la copie (EVA " + formaterNombre(eva) + "/10)");
+    if (c.length) l.push(maj(c.join(" ; ")) + ".");
+    // Autre moyen d'écrire.
+    if (present(q[12])) l.push(maj(a.il) + " se montre ouvert" + e + " à un autre moyen d'écrire.");
+    else if (bas(q[12])) l.push(maj(a.il) + " ne souhaite pas, pour l'instant, écrire autrement qu'à la main.");
+    return l.join(" ");
+  }
+
   // Préconisations proposées d'après les résultats : « raisons » = indicateurs qui les justifient (voir indicateurs()).
   const CATEGORIES_PRECO = [
     { id: "reeducation", titre: "Accompagnement en ergothérapie" },
@@ -645,7 +703,7 @@
     TESTS.forEach((t) => { d.tests[t.id] = testVide(t); });
     d.senso = Senso.vide();
     d.manip = { fait: "", md: {}, mg: {}, notes: "" };
-    d.auto = { fait: "", reponses: {}, notes: "", notesAuto: "" };
+    d.auto = { fait: "", reponses: {}, notes: "", notesAuto: "", synthese: "", syntheseAuto: "" };
     Object.assign(d, Occup.vide());
     d.precedent = null;
     d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
@@ -699,6 +757,8 @@
       d.auto.fait = src.auto.fait ? "oui" : "";
       d.auto.notes = texte(src.auto.notes);
       d.auto.notesAuto = src.auto.notesAuto === "oui" ? "oui" : "";
+      d.auto.synthese = texte(src.auto.synthese);
+      d.auto.syntheseAuto = src.auto.syntheseAuto === "oui" ? "oui" : "";
       Object.keys(src.auto.reponses || {}).forEach((k) => {
         const v = nombre(src.auto.reponses[k]);
         if (v !== null && v >= 0 && v <= 4 && /^\d+$/.test(k)) d.auto.reponses[k] = Math.round(v);
@@ -1589,9 +1649,10 @@
         const doms = sa.domaines.filter((dm) => dm.repondues).sort((x, y) => y.frequentes / y.repondues - x.frequentes / x.repondues);
         l.push("Les réponses de " + a.sujetMin + " signalent une difficulté fréquente (souvent ou toujours) pour " + frequentes + " question" + (frequentes > 1 ? "s" : "") + " sur " + sa.repondues +
           (doms.length ? " : " + doms.map((dm) => dm.nom.toLowerCase() + " " + dm.frequentes + " sur " + dm.repondues).join(", ") : "") + ".");
-        l.push("Réponses : " + ECHELLE_AUTO.map((e, k) => sa.colonnes[k] ? sa.colonnes[k] + " « " + e.toLowerCase() + " »" : "").filter(Boolean).join(", ") + ".");
       } else l.push("[Réponses à saisir.]");
-      if (d.auto.notes.trim()) l.push(point(maj(d.auto.notes.trim())));
+      // Version de synthèse ; d'anciennes notes écrites à la main (sans synthèse) restent reprises.
+      const courte = d.auto.synthese.trim() || (d.auto.notes.trim() && d.auto.notesAuto !== "oui" ? d.auto.notes.trim() : syntheseAutoCourte(d, reg));
+      if (courte) l.push(point(maj(courte)));
       out.autoeval = l.join("\n");
     } else out.autoeval = "";
 
@@ -1992,7 +2053,7 @@
   return {
     SCORE_MAX, NB_LIGNES, SCORE_TOTAL_MAX, CLASSES, AGES, DOMAINES, CRITERES, BAREME_TAILLE, REMARQUES, MODES_COPIE,
     PRISES, GRILLE, TYPES_SCORE, TESTS, BILANS_COURANTS, AMENAGEMENTS, PRECONISATIONS, CATEGORIES_PRECO, OCCUPATIONS, DISPOSITIFS, SECTIONS, APPRECIATIONS,
-    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, QUESTIONS_AUTO, NOM_AUTO, syntheseAuto, syntheseAutoTexte,
+    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, QUESTIONS_AUTO, NOM_AUTO, syntheseAuto, syntheseAutoTexte, syntheseAutoCourte,
     nombre, maj, min, age, formaterAge, formaterDS, formaterNombre, dateCourte, dateLongue, aujourdhui, quantileNormal,
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
