@@ -276,6 +276,22 @@
   const NB_QUESTIONS_AUTO = 12;
   // Domaines du questionnaire : chaque question est rangée dans un domaine (réglages).
   const DOMAINES_AUTO = [["lisibilite", "Lisibilité"], ["satisfaction", "Satisfaction et émotions"], ["vitesse", "Vitesse"]];
+  // Questionnaire d'auto-appréciation de l'écriture du cabinet, d'après le CHaP (libre d'utilisation) : questions et thématiques.
+  const NOM_AUTO = "Questionnaire d'auto-appréciation de l'écriture (d'après le CHaP)";
+  const QUESTIONS_AUTO = [
+    ["As-tu des difficultés à te relire ?", "lisibilite"],
+    ["Les autres ont-ils des difficultés à te relire ?", "lisibilite"],
+    ["Manques-tu de temps pour copier au tableau en cours ?", "vitesse"],
+    ["Rayes-tu ou effaces-tu souvent ce que tu as écrit ?", "vitesse"],
+    ["Trouves-tu difficile d'écrire à la main ?", "satisfaction"],
+    ["Évites-tu de faire ton travail écrit à la maison ?", "satisfaction"],
+    ["Ressens-tu des douleurs quand tu écris ?", "satisfaction"],
+    ["Es-tu vite fatigué quand tu écris ?", "satisfaction"],
+    ["As-tu souvent besoin de regarder le tableau quand tu écris ?", "vitesse"],
+    ["Es-tu insatisfait de ton écriture manuelle ?", "satisfaction"],
+    ["Écris-tu moins vite que les autres dans ta classe ?", "vitesse"],
+    ["Préfèrerais-tu utiliser un autre moyen pour écrire ?", "satisfaction"],
+  ];
 
   const BILANS_COURANTS = [
     { id: "entretien", texte: (a) => "Entretien avec les parents et " + a.sujetMin },
@@ -448,9 +464,9 @@
       seuilInferieur: 1, seuilPatho: 1.5, seuilSuperieur: 1,
       inverserQualite: true,
       brouillon: true,
-      autoNom: "Questionnaire d'auto-appréciation de l'écriture",
-      autoQuestions: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
-      autoDomaines: Array.from({ length: NB_QUESTIONS_AUTO }, () => ""),
+      autoNom: NOM_AUTO,
+      autoQuestions: QUESTIONS_AUTO.map((q) => q[0]),
+      autoDomaines: QUESTIONS_AUTO.map((q) => q[1]),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
       photoCabinet: null,
@@ -477,10 +493,14 @@
     if (out.seuilPatho < out.seuilInferieur) out.seuilPatho = out.seuilInferieur;
     if (r.inverserQualite !== undefined) out.inverserQualite = !!r.inverserQualite;
     if (r.brouillon !== undefined) out.brouillon = !!r.brouillon;
-    if (typeof r.autoNom === "string" && r.autoNom.trim()) out.autoNom = r.autoNom;
-    if (Array.isArray(r.autoQuestions) && r.autoQuestions.length) out.autoQuestions = r.autoQuestions.slice(0, 40).map(texte);
+    // Questionnaire d'auto-appréciation : celui du cabinet par défaut ; des libellés vides (anciens réglages) le laissent en place.
+    if (typeof r.autoNom === "string" && r.autoNom.trim() && r.autoNom !== "Questionnaire d'auto-appréciation de l'écriture") out.autoNom = r.autoNom;
+    const libellesSaisis = Array.isArray(r.autoQuestions) && r.autoQuestions.some((q) => texte(q).trim());
+    if (libellesSaisis) out.autoQuestions = r.autoQuestions.slice(0, 40).map(texte);
+    const domainesSaisis = Array.isArray(r.autoDomaines) && r.autoDomaines.some((v) => DOMAINES_AUTO.some((x) => x[0] === v));
+    const parDefaut = out.autoQuestions.length === QUESTIONS_AUTO.length && out.autoQuestions.every((q, i) => q === QUESTIONS_AUTO[i][0]);
     out.autoDomaines = out.autoQuestions.map((q, i) => {
-      const v = Array.isArray(r.autoDomaines) ? r.autoDomaines[i] : "";
+      const v = domainesSaisis ? r.autoDomaines[i] : parDefaut ? QUESTIONS_AUTO[i][1] : "";
       return DOMAINES_AUTO.some((x) => x[0] === v) ? v : "";
     });
     out.cartesPerso = Occup.normaliserCartesPerso(r.cartesPerso);
@@ -1882,7 +1902,7 @@
   return {
     SCORE_MAX, NB_LIGNES, SCORE_TOTAL_MAX, CLASSES, AGES, DOMAINES, CRITERES, BAREME_TAILLE, REMARQUES, MODES_COPIE,
     PRISES, GRILLE, TYPES_SCORE, TESTS, BILANS_COURANTS, AMENAGEMENTS, PRECONISATIONS, CATEGORIES_PRECO, OCCUPATIONS, DISPOSITIFS, SECTIONS, APPRECIATIONS,
-    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, syntheseAuto,
+    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, QUESTIONS_AUTO, NOM_AUTO, syntheseAuto,
     nombre, maj, min, age, formaterAge, formaterDS, formaterNombre, dateCourte, dateLongue, aujourdhui, quantileNormal,
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,

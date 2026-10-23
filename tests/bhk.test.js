@@ -171,8 +171,9 @@ test("Exner et Benbow, auto-évaluation", () => {
   assert.match(t.autoeval, /difficulté fréquente \(souvent ou toujours\) pour 2 questions sur 3/);
   const m = B.modeleDocument(d, reg);
   const tab = m.blocs.find((b) => b.type === "tableau" && b.lignes[0].cellules[0].runs[0].t === "Question");
-  assert.equal(tab.lignes[1].cellules[0].runs[0].t, "1. Question saisie par l'ergo");
-  assert.equal(tab.lignes[1].cellules[5].runs[0].t, "X");
+  const ligne1 = tab.lignes.find((l) => l.cellules[0].runs[0].t === "1. Question saisie par l'ergo");
+  assert.ok(ligne1);
+  assert.equal(ligne1.cellules[5].runs[0].t, "X");
 });
 
 test("BHK ado : 9 critères, normes de classe ou tous niveaux", () => {
@@ -883,4 +884,19 @@ test("auto-évaluation : domaines, nombre de réponses par colonne, tableau grou
   assert.equal(textes[1], "Lisibilité : difficulté fréquente pour 1 question sur 2");
   assert.ok(textes.indexOf("Autres questions") > 0);
   assert.deepEqual(tab.lignes[tab.lignes.length - 1].cellules.slice(1).map((c) => c.runs[0].t), ["0", "2", "1", "2", "1"]);
+});
+
+test("auto-appréciation : questionnaire du cabinet intégré, anciens réglages vides complétés", () => {
+  const r = B.reglagesParDefaut();
+  assert.equal(r.autoQuestions.length, 12);
+  assert.match(r.autoNom, /d'après le CHaP/);
+  assert.deepEqual(r.autoDomaines.filter((x) => x === "lisibilite").length, 2);
+  // Réglages enregistrés avant : libellés vides, ancien nom → questionnaire du cabinet.
+  const ancien = B.normaliserReglages({ autoNom: "Questionnaire d'auto-appréciation de l'écriture", autoQuestions: Array(12).fill(""), autoDomaines: Array(12).fill("") });
+  assert.equal(ancien.autoQuestions[0], B.QUESTIONS_AUTO[0][0]);
+  assert.equal(ancien.autoDomaines[2], "vitesse");
+  assert.match(ancien.autoNom, /d'après le CHaP/);
+  // Libellés saisis par l'ergo : gardés, sans thématique imposée.
+  const perso = B.normaliserReglages({ autoNom: "Mon questionnaire", autoQuestions: ["Q1", "Q2"] });
+  assert.deepEqual([perso.autoNom, perso.autoQuestions, perso.autoDomaines], ["Mon questionnaire", ["Q1", "Q2"], ["", ""]]);
 });

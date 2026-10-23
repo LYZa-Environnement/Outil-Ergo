@@ -384,7 +384,7 @@
     const utilises = B.DOMAINES_AUTO.filter((x) => reglages.autoDomaines.indexOf(x[0]) >= 0);
     let h = avecLibelles
       ? (utilises.length ? `<p class="legende-auto">${utilises.map((x) => `<span class="domaine-auto domaine-${x[0]}">${esc(x[1])}</span>`).join("")}</p>` : "")
-      : `<p class="note">Les questions ne sont pas encore là : importez le fichier de normes du cabinet (Réglages › Normes), ou saisissez-les dans les Réglages.</p>`;
+      : `<p class="note">Aucune question : saisissez-les dans les Réglages (questionnaire d'auto-évaluation).</p>`;
     for (let i = 1; i <= n; i++) {
       const dm = reglages.autoDomaines[i - 1];
       h += `<div class="item-grille item-auto${dm ? " theme-" + dm : ""}"><span class="item-label"><span id="lq-${i}">${i}. ${esc(reglages.autoQuestions[i - 1] || "Question " + i)}</span>${dm ? `<span class="domaine-auto domaine-${dm}">${esc(nomDomaine(dm))}</span>` : ""}</span>
