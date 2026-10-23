@@ -398,7 +398,7 @@ test("ESO : lecture des libellés collés (texte fictif) et réponses détaillé
   assert.equal(items[0].moyenne, 5);
   assert.equal(items[0].forts[0].libelle, "A");
   assert.ok(S.aDesDonnees(S.normaliser({ eso: e }), "eso-items"));
-  assert.match(S.rediger(S.normaliser({ eso: e }), B.accords({ prenom: "Léa", sexe: "F" })).eso, /soins personnels 2\/36 réponses \(moyenne 5,0\/10\)/);
+  assert.match(S.rediger(S.normaliser({ eso: e }), B.accords({ prenom: "Léa", sexe: "F" })).eso, /soins personnels 2\/36 réponses\. \[Cotation à reporter ou à calculer avec la grille du cabinet\.\]/);
 });
 
 test("graphiques du compte rendu : données préparées", () => {
@@ -950,4 +950,44 @@ test("auto-appréciation : version de synthèse dans le compte rendu, analyse d�
   d.auto.synthese = ""; d.auto.notes = "notes écrites avant la synthèse automatique"; d.auto.notesAuto = "";
   assert.match(B.rediger(d, reg).autoeval, /Notes écrites avant la synthèse automatique\./);
   assert.deepEqual([B.normaliserDossier({ auto: { synthese: "x", syntheseAuto: "oui" } }).auto.synthese, B.normaliserDossier({ auto: { syntheseAuto: "oui" } }).auto.syntheseAuto], ["x", "oui"]);
+});
+
+test("ESO : cotation à partir des réponses avec une grille (fictive), roues, systèmes, interprétation", () => {
+  // Grille fictive (la vraie grille reste dans le fichier du cabinet) : secteurs et systèmes répartis au hasard.
+  const secteurs = Array.from({ length: 36 }, (_, i) => S.SECTEURS_ESO[i % 7]);
+  const systemes = Array.from({ length: 36 }, (_, i) => (i < 28 ? S.SYSTEMES_ESO[i % 7].id : ""));
+  const cle = { secteurs: secteurs, systemes: systemes, sens: { sp: "D".repeat(36), p: "I".repeat(36), l: "DI".repeat(18) } };
+  assert.equal(S.normaliserCotationEso({ secteurs: secteurs.slice(1), systemes: systemes, sens: cle.sens }), null);
+  assert.equal(S.normaliserCotationEso(Object.assign({}, cle, { sens: { sp: "X".repeat(36), p: "", l: "" } })), null);
+  assert.deepEqual([S.pointsEso(0, "D"), S.pointsEso(10, "D"), S.pointsEso(0, "I"), S.pointsEso(5, "I")], [0, 3, 3, 1]);
+  const items = { sp: {}, p: {}, l: {} };
+  for (let i = 1; i <= 36; i++) { items.sp[i] = 10; items.p[i] = 10; if (i > 2) items.l[i] = i < 5 ? (i % 2 ? 0 : 10) : 10; }
+  const c = S.cotationEso({ items: items }, cle);
+  assert.equal(c.n, 106);
+  assert.equal(c.manquants.l, 2);
+  assert.equal(c.roues.sp.SS, 3);  // direct, toujours : 3 points
+  assert.equal(c.roues.p.SS, 0);   // inverse, toujours : 0 point
+  assert.equal(c.points.sp, "3".repeat(36));
+  assert.equal(c.points.l.slice(0, 4), "--00"); // 3 : jamais en sens direct ; 4 : toujours en sens inverse
+  assert.equal(c.systemes.audition.sp, 12); // questions 1, 8, 15, 22 : 4 × 3 points
+  // Valeurs reportées comme le fait l'outil, puis interprétation
+  const e = { fait: "oui", repondant: "sa mère", items: items, roues: { sp: {}, p: {}, l: {} }, systemes: {}, points: c.points };
+  S.DOMAINES_ESO.forEach((dm) => S.SECTEURS_ESO.forEach((sc) => { if (c.roues[dm[0]][sc] !== undefined) e.roues[dm[0]][sc] = String(c.roues[dm[0]][sc]).replace(".", ","); }));
+  S.SYSTEMES_ESO.forEach((sy) => { e.systemes[sy.id] = { sp: String(c.systemes[sy.id].sp || 0), p: String(c.systemes[sy.id].p || 0), l: String(c.systemes[sy.id].l || 0) }; });
+  const s = S.normaliser({ eso: e });
+  const t = S.rediger(s, B.accords({ prenom: "Léa", sexe: "F" }), { libelles: { p: Array.from({ length: 36 }, (_, i) => "Situation " + (i + 1)) } }).eso;
+  assert.match(t, /Lecture : chaque réponse est cotée de 0 à 3 ; 3 correspond à un engagement adapté/);
+  assert.match(t, /– Soins personnels \(moyenne 3,0\/3\) : engagement adapté dans tous les secteurs\./);
+  assert.match(t, /– Productivité \(moyenne 0,0\/3\) : difficultés marquées en /);
+  assert.match(t, /Le domaine le plus touché est celui de la productivité/);
+  assert.match(t, /Situations les plus difficiles selon les parents : travail scolaire : « situation 1 » \(toujours\), « situation 2 » \(toujours\), « situation 3 » \(toujours\)…\n/);
+  assert.match(t, /En résumé, le profil ESO de Léa montre /);
+  const an = S.analyseEso(s.eso);
+  assert.ok(an.systemes.every((x) => x.pourcentage !== null));
+  // Diagnostic : un score bas est une difficulté (et non l'inverse).
+  const k = S.constats(s);
+  assert.ok(k.constats.some((x) => /engagement sensori-occupationnel/.test(x)));
+  const tousBons = S.normaliser({ eso: { fait: "oui", roues: { sp: { SS: "3" }, p: { SS: "2,5" }, l: { SS: "3" } }, systemes: { audition: { sp: "12", p: "12", l: "10" } } } });
+  assert.equal(S.constats(tousBons).constats.length, 0);
+  assert.match(S.rediger(tousBons, B.accords({ prenom: "Léa", sexe: "F" })).eso, /ne montre pas de difficulté notable/);
 });

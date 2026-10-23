@@ -129,6 +129,67 @@
   // Les libellés ne sont pas reproduits : l'ergothérapeute peut coller ceux de son exemplaire (réglages, stockés localement).
   const NB_ITEMS_ESO = 36;
   const DOMAINES_ITEMS_ESO = [["sp", "Soins personnels", /SOINS\s+PERSONNELS/i], ["p", "Travail scolaire", /TRAVAIL\s+SCOLAIRE|PRODUCTIVIT/i], ["l", "Loisirs", /LOISIRS/i]];
+  // Secteurs des roues : 3 = engagement adapté ; plus le score est bas, plus la difficulté est marquée.
+  const SECTEURS_NOMS_ESO = {
+    SS: { nom: "recherche sensorielle", signe: "des comportements de recherche sensorielle", le: "la recherche sensorielle" },
+    DS: { nom: "discrimination sensorielle", signe: "des difficultés de discrimination sensorielle", le: "la difficulté de discrimination sensorielle" },
+    CP: { nom: "contrôle postural", signe: "des difficultés de contrôle postural", le: "la difficulté de contrôle postural" },
+    PX: { nom: "praxies", signe: "des difficultés praxiques", le: "la difficulté praxique" },
+    EO: { nom: "engagement occupationnel", signe: "un engagement occupationnel restreint", le: "la restriction de l'engagement occupationnel" },
+    OR: { nom: "hyperréactivité sensorielle", signe: "des signes d'hyperréactivité sensorielle", le: "l'hyperréactivité sensorielle" },
+    UR: { nom: "hyporéactivité sensorielle", signe: "des signes d'hyporéactivité sensorielle", le: "l'hyporéactivité sensorielle" },
+  };
+  const NIVEAUX_ROUE_ESO = [{ id: "marque", max: 1, nom: "difficulté marquée" }, { id: "modere", max: 2, nom: "difficulté modérée" }, { id: "adapte", max: 3.01, nom: "engagement adapté" }];
+  function niveauRoueEso(v) { return v === null || v === undefined ? null : NIVEAUX_ROUE_ESO.find((n) => v < n.max); }
+
+  // Cotation à partir des réponses (0 à 10) et de la grille de cotation du cabinet (fichier du cabinet, jamais dans le code) :
+  // chaque réponse donne 0 à 3 points, en sens direct ou inverse ; roue = moyenne des points du secteur dans le domaine ;
+  // système = somme des points du système dans le domaine (le pourcentage se calcule sur les trois domaines).
+  const POINTS_ESO = [0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
+  function pointsEso(v, sens) { const p = POINTS_ESO[v]; return sens === "I" ? 3 - p : p; }
+  function normaliserCotationEso(c) {
+    if (!c || typeof c !== "object") return null;
+    const secteurs = Array.isArray(c.secteurs) ? c.secteurs.map((x) => texte(x).trim()) : [];
+    const systemes = Array.isArray(c.systemes) ? c.systemes.map((x) => texte(x).trim()) : [];
+    if (secteurs.length !== NB_ITEMS_ESO || secteurs.some((x) => SECTEURS_ESO.indexOf(x) < 0)) return null;
+    if (systemes.length !== NB_ITEMS_ESO || systemes.some((x) => x && !SYSTEMES_ESO.some((sy) => sy.id === x))) return null;
+    const sens = {};
+    for (const dm of DOMAINES_ITEMS_ESO) {
+      const t = texte(c.sens && c.sens[dm[0]]).trim().toUpperCase();
+      if (!/^[DI]{36}$/.test(t)) return null;
+      sens[dm[0]] = t;
+    }
+    return { secteurs: secteurs, systemes: systemes, sens: sens };
+  }
+  function cotationEso(e, cle) {
+    const k = normaliserCotationEso(cle);
+    if (!k) return null;
+    const roues = {}, systemes = {}, manquants = {}, points = {};
+    let n = 0;
+    SYSTEMES_ESO.forEach((sy) => { systemes[sy.id] = {}; });
+    DOMAINES_ITEMS_ESO.forEach((dm) => {
+      const src = (e.items && e.items[dm[0]]) || {};
+      const somme = {}, nb = {};
+      let chaine = "";
+      manquants[dm[0]] = 0;
+      for (let i = 1; i <= NB_ITEMS_ESO; i++) {
+        const v = nombre(src[i]);
+        if (v === null || v < 0 || v > 10) { manquants[dm[0]]++; chaine += "-"; continue; }
+        n++;
+        const p = pointsEso(Math.round(v), k.sens[dm[0]].charAt(i - 1));
+        chaine += p;
+        const sc = k.secteurs[i - 1];
+        somme[sc] = (somme[sc] || 0) + p;
+        nb[sc] = (nb[sc] || 0) + 1;
+        const sy = k.systemes[i - 1];
+        if (sy) systemes[sy][dm[0]] = (systemes[sy][dm[0]] || 0) + p;
+      }
+      points[dm[0]] = chaine;
+      roues[dm[0]] = {};
+      SECTEURS_ESO.forEach((sc) => { if (nb[sc]) roues[dm[0]][sc] = Math.round((somme[sc] / nb[sc]) * 10) / 10; });
+    });
+    return { n: n, roues: roues, systemes: systemes, manquants: manquants, points: points, complet: n === NB_ITEMS_ESO * DOMAINES_ITEMS_ESO.length };
+  }
 
   /* ================= SensOT-dir ================= */
 
@@ -145,7 +206,7 @@
       otipis: { fait: "", parent: "", main: "", oeil: "", pied: "", scores: {}, notes: {}, temps20: "", temps22: "", erreursMD: "", erreursMG: "", autres: "", comportement: "", discussion: "" },
       dunnEnfant: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       dunnScolaire: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
-      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfImporte: "" },
+      eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfImporte: "", calcul: "", points: { sp: "", p: "", l: "" } },
       sensot: { fait: "", date: "", themes: {}, priorites: [], notes: "" },
     };
     return s;
@@ -175,6 +236,8 @@
     });
     const e = src.eso || {};
     copierTexte(s.eso, e, ["fait", "repondant", "date", "notes", "pdfImporte"]);
+    s.eso.calcul = e.calcul === "auto" || e.calcul === "manuel" ? e.calcul : "";
+    DOMAINES_ITEMS_ESO.forEach((dm) => { const t = texte(e.points && e.points[dm[0]]); if (/^[0-3-]{36}$/.test(t)) s.eso.points[dm[0]] = t; });
     DOMAINES_ESO.forEach((dm) => SECTEURS_ESO.forEach((sc) => {
       const v = e.roues && e.roues[dm[0]] && e.roues[dm[0]][sc];
       if (v !== undefined && v !== null && v !== "") s.eso.roues[dm[0]][sc] = texte(v);
@@ -258,9 +321,11 @@
       const src = (e.items && e.items[dm[0]]) || {};
       const libs = (libelles && libelles[dm[0]]) || [];
       const valeurs = Array.from({ length: NB_ITEMS_ESO }, (_, i) => { const v = nombre(src[i + 1]); return v === null ? null : v; });
-      const rep = valeurs.map((v, i) => ({ num: i + 1, v: v, libelle: texte(libs[i]).trim() })).filter((x) => x.v !== null);
+      const pts = texte(e.points && e.points[dm[0]]);
+      const points = /^[0-3-]{36}$/.test(pts) ? Array.from(pts).map((c) => (c === "-" ? null : Number(c))) : null;
+      const rep = valeurs.map((v, i) => ({ num: i + 1, v: v, p: points ? points[i] : null, libelle: texte(libs[i]).trim() })).filter((x) => x.v !== null);
       return {
-        id: dm[0], nom: dm[1], valeurs: valeurs, n: rep.length,
+        id: dm[0], nom: dm[1], valeurs: valeurs, points: points, n: rep.length, reponses: rep,
         moyenne: rep.length ? rep.reduce((a, x) => a + x.v, 0) / rep.length : null,
         forts: rep.filter((x) => x.v >= 8), faibles: rep.filter((x) => x.v <= 2),
       };
@@ -381,20 +446,70 @@
     return l.join("\n");
   }
 
-  function redigerEso(e, a) {
+  // Lecture des roues et des systèmes : secteurs en difficulté par domaine, systèmes sous le repère, constantes d'un domaine à l'autre.
+  function analyseEso(e) {
+    const val = valeursRoues(e);
+    const domaines = DOMAINES_ESO.map((dm) => {
+      const secteurs = SECTEURS_ESO.map((sc) => ({ id: sc, v: val[dm[0]][sc], niveau: niveauRoueEso(val[dm[0]][sc]) })).filter((x) => x.v !== null);
+      const moyenne = secteurs.length ? secteurs.reduce((t, x) => t + x.v, 0) / secteurs.length : null;
+      return { id: dm[0], nom: dm[1], secteurs: secteurs, moyenne: moyenne };
+    });
+    const globaux = SECTEURS_ESO.map((sc) => {
+      const vs = domaines.map((d) => (d.secteurs.find((x) => x.id === sc) || {}).v).filter((v) => v !== undefined && v !== null);
+      return { id: sc, n: vs.length, moyenne: vs.length ? vs.reduce((t, v) => t + v, 0) / vs.length : null, partout: vs.length === domaines.length && vs.every((v) => v < 2) };
+    }).filter((x) => x.n);
+    const sys = systemesEso(e).filter((x) => x.rempli);
+    return { domaines: domaines, globaux: globaux, systemes: sys, bas: sys.filter((x) => x.pourcentage < REPERE_ESO).sort((x, y) => x.pourcentage - y.pourcentage) };
+  }
+
+  const COURT_SYSTEMES_ESO = { olfagust: "olfaction-gustation", vestib: "vestibulaire", proprio: "proprioception", intero: "intéroception" };
+  const ADJ_SYSTEMES_ESO = { audition: "auditif", olfagust: "olfactif et gustatif", visuel: "visuel", tactile: "tactile", proprio: "proprioceptif", vestib: "vestibulaire", intero: "intéroceptif" };
+  const court = (x) => COURT_SYSTEMES_ESO[x.id] || min(x.nom);
+  const plans = (l) => (l.length > 1 ? "les plans " : "le plan ") + joindre(l.map((x) => ADJ_SYSTEMES_ESO[x.id]));
+  function redigerEso(e, a, opts) {
     if (e.fait !== "oui") return "";
+    const libelles = (opts && opts.libelles) || null;
     const l = [];
     l.push("Profil de l'engagement sensori-occupationnel (ESO), questionnaire parental rempli par " + (e.repondant.trim() || "les parents") + (e.date ? " le " + dateCourte(e.date) : "") + ".");
-    const sys = systemesEso(e).filter((x) => x.rempli);
-    if (sys.length) {
-      l.push("– Systèmes sensoriels : " + sys.map((x) => min(x.nom) + " " + fmt(x.pourcentage, 0) + " %").join(", ") + ".");
-      const hauts = sys.filter((x) => x.pourcentage >= REPERE_ESO);
-      if (hauts.length) l.push("– Au-dessus du repère de " + REPERE_ESO + " % : " + joindre(hauts.map((x) => min(x.nom))) + ".");
+    const an = analyseEso(e);
+    const roues = an.domaines.some((d) => d.secteurs.length);
+    if (roues || an.systemes.length) l.push("Lecture : chaque réponse est cotée de 0 à 3 ; 3 correspond à un engagement adapté. Roues : score moyen par secteur, de 0 à 3. Systèmes sensoriels : pourcentage d'engagement, repère à " + REPERE_ESO + " %.");
+    const v1 = (v) => fmt(v, 1);
+    if (an.systemes.length) {
+      l.push("– Systèmes sensoriels : " + an.systemes.slice().sort((x, y) => x.pourcentage - y.pourcentage).map((x) => court(x) + " " + fmt(x.pourcentage, 0) + " %").join(", ") + ".");
+      if (an.bas.length) l.push("– Sous le repère de " + REPERE_ESO + " %, engagement fragilisé sur " + plans(an.bas) + (an.bas.length < an.systemes.length ? " ; les autres systèmes sont au-dessus du repère." : "."));
+      else l.push("– Tous les systèmes sensoriels sont au-dessus du repère de " + REPERE_ESO + " %.");
     }
-    if (aDesDonnees({ eso: e }, "eso-roues")) l.push("– Roues par domaine d'occupation (soins personnels, productivité, loisirs) : voir la figure.");
-    const items = itemsEso(e).filter((x) => x.n > 0);
-    if (items.length) l.push("– Réponses détaillées : " + items.map((x) => min(x.nom) + " " + x.n + "/" + NB_ITEMS_ESO + " réponses (moyenne " + fmt(x.moyenne, 1) + "/10)").join(", ") + ".");
-    if (!sys.length && !aDesDonnees({ eso: e }, "eso-roues") && !items.length) l.push("[Synthèse ESO à saisir.]");
+    an.domaines.forEach((d) => {
+      if (!d.secteurs.length) return;
+      const de = (niv) => d.secteurs.filter((x) => x.niveau && x.niveau.id === niv).sort((x, y) => x.v - y.v).map((x) => SECTEURS_NOMS_ESO[x.id].nom + " (" + x.id + " " + v1(x.v) + ")");
+      const m = [];
+      const marque = de("marque"), modere = de("modere");
+      if (marque.length) m.push("difficultés marquées en " + joindre(marque));
+      if (modere.length) m.push("difficultés modérées en " + joindre(modere));
+      l.push("– " + d.nom + (d.moyenne !== null ? " (moyenne " + v1(d.moyenne) + "/3)" : "") + " : " + (m.length ? m.join(" ; ") + (marque.length + modere.length < d.secteurs.length ? " ; autres secteurs adaptés" : "") : "engagement adapté dans tous les secteurs") + ".");
+    });
+    const dom = an.domaines.filter((d) => d.moyenne !== null).sort((x, y) => x.moyenne - y.moyenne);
+    if (dom.length > 1 && dom[0].moyenne < 2 && dom[1].moyenne - dom[0].moyenne >= 0.3) l.push("– Le domaine le plus touché est " + ({ sp: "celui des soins personnels", p: "celui de la productivité", l: "celui des loisirs" })[dom[0].id] + ".");
+    const partout = an.globaux.filter((x) => x.partout).sort((x, y) => x.moyenne - y.moyenne);
+    if (partout.length) l.push("– " + maj(joindre(partout.map((x) => SECTEURS_NOMS_ESO[x.id].le))) + (partout.length > 1 ? " se retrouvent" : " se retrouve") + " dans les trois domaines d'occupation, ce qui suggère une gêne présente dans l'ensemble du quotidien.");
+    // Situations les plus difficiles (0 point), avec le texte des questions s'il est disponible.
+    const items = itemsEso(e, libelles).filter((x) => x.n > 0);
+    const durs = items.map((x) => ({ nom: x.nom, l: x.reponses.filter((r) => r.p === 0 && r.libelle) })).filter((x) => x.l.length);
+    if (durs.length) l.push("– Situations les plus difficiles selon les parents : " + durs.map((x) => min(x.nom) + " : " + x.l.slice(0, 3).map((r) => "« " + min(r.libelle.replace(/[.\s]+$/, "")) + " » (" + (r.v <= 1 ? "jamais" : r.v >= 9 ? "toujours" : fmt(r.v, 0) + "/10") + ")").join(", ") + (x.l.length > 3 ? "…" : "")).join(" ; ").replace(/…$/, "") + (durs[durs.length - 1].l.length > 3 ? "…" : "."));
+    // Synthèse
+    const faibles = an.globaux.filter((x) => x.moyenne !== null && x.moyenne < 2).sort((x, y) => x.moyenne - y.moyenne).slice(0, 3);
+    if (roues || an.systemes.length) {
+      if (faibles.length || an.bas.length) {
+        let t = "En résumé, le profil ESO de " + a.sujetMin + " montre " + (faibles.length ? joindre(faibles.map((x) => SECTEURS_NOMS_ESO[x.id].signe)) : "un engagement fragilisé");
+        if (an.bas.length) t += (faibles.length ? ", en particulier sur " : " sur ") + plans(an.bas.slice(0, 3));
+        l.push(t + ".");
+      } else l.push("En résumé, le profil ESO de " + a.sujetMin + " ne montre pas de difficulté notable d'engagement sensori-occupationnel.");
+    }
+    if (!roues && !an.systemes.length) {
+      if (items.length) l.push("– Réponses détaillées : " + items.map((x) => min(x.nom) + " " + x.n + "/" + NB_ITEMS_ESO + " réponses").join(", ") + ". [Cotation à reporter ou à calculer avec la grille du cabinet.]");
+      else l.push("[Synthèse ESO à saisir.]");
+    }
     if (e.notes.trim()) l.push(point(maj(e.notes.trim())));
     return l.join("\n");
   }
@@ -429,11 +544,11 @@
     return l.join("\n");
   }
 
-  function rediger(s, a) {
+  function rediger(s, a, opts) {
     return {
       otipis: redigerOtipis(s.otipis, a),
       dunn: [redigerDunnForme("enfant", s.dunnEnfant, a), redigerDunnForme("scolaire", s.dunnScolaire, a)].filter(Boolean).join("\n\n"),
-      eso: redigerEso(s.eso, a),
+      eso: redigerEso(s.eso, a, opts),
       sensot: redigerSensot(s.sensot, a),
     };
   }
@@ -479,14 +594,20 @@
     });
 
     if (s.eso.fait === "oui") {
-      const hauts = systemesEso(s.eso).filter((x) => x.rempli && x.pourcentage >= REPERE_ESO);
-      if (hauts.length) {
-        c.constats.push("engagement sensori-occupationnel : " + joindre(hauts.map((x) => min(x.nom) + " " + fmt(x.pourcentage, 0) + " %")) + " (ESO)");
-        hauts.forEach((x) => {
-          const map = { audition: "auditif", tactile: "tactile", visuel: "visuel", vestib: "recherche", proprio: "postural" };
-          if (map[x.id]) premier(map[x.id], "le système " + min(x.nom) + " au profil ESO (" + fmt(x.pourcentage, 0) + " %)");
-        });
+      // Un score bas signale une difficulté : systèmes sous le repère de 50 %, secteurs des roues sous 2 sur 3.
+      const an = analyseEso(s.eso);
+      const faibles = an.globaux.filter((x) => x.moyenne !== null && x.moyenne < 2).sort((x, y) => x.moyenne - y.moyenne);
+      const m = [];
+      if (faibles.length) m.push(joindre(faibles.slice(0, 3).map((x) => SECTEURS_NOMS_ESO[x.id].signe)));
+      if (an.bas.length) m.push("un engagement fragilisé sur " + plans(an.bas) + " (" + an.bas.map((x) => fmt(x.pourcentage, 0) + " %").join(", ") + ")");
+      if (m.length) {
+        c.constats.push("engagement sensori-occupationnel : " + m.join(", ") + " (ESO)");
+        if (faibles.length) c.facteurs.push(faibles.slice(0, 2).map((x) => SECTEURS_NOMS_ESO[x.id].signe).join(" et ") + " au quotidien");
       }
+      const mapS = { audition: "auditif", tactile: "tactile", visuel: "visuel", vestib: "recherche", proprio: "postural" };
+      an.bas.forEach((x) => { if (mapS[x.id]) premier(mapS[x.id], "le système " + min(x.nom) + " au profil ESO (" + fmt(x.pourcentage, 0) + " %)"); });
+      const mapR = { OR: "sensibilite", UR: "enregistrement", SS: "recherche", DS: "discrimination", CP: "postural", PX: "praxies" };
+      faibles.forEach((x) => { if (mapR[x.id]) premier(mapR[x.id], SECTEURS_NOMS_ESO[x.id].signe + " (ESO, " + fmt(x.moyenne, 1) + " sur 3)"); });
     }
 
     if (s.sensot.fait === "oui") {
@@ -508,7 +629,8 @@
 
   return {
     DOMAINES_OC, OTIPIS, ORDRE_PROFIL, CLASSIFICATIONS, QUADRANTS, FORMES_DUNN,
-    DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
+    DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso,
+    SECTEURS_NOMS_ESO, NIVEAUX_ROUE_ESO, niveauRoueEso, POINTS_ESO, pointsEso, normaliserCotationEso, cotationEso, analyseEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
     vide, normaliser, syntheseOtipis, lignesDunn, systemesEso, valeursRoues, themesSensot, aDesDonnees, rediger, constats,
   };
 });

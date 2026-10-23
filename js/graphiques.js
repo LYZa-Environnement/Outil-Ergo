@@ -131,11 +131,11 @@
 
   function rouesEso(e) {
     const val = S.valeursRoues(e);
-    const L = 840, H = 340, R = 110, cy = 190;
+    const L = 840, H = 352, R = 110, cy = 204;
     let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">Profil ESO par domaine d'occupation</text>`;
     S.DOMAINES_ESO.forEach((dm, k) => {
       const cx = 140 + k * 280;
-      c += `<text x="${cx}" y="58" font-size="14" font-weight="700" fill="#1F3A5F" text-anchor="middle">${x(dm[1])}</text>`;
+      c += `<text x="${cx}" y="54" font-size="14" font-weight="700" fill="#1F3A5F" text-anchor="middle">${x(dm[1])}</text>`;
       const nS = S.SECTEURS_ESO.length, pas = 360 / nS;
       S.SECTEURS_ESO.forEach((sc, i) => {
         const a0 = -90 - pas / 2 + i * pas, a1 = a0 + pas;
@@ -152,7 +152,7 @@
       });
       [1, 2, 3].forEach((r) => { c += `<circle cx="${cx}" cy="${cy}" r="${(R * r) / 3}" fill="none" stroke="${TRAIT}" stroke-width="1.3"/>`; });
     });
-    c += `<text x="${L / 2}" y="${H - 12}" font-size="11" fill="#555" text-anchor="middle">Cercles de 1 à 3, comme sur la fiche de synthèse</text>`;
+    c += `<text x="${L / 2}" y="${H - 12}" font-size="11" fill="#555" text-anchor="middle">Score moyen par secteur, de 0 (centre) à 3 (bord) ; 3 = engagement adapté</text>`;
     return { svg: svg(L, H, c, "Profil ESO par domaine d'occupation"), l: L, h: H };
   }
 
@@ -173,7 +173,7 @@
       c += `<text x="${lab - 10}" y="${y + 19}" font-size="13" fill="#222" text-anchor="end">${x(s.nom)}</text>`;
       c += `<rect x="${lab}" y="${y + 6}" width="${larg}" height="${h - 12}" fill="none" stroke="#444" stroke-width="1"/>`;
       if (s.pourcentage !== null) {
-        c += `<rect x="${lab}" y="${y + 6}" width="${n(X(s.pourcentage) - lab)}" height="${h - 12}" fill="${ENCRE}" fill-opacity="0.75"/>`;
+        c += `<rect x="${lab}" y="${y + 6}" width="${n(X(s.pourcentage) - lab)}" height="${h - 12}" fill="${s.pourcentage < S.REPERE_ESO ? CORAIL : ENCRE}" fill-opacity="0.75"/>`;
         c += `<text x="${n(X(s.pourcentage) + 6)}" y="${y + 19}" font-size="12" font-weight="700" fill="#1F3A5F">${Math.round(s.pourcentage)} %</text>`;
       }
     });
@@ -315,6 +315,8 @@
   }
 
   function itemsEso(d) {
+    // Avec la cotation du cabinet : points de 0 à 3 par question (3 = engagement adapté), en rouge les plus difficiles.
+    if (d.domaines.some((dm) => dm.points)) return pointsEso(d);
     const L = 760, hPanneau = 120, haut = 40, H = haut + d.domaines.length * hPanneau + 10;
     const gx = 40, larg = L - gx - 16, pas = larg / 36;
     let c = `<text x="${L / 2}" y="24" font-size="16" font-weight="700" fill="#111" text-anchor="middle">ESO : réponses détaillées (0 à 10)</text>`;
@@ -332,6 +334,34 @@
       });
     });
     return { svg: svg(L, H, c, "Réponses détaillées de l'ESO"), l: L, h: H };
+  }
+
+  function pointsEso(d) {
+    const L = 760, hPanneau = 120, haut = 46, H = haut + d.domaines.length * hPanneau + 30;
+    const gx = 40, larg = L - gx - 16, pas = larg / 36;
+    const couleurs = ["#D23B3B", "#F0A04B", VERT_CLAIR, "#3F8F5F"];
+    let c = `<text x="${L / 2}" y="24" font-size="16" font-weight="700" fill="#111" text-anchor="middle">ESO : points par question (0 à 3, 3 = engagement adapté)</text>`;
+    d.domaines.forEach((dm, k) => {
+      const y0 = haut + k * hPanneau, hb = 72, base = y0 + 22 + hb;
+      const ps = (dm.points || []).filter((p) => p !== null && p !== undefined);
+      const moy = ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;
+      c += `<text x="${gx}" y="${y0 + 14}" font-size="13" font-weight="700" fill="#1F3A5F">${x(dm.nom)}${moy !== null ? ` <tspan font-weight="400" fill="#555">(moyenne ${fr(moy, 1)} sur 3)</tspan>` : ""}</text>`;
+      [0, 1, 2, 3].forEach((v) => {
+        const yy = base - (v / 3) * hb;
+        c += `<line x1="${gx}" x2="${gx + larg}" y1="${n(yy)}" y2="${n(yy)}" stroke="#E1E5EC" stroke-width="1"/><text x="${gx - 6}" y="${n(yy + 4)}" font-size="10" fill="#666" text-anchor="end">${v}</text>`;
+      });
+      (dm.points || []).forEach((p, i) => {
+        const xx = gx + i * pas + 1.5;
+        if (p !== null && p !== undefined) c += `<rect x="${n(xx)}" y="${n(base - (Math.max(p, 0.12) / 3) * hb)}" width="${n(pas - 3)}" height="${n((Math.max(p, 0.12) / 3) * hb)}" fill="${couleurs[p]}"/>`;
+        if ((i + 1) % 5 === 0 || i === 0) c += `<text x="${n(xx + (pas - 3) / 2)}" y="${base + 12}" font-size="9.5" fill="#666" text-anchor="middle">${i + 1}</text>`;
+      });
+    });
+    const ly = H - 12;
+    ["0 point", "1 point", "2 points", "3 points"].forEach((t, i) => {
+      const lx = 150 + i * 130;
+      c += `<rect x="${lx}" y="${ly - 9}" width="12" height="12" fill="${couleurs[i]}"/><text x="${lx + 18}" y="${ly + 1}" font-size="11" fill="#444">${t}</text>`;
+    });
+    return { svg: svg(L, H, c, "Points de l'ESO par question"), l: L, h: H };
   }
 
   function dessiner(id, donnees) {

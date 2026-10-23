@@ -62,6 +62,8 @@
       if (integres.eso && typeof integres.eso === "object" && !(r.esoLibelles.sp.length + r.esoLibelles.p.length + r.esoLibelles.l.length)) {
         r.esoLibelles = B.normaliserReglages({ esoLibelles: integres.eso }).esoLibelles;
       }
+      // Grille de cotation de l'ESO (exemplaire du cabinet), si elle n'est pas déjà enregistrée.
+      if (integres.esoCotation && !r.esoCotation) r.esoCotation = B.normaliserReglages({ esoCotation: integres.esoCotation }).esoCotation;
       // Logo du cabinet (documents et PDF), s'il n'a pas été choisi sur cet appareil.
       if (integres.logo && !r.logoCabinet) r.logoCabinet = B.normaliserReglages({ logoCabinet: integres.logo }).logoCabinet;
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
@@ -87,6 +89,8 @@
       const deja = reglages.esoLibelles.sp.length + reglages.esoLibelles.p.length + reglages.esoLibelles.l.length;
       if (remplacer || !deja) { reglages.esoLibelles = eso; faits.push("texte des questions de l'ESO"); }
     }
+    const cot = obj.esoCotation ? B.normaliserReglages({ esoCotation: obj.esoCotation }).esoCotation : null;
+    if (cot && (remplacer || !reglages.esoCotation)) { reglages.esoCotation = cot; faits.push("grille de cotation de l'ESO"); }
     const logo = obj.logo ? B.normaliserReglages({ logoCabinet: obj.logo }).logoCabinet : null;
     if (logo && (remplacer || !reglages.logoCabinet)) { reglages.logoCabinet = logo; faits.push("logo du cabinet"); }
     const avq = obj.avq && typeof obj.avq === "object" ? B.normaliserReglages({ avqLibelles: obj.avq }).avqLibelles : null;
@@ -345,7 +349,9 @@
   function htmlEso() {
     const c = "senso.eso";
     let h = `<div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
-      <p class="note">Valeurs reportées depuis la fiche de synthèse : roues de 0 à 3, et sous-totaux de chaque domaine pour les systèmes sensoriels (le pourcentage se calcule).</p>
+      <p class="note">Avec les réponses des parents (ci-dessous ou PDF importé) et la grille de cotation du cabinet, les roues, les systèmes, les graphiques et l'interprétation se calculent tout seuls. Sinon, reportez les valeurs de la fiche de synthèse : roues de 0 à 3, sous-totaux de chaque domaine pour les systèmes sensoriels (le pourcentage se calcule). 3 correspond à un engagement adapté.</p>
+      <p class="calcule" id="etat-cotation-eso" aria-live="polite"></p>
+      <button type="button" class="bouton-lien" data-action="eso-recalculer" hidden>Recalculer à partir des réponses</button>
       <h4 class="sous-groupe">Roues par domaine d'occupation</h4>
       <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Domaine</th>${S.SECTEURS_ESO.map((s) => `<th scope="col">${s}</th>`).join("")}</tr></thead><tbody>
       ${S.DOMAINES_ESO.map((dm) => `<tr><th scope="row">${esc(dm[1])}</th>${S.SECTEURS_ESO.map((s) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.roues.${dm[0]}.${s}" aria-label="${esc(dm[1])}, ${s}"></td>`).join("")}</tr>`).join("")}
@@ -369,8 +375,11 @@
           return `<label class="eso-item"><span class="eso-num">${i + 1}</span>${lib ? `<span class="eso-lib">${esc(lib)}</span>` : ""}
             <input type="text" inputmode="numeric" maxlength="2" placeholder="0-10" data-chemin="${c}.items.${dm[0]}.${i + 1}" data-note10 aria-label="${esc(dm[1])}, question ${i + 1}"></label>`;
         }).join("")}</div></details>`).join("")}
-      ${champZone("Observations", c + ".notes")}
-      <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div><div class="graphique" id="g-eso-items" hidden></div>`;
+      ${champZone("Observations (reprises à la fin de l'interprétation)", c + ".notes")}
+      <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div><div class="graphique" id="g-eso-items" hidden></div>
+      <h5 class="titre-apercu">Interprétation pour le compte rendu</h5>
+      <div class="apercu-synthese" id="apercu-eso"></div>
+      <p class="note">Elle suit les réponses et vos observations. Pour la retoucher : onglet Compte rendu, section « Engagement sensori-occupationnel (ESO) ».</p>`;
     return h;
   }
 
@@ -2125,6 +2134,7 @@
       ? "Texte enregistré dans ce navigateur : " + lib.sp.length + " questions (soins personnels), " + lib.p.length + " (travail scolaire), " + lib.l.length + " (loisirs)."
       : "Aucun texte enregistré : la saisie se fait par numéro de question.";
     $("[data-action='effacer-eso']").hidden = !nEso;
+    $("#etat-eso-libelles").textContent += reglages.esoCotation ? " Grille de cotation enregistrée : roues, systèmes et interprétation se calculent à partir des réponses." : " Grille de cotation absente : importez le fichier du cabinet pour calculer roues et systèmes à partir des réponses.";
 
     if ($("#profil")) majProfil();
     $("#note-brouillon").textContent = reglages.brouillon
@@ -2272,6 +2282,7 @@
       if (el.type === "radio" && !el.checked) return;
       if (el.tagName === "SELECT" && el.value === "" && el.dataset.chemin.indexOf("manip.") === 0) effacerChemin(dossier, el.dataset.chemin);
       else ecrireChemin(dossier, el.dataset.chemin, el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value);
+      if (/^senso\.eso\.(roues|systemes)\./.test(el.dataset.chemin) && e.type === "input") dossier.senso.eso.calcul = "manuel";
       if (el.dataset.chemin === "auto.notes" && e.type === "input") dossier.auto.notesAuto = "";
       if (el.dataset.chemin === "auto.synthese" && e.type === "input") dossier.auto.syntheseAuto = "";
       if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
@@ -2406,7 +2417,42 @@
       : "Tout est complété.";
   }
 
+  // ESO : roues et systèmes calculés à partir des réponses et de la grille de cotation du cabinet, sauf saisie à la main.
+  function majCotationEso() {
+    const e = dossier.senso && dossier.senso.eso;
+    if (!e) return;
+    const c = reglages.esoCotation ? S.cotationEso(e, reglages.esoCotation) : null;
+    const etat = $("#etat-cotation-eso"), bouton = $("[data-action='eso-recalculer']");
+    if (c && c.n && e.calcul !== "manuel") {
+      const txt = (v) => (v === undefined || v === null ? "" : String(v).replace(".", ","));
+      S.DOMAINES_ESO.forEach((dm) => S.SECTEURS_ESO.forEach((sc) => ecrireChemin(dossier, "senso.eso.roues." + dm[0] + "." + sc, txt(c.roues[dm[0]][sc]))));
+      S.SYSTEMES_ESO.forEach((sy) => ecrireChemin(dossier, "senso.eso.systemes." + sy.id, { sp: txt(c.systemes[sy.id].sp), p: txt(c.systemes[sy.id].p), l: txt(c.systemes[sy.id].l) }));
+      ecrireChemin(dossier, "senso.eso.points", c.points);
+      e.calcul = "auto";
+      $$('[data-chemin^="senso.eso.roues."], [data-chemin^="senso.eso.systemes."]').forEach((el) => {
+        if (document.activeElement === el) return;
+        const v = lireChemin(dossier, el.dataset.chemin);
+        el.value = v === undefined || v === null ? "" : String(v);
+      });
+    }
+    if (!etat) return;
+    const manque = c ? S.NB_ITEMS_ESO * 3 - c.n : 0;
+    etat.textContent = !c ? (reglages.esoCotation ? "" : "Grille de cotation absente : importez le fichier du cabinet (Réglages) pour calculer roues et systèmes à partir des réponses.")
+      : !c.n ? "Saisissez ou importez les réponses des parents : roues, systèmes et interprétation se calculeront tout seuls."
+      : e.calcul === "manuel" ? "Valeurs saisies à la main (elles ne suivent plus les réponses)."
+      : "✅ Roues et systèmes calculés à partir des " + c.n + " réponses des parents" + (manque ? " (" + manque + " sans réponse : calcul sur les réponses données)" : "") + ".";
+    if (bouton) bouton.hidden = !(c && c.n && e.calcul === "manuel");
+  }
+  function majApercuEso() {
+    const ap = $("#apercu-eso");
+    if (!ap) return;
+    const t = genere.eso || "";
+    ap.innerHTML = t ? t.split("\n").map((l) => `<p>${esc(l)}</p>`).join("") : `<p class="note">Saisissez ou importez les réponses.</p>`;
+    if (cr.eso && cr.eso.modifie) ap.insertAdjacentHTML("beforeend", `<p class="note">Vous avez retouché cette section dans l'onglet Compte rendu : c'est votre version qui est utilisée.</p>`);
+  }
+
   function majTout() {
+    majCotationEso();
     // La synthèse proposée de l'auto-évaluation est mise à jour avant la rédaction du compte rendu.
     if (dossier.auto && dossier.auto.fait === "oui") majSyntheseAuto(false);
     const r = B.calculerBHK(dossier, reglages);
@@ -2479,7 +2525,7 @@
     majSousOnglets();
     majEnfantCourant();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
-    items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
+    items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) + "/10" : ""; });
     majEtatQuestionnairesParents(items);
 
     // Réévaluation
@@ -2500,6 +2546,7 @@
       $(`[data-retablir="${s.id}"]`).hidden = !cr[s.id].modifie;
     });
     majAvqParents();
+    majApercuEso();
     majACompleter();
     majGalerie();
     sauverBrouillon();
@@ -3989,6 +4036,14 @@
         reglages.esoLibelles = { sp: [], p: [], l: [] };
         sauverReglages(); remplirReglages(); construireSenso(); remplirFormulaire(); majTout();
         annoncer("Texte des questions effacé de ce navigateur");
+        return;
+      case "eso-recalculer":
+        demander("Remplacer les valeurs saisies à la main par celles calculées à partir des réponses ?", "Recalculer").then((ok) => {
+          if (!ok) return;
+          dossier.senso.eso.calcul = "";
+          nonEnregistre = true; majTout();
+          annoncer("Roues et systèmes recalculés");
+        });
         return;
       case "eso-pdf": return exporterPdfParents("eso");
       case "avq-pdf": return exporterPdfParents("avq");

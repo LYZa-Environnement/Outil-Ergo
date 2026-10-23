@@ -616,6 +616,7 @@
       autoDomaines: QUESTIONS_AUTO.map((q) => q[1]),
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
+      esoCotation: null,
       avqLibelles: Occup.libellesAvqp(null),
       photoCabinet: null,
       logoCabinet: null,
@@ -656,6 +657,7 @@
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
+    out.esoCotation = Senso.normaliserCotationEso(r.esoCotation);
     // Questionnaire d'autonomie : celui de l'outil par défaut ; des libellés enregistrés (domaine par domaine) le remplacent.
     if (r.avqLibelles && typeof r.avqLibelles === "object") {
       const l = Occup.libellesAvqp(r.avqLibelles);
@@ -1674,7 +1676,7 @@
     if (!ecritureCommencee(d) && (sensorielCommence(d) || Occup.commence(d))) ["personne", "environnementale", "observation", "bhk", "vitesse", "clavier"].forEach((k) => { out[k] = ""; });
 
     // Bilan sensoriel
-    Object.assign(out, Senso.rediger(d.senso, a));
+    Object.assign(out, Senso.rediger(d.senso, a, { libelles: reg.esoLibelles }));
 
     const ind = indicateurs(d, reg);
 
