@@ -64,6 +64,8 @@
       }
       // Grille de cotation de l'ESO (exemplaire du cabinet), si elle n'est pas déjà enregistrée.
       if (integres.esoCotation && !r.esoCotation) r.esoCotation = B.normaliserReglages({ esoCotation: integres.esoCotation }).esoCotation;
+      // Grille et normes du Man.O.S (exemplaire du cabinet), si elles ne sont pas déjà enregistrées.
+      if (integres.manos && !r.manosGrille) r.manosGrille = B.normaliserReglages({ manosGrille: integres.manos }).manosGrille;
       // Logo du cabinet (documents et PDF), s'il n'a pas été choisi sur cet appareil.
       if (integres.logo && !r.logoCabinet) r.logoCabinet = B.normaliserReglages({ logoCabinet: integres.logo }).logoCabinet;
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
@@ -91,6 +93,8 @@
     }
     const cot = obj.esoCotation ? B.normaliserReglages({ esoCotation: obj.esoCotation }).esoCotation : null;
     if (cot && (remplacer || !reglages.esoCotation)) { reglages.esoCotation = cot; faits.push("grille de cotation de l'ESO"); }
+    const manos = obj.manos ? B.normaliserReglages({ manosGrille: obj.manos }).manosGrille : null;
+    if (manos && (remplacer || !reglages.manosGrille)) { reglages.manosGrille = manos; faits.push("grille et normes du Man.O.S"); }
     const logo = obj.logo ? B.normaliserReglages({ logoCabinet: obj.logo }).logoCabinet : null;
     if (logo && (remplacer || !reglages.logoCabinet)) { reglages.logoCabinet = logo; faits.push("logo du cabinet"); }
     const avq = obj.avq && typeof obj.avq === "object" ? B.normaliserReglages({ avqLibelles: obj.avq }).avqLibelles : null;
@@ -2017,7 +2021,165 @@
     return B.TYPES_SCORE.map((t) => `<option value="${t.id}"${t.id === sel ? " selected" : ""}>${esc(t.label)}</option>`).join("");
   }
 
+  /* ---------- Man.O.S : cotation épreuve par épreuve (grille et normes du fichier du cabinet) ---------- */
+
+  const M = window.Manos;
+  function classeManosCourante() { return B.classeManos(B.normaliserDossier(dossier)); }
+  function coteManos(ep) {
+    const cl = classeManosCourante().classe;
+    dossier.manos = dossier.manos || M.vide();
+    dossier.manos.cotes = dossier.manos.cotes || {};
+    const c = (dossier.manos.cotes[cl] = dossier.manos.cotes[cl] || {});
+    return (c[ep] = c[ep] || M.coteVide());
+  }
+  function htmlManos(t) {
+    const s = dossier.tests.manos, fait = s.fait === "oui";
+    const g = reglages.manosGrille, prop = M.classeProposee(dossier.groupe, dossier.passation);
+    const choisie = (dossier.manos && dossier.manos.classe) || "";
+    const cl = choisie || prop.classe;
+    const def = g.classes[cl];
+    const cotes = ((dossier.manos && dossier.manos.cotes) || {})[cl] || {};
+    const critere = (ep, k, c, i, cote) => {
+      const nom = `manos-${ep.id}-${k}-${i}`, v = cote[k][i];
+      return `<div class="champ critere-manos"><span id="${nom}-t">${esc(c.nom)}</span><div class="choix" role="radiogroup" aria-labelledby="${nom}-t">${c.o.map((o) =>
+        `<label><input type="radio" name="${nom}" value="${o[0]}" data-manos="${ep.id}:${k}:${i}"${v === o[0] ? " checked" : ""}><span><b class="pts">${o[0]}</b> ${esc(o[1])}</span></label>`).join("")}</div></div>`;
+    };
+    const partie = (ep, k, cote) => {
+      let h = "", vu = "";
+      ep[k].forEach((c, i) => {
+        if (c.partie && c.partie !== vu) { h += `<p class="partie-manos">${esc(c.partie)}</p>`; vu = c.partie; }
+        h += critere(ep, k, c, i, cote);
+      });
+      const max = M.maxCriteres(ep[k]), champ = k === "m" ? "nbM" : "nbR";
+      return `<div class="manos-partie"><h5>${k === "m" ? "✋ Manipulation" : "🎯 Résultat"} <output class="nb-manos" id="manos-nb-${ep.id}-${k}"></output></h5>${h}
+        <label class="champ champ-court"><span>Ou note brute directe (sur ${max})</span><input type="text" inputmode="numeric" data-manos-champ="${ep.id}:${champ}" value="${esc(cote[champ])}"></label></div>`;
+    };
+    const epreuves = def ? def.epreuves.map((ep) => {
+      const cote = Object.assign(M.coteVide(), cotes[ep.id] || {});
+      return `<h4 class="sous-groupe">${esc(ep.nom)} <span class="resume-manos" id="manos-res-${ep.id}"></span></h4>
+      <div class="manos-epreuve" data-manos-ep="${ep.id}">
+        ${ep.installation || ep.consigne ? `<details class="consigne-manos"><summary>Installation et consigne</summary>${ep.installation ? `<p>${esc(ep.installation)}</p>` : ""}${ep.consigne ? `<p class="consigne-texte">${esc(ep.consigne)}</p>` : ""}${ep.note ? `<p class="note">${esc(ep.note)}</p>` : ""}</details>` : ""}
+        <div class="manos-parties">${partie(ep, "m", cote)}${partie(ep, "r", cote)}</div>
+        ${ep.nt ? `<div class="manos-temps"><label class="champ champ-court"><span>⏱️ Temps (secondes)</span><input type="text" inputmode="decimal" data-manos-champ="${ep.id}:temps" value="${esc(cote.temps)}"></label>
+          <div class="chrono-manos"><button type="button" class="bouton bouton-second bouton-petit" data-manos-chrono="${ep.id}">▶️ Démarrer le chronomètre</button><button type="button" class="bouton bouton-second bouton-petit" data-manos-chrono-stop="${ep.id}" hidden>⏹️ Arrêter</button><output class="temps-chrono" id="manos-chrono-${ep.id}"></output></div></div>` : ""}
+        <label class="champ"><span>Observation</span><input type="text" data-manos-champ="${ep.id}:obs" value="${esc(cote.obs)}"></label>
+        <output class="ds-ligne ds-manos" id="manos-ds-${ep.id}"></output>
+      </div>`;
+    }).join("") : `<p class="vide">Pas d'épreuves pour cette classe dans la grille du cabinet.</p>`;
+    return `<fieldset class="groupe test" data-bloc-test="manos" data-classe="${esc(cl)}">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="manos" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        <p class="note">Cotez chaque critère en touchant la réponse observée : la note brute et la déviation standard se calculent avec les normes du fichier du cabinet. Vous pouvez aussi saisir directement la note brute de chaque épreuve. Les épreuves peuvent être proposées séparément.</p>
+        <label class="champ champ-court"><span>Épreuves et normes de la classe</span><select data-manos-classe>
+          <option value=""${choisie ? "" : " selected"} id="manos-classe-auto">${esc(prop.classe ? "Proposée : " + prop.classe : "Choisir la classe")}</option>
+          ${M.CLASSES.filter((k) => g.classes[k]).map((k) => `<option value="${k}"${choisie === k ? " selected" : ""}>${k}</option>`).join("")}
+        </select></label>
+        <p class="note" id="manos-raison"></p>
+        ${def && def.intro ? `<p class="note consigne-manos-intro">⏱️ ${esc(def.intro)}</p>` : ""}
+        ${epreuves}
+        <h4 class="sous-groupe">📊 Résultats du Man.O.S</h4>
+        <div><div id="manos-totaux"></div><div class="graphique" id="g-manos" hidden></div></div>
+        <label class="champ"><span>Observations générales</span><textarea data-test="manos" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation("manos")}
+        <p class="note discret">${esc(g.source || "")}</p>
+      </div>
+    </fieldset>`;
+  }
+
+  // Résultats du Man.O.S dans le bloc : notes brutes, DS, totaux et graphique.
+  function majManos() {
+    const bloc = $('[data-bloc-test="manos"]');
+    if (!bloc || !reglages.manosGrille) return;
+    const prop = M.classeProposee(dossier.groupe, dossier.passation);
+    const auto = $("#manos-classe-auto");
+    if (auto) auto.textContent = prop.classe ? "Proposée : " + prop.classe : "Choisir la classe";
+    const cl = classeManosCourante();
+    // Classe de référence changée (classe ou date du bilan modifiées) : les épreuves sont reconstruites.
+    if (bloc.dataset.classe !== cl.classe) { reconstruireTest("manos"); return majManos(); }
+    $("#manos-raison").textContent = cl.raison ? "Classe " + cl.classe + " : " + cl.raison + "." : "";
+    const c = B.calculManos(B.normaliserDossier(dossier), reglages);
+    if (!c) { $("#manos-totaux").innerHTML = `<p class="vide">Choisissez la classe pour afficher les épreuves.</p>`; return; }
+    const dsTxt = (p) => (p.ds === null ? "" : "DS " + B.formaterDS(p.ds));
+    const span = (p, t) => `<span class="${p && p.niveau ? "niveau-" + p.niveau : ""}">${t}</span>`;
+    c.epreuves.forEach((e) => {
+      ["m", "r"].forEach((k) => {
+        const p = e[k], o = $(`#manos-nb-${e.id}-${k}`), champ = $(`[data-manos-champ="${e.id}:${k === "m" ? "nbM" : "nbR"}"]`);
+        if (o) o.textContent = p.source === "grille" ? (p.nb !== null ? p.nb + "/" + p.max : p.repondus + " critère" + (p.repondus > 1 ? "s" : "") + " sur " + p.total + " coté" + (p.repondus > 1 ? "s" : "")) : p.nb !== null ? p.nb + "/" + p.max : p.horsBorne ? "note hors barème" : "";
+        if (champ) {
+          champ.disabled = p.source === "grille";
+          if (p.source === "grille") champ.value = p.nb !== null ? String(p.nb) : "";
+          if (p.horsBorne) champ.setAttribute("aria-invalid", "true"); else champ.removeAttribute("aria-invalid");
+        }
+      });
+      const parts = [];
+      if (e.m.ds !== null) parts.push(span(e.m, "Manipulation " + dsTxt(e.m)));
+      if (e.r.ds !== null) parts.push(span(e.r, "Résultat " + dsTxt(e.r)));
+      if (e.t && e.t.ds !== null) parts.push(span(e.t, "Temps " + dsTxt(e.t)));
+      const o = $("#manos-ds-" + e.id);
+      if (o) o.innerHTML = parts.join(" · ");
+      const res = $("#manos-res-" + e.id);
+      if (res) res.innerHTML = e.fait ? [e.m.nb !== null ? span(e.m, "M " + e.m.nb + "/" + e.m.max) : "", e.r.nb !== null ? span(e.r, "R " + e.r.nb + "/" + e.r.max) : "", e.t && e.t.v !== null ? span(e.t, B.formaterNombre(e.t.v) + " s") : ""].filter(Boolean).join(" ") : "";
+    });
+    const T = c.total;
+    const ligne = (nom, p, valeur) => `<tr><th scope="row">${nom}</th><td>${valeur}</td><td>${p.ds !== null ? span(p, B.formaterDS(p.ds)) : "–"}</td><td>${p.niveau ? span(p, B.APPRECIATIONS[p.niveau]) : p.faites < p.sur ? p.faites + " épreuve" + (p.faites > 1 ? "s" : "") + " sur " + p.sur : "–"}</td></tr>`;
+    $("#manos-totaux").innerHTML = c.faites ? `<div class="defile"><table class="table-normes"><caption>Toutes épreuves (${c.classe})</caption>
+      <thead><tr><th scope="col"></th><th scope="col">Note</th><th scope="col">DS</th><th scope="col">Appréciation</th></tr></thead><tbody>
+      ${ligne("Manipulation", T.m, T.m.nb !== null ? T.m.nb + " sur " + T.m.max : "–")}
+      ${ligne("Résultat", T.r, T.r.nb !== null ? T.r.nb + " sur " + T.r.max : "–")}
+      ${T.t ? ligne("Temps", T.t, T.t.v !== null ? B.formaterNombre(T.t.v) + " s" : "–") : ""}
+      </tbody></table></div><p class="note">Le total se compare à la norme quand toutes les épreuves de la classe sont cotées ; chaque épreuve a aussi sa propre comparaison.</p>`
+      : `<p class="vide">Les résultats apparaissent ici dès qu'une épreuve est cotée.</p>`;
+    const z = $("#g-manos");
+    const gr = window.Graph.dessiner("manos", B.donneesGraphiques(dossier, reglages).manos);
+    z.hidden = !gr;
+    z.innerHTML = gr ? gr.svg : "";
+  }
+
+  // Chronomètre des épreuves de CM2 et de 6e : démarrer, pause, reprendre ; « Arrêter » inscrit le temps.
+  let chronoManos = null;
+  function tempsChronoManos() { return chronoManos ? chronoManos.cumul + (chronoManos.debut ? (performance.now() - chronoManos.debut) / 1000 : 0) : 0; }
+  function afficherChronoManos() {
+    if (!chronoManos) return;
+    const o = $("#manos-chrono-" + chronoManos.ep);
+    if (o) o.textContent = B.formaterNombre(Math.floor(tempsChronoManos() * 10) / 10, 1) + " s" + (chronoManos.debut ? "" : " (en pause)");
+  }
+  function boutonsChronoManos(ep, etat) {
+    const b = $(`[data-manos-chrono="${ep}"]`), s = $(`[data-manos-chrono-stop="${ep}"]`);
+    if (b) b.textContent = etat === "marche" ? "⏸️ Pause" : etat === "pause" ? "▶️ Reprendre" : "▶️ Démarrer le chronomètre";
+    if (s) s.hidden = etat === "arret";
+  }
+  function basculerChronoManos(ep) {
+    if (chronoManos && chronoManos.ep !== ep) arreterChronoManos(false);
+    if (!chronoManos) {
+      chronoManos = { ep: ep, cumul: 0, debut: performance.now(), minuteur: setInterval(afficherChronoManos, 100) };
+      boutonsChronoManos(ep, "marche");
+    } else if (chronoManos.debut) {
+      chronoManos.cumul = tempsChronoManos(); chronoManos.debut = 0;
+      boutonsChronoManos(ep, "pause");
+    } else {
+      chronoManos.debut = performance.now();
+      boutonsChronoManos(ep, "marche");
+    }
+    afficherChronoManos();
+  }
+  function arreterChronoManos(inscrire) {
+    if (!chronoManos) return;
+    const ep = chronoManos.ep, s = Math.round(tempsChronoManos() * 10) / 10;
+    clearInterval(chronoManos.minuteur);
+    chronoManos = null;
+    boutonsChronoManos(ep, "arret");
+    const o = $("#manos-chrono-" + ep);
+    if (o) o.textContent = inscrire ? "Temps inscrit : " + B.formaterNombre(s, 1) + " s" : "";
+    if (!inscrire) return;
+    coteManos(ep).temps = B.formaterNombre(s, 1);
+    const champ = $(`[data-manos-champ="${ep}:temps"]`);
+    if (champ) champ.value = coteManos(ep).temps;
+    nonEnregistre = true;
+    majTout();
+  }
+
   function htmlTest(t) {
+    if (t.id === "manos" && reglages.manosGrille) return htmlManos(t);
     const s = dossier.tests[t.id];
     const fait = s.fait === "oui";
     return `<fieldset class="groupe test" data-bloc-test="${t.id}">
@@ -2038,6 +2200,7 @@
             <button type="button" class="bouton-lien" data-suppr-epreuve="${t.id}:${i}">Retirer l'épreuve</button></div>
         </div>`).join("")}
         <button type="button" class="bouton bouton-second" data-ajouter-epreuve="${t.id}">Ajouter une épreuve</button>
+        ${t.id === "manos" ? `<p class="note">Pour coter le Man.O.S épreuve par épreuve (critères, temps, déviations standard calculées), importez le fichier du cabinet dans les réglages : il contient la grille et les normes.</p>` : ""}
         <label class="champ"><span>Observations générales</span><textarea data-test="${t.id}" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
         ${htmlPassation(t.id)}
       </div>
@@ -2106,6 +2269,9 @@
     $("#etat-normes-reglages").textContent = nb
       ? (window.NORMES_INTEGREES ? "Normes intégrées à cette version personnelle (à ne pas publier)." : "Normes importées" + (n.source ? " : " + n.source : "") + ".")
       : "Aucune norme pour l'instant. Importez le fichier de normes pour calculer les déviations standard.";
+    $("#etat-normes-reglages").textContent += reglages.manosGrille
+      ? " Man.O.S : grille et normes enregistrées (" + window.Manos.CLASSES.filter((k) => reglages.manosGrille.classes[k]).join(", ") + ")."
+      : " Man.O.S : grille et normes absentes (elles sont dans le fichier du cabinet).";
     if (!nb) { $("#tableau-normes").innerHTML = ""; return; }
     const f = (v) => (v ? B.formaterNombre(v[0]) + " / " + B.formaterNombre(v[1]) : "–");
     const table = (ind, ref, cles, titre) => {
@@ -2338,6 +2504,19 @@
       const ex = new Set(dossier.cartes[jeu].exclues);
       if (el.checked) ex.delete(id); else ex.add(id);
       dossier.cartes[jeu].exclues = Array.from(ex);
+    } else if (el.dataset.manos) {
+      if (el.type === "radio" && !el.checked) return;
+      const [ep, k, i] = el.dataset.manos.split(":");
+      coteManos(ep)[k][i] = Number(el.value);
+    } else if (el.dataset.manosChamp) {
+      const [ep, k] = el.dataset.manosChamp.split(":");
+      coteManos(ep)[k] = el.value;
+    } else if (el.dataset.manosClasse !== undefined) {
+      if (e.type !== "change") return;
+      if (chronoManos) arreterChronoManos(false);
+      dossier.manos = dossier.manos || M.vide();
+      dossier.manos.classe = el.value;
+      reconstruireTest("manos");
     } else if (el.dataset.test) {
       const s = dossier.tests[el.dataset.test];
       if (el.dataset.tchamp === "fait") {
@@ -2375,6 +2554,12 @@
     } else if (el.dataset.chemin && String(lireChemin(dossier, el.dataset.chemin)) === el.value) {
       el.checked = false;
       effacerChemin(dossier, el.dataset.chemin);
+    } else if (el.dataset.manos) {
+      const [ep, k, i] = el.dataset.manos.split(":");
+      const c = coteManos(ep);
+      if (c[k][i] !== Number(el.value)) return;
+      el.checked = false;
+      delete c[k][i];
     } else if (el.dataset.champ && RADIOS_EFFACABLES.indexOf(el.dataset.champ) >= 0 && dossier[el.dataset.champ] === el.value) {
       el.checked = false;
       dossier[el.dataset.champ] = "";
@@ -2616,6 +2801,7 @@
       const o = $("#eso-pct-" + sy.id);
       if (o) o.textContent = sy.pourcentage === null ? "" : Math.round(sy.pourcentage) + " %";
     });
+    majManos();
     majPreconisations();
     majOccupation();
     majTdc();
@@ -4016,6 +4202,8 @@
     }
     if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
     if (el.dataset.reproposerDiag) return reproposerDiagnostic(el.dataset.reproposerDiag);
+    if (el.dataset.manosChrono) return basculerChronoManos(el.dataset.manosChrono);
+    if (el.dataset.manosChronoStop) return arreterChronoManos(true);
     if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
     if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });
     if (el.dataset.etapeBas) return modifierPlanning((l) => { const i = +el.dataset.etapeBas; if (i < l.length - 1) l.splice(i + 1, 0, l.splice(i, 1)[0]); });

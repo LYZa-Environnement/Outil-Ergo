@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -257,7 +257,7 @@
         ["pvrmr", "Perception visuelle à réponse motrice réduite", "indice"], ["ivm", "Intégration visuo-motrice", "indice"], ["pvg", "Perception visuelle générale", "indice"]] },
     { id: "mabc3", section: "complementaires", court: "MABC-3", titre: "MABC-3 : batterie d'évaluation du mouvement chez l'enfant",
       lignes: [["dexterite", "Dextérité manuelle", "ns"], ["viser", "Habileté à viser et attraper", "ns"], ["equilibre", "Équilibre et locomotion", "ns"], ["total", "Note totale de motricité", "ns"]] },
-    { id: "manos", section: "complementaires", court: "Man.OS", titre: "Man.OS : test de manipulation des outils scolaires",
+    { id: "manos", section: "complementaires", court: "Man.O.S", titre: "Man.O.S : test de manipulation des outils scolaires",
       lignes: [["global", "Score global", "ds"]] },
     { id: "evic", section: "complementaires", court: "EVIC", titre: "EVIC : évaluation de la frappe au clavier",
       lignes: [["copie", "Copie de texte", "ds"], ["repetition", "Répétition", "ds"], ["dictee", "Dictée", "ds"]] },
@@ -617,6 +617,7 @@
       cartesPerso: [],
       esoLibelles: { sp: [], p: [], l: [] },
       esoCotation: null,
+      manosGrille: null,
       avqLibelles: Occup.libellesAvqp(null),
       photoCabinet: null,
       logoCabinet: null,
@@ -658,6 +659,7 @@
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
     out.esoCotation = Senso.normaliserCotationEso(r.esoCotation);
+    out.manosGrille = Manos.normaliserGrille(r.manosGrille);
     // Questionnaire d'autonomie : celui de l'outil par défaut ; des libellés enregistrés (domaine par domaine) le remplacent.
     if (r.avqLibelles && typeof r.avqLibelles === "object") {
       const l = Occup.libellesAvqp(r.avqLibelles);
@@ -722,6 +724,7 @@
     d.tdc = { fait: "", debut: "", exclusion: "", notes: "" };
     Object.assign(d, Accueil.vide());
     d.clavier = Clavier.vide();
+    d.manos = Manos.vide();
     return d;
   }
 
@@ -751,6 +754,7 @@
     Object.assign(d, Accueil.normaliser(src));
     d.seances = Seances.normaliserListe(src.seances);
     d.clavier = Clavier.normaliser(src.clavier);
+    d.manos = Manos.normaliser(src.manos);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -983,16 +987,30 @@
     return f;
   }
 
+  // Man.O.S : classe de référence choisie, sinon proposée d'après la classe et la date du bilan.
+  function classeManos(d) {
+    const p = Manos.classeProposee(d.groupe, d.passation);
+    return d.manos.classe ? { classe: d.manos.classe, raison: d.manos.classe === p.classe ? p.raison : "" } : p;
+  }
+  function calculManos(d, reg) {
+    if (!reg.manosGrille) return null;
+    const cl = classeManos(d);
+    return cl.classe ? Manos.calcul(d.manos, reg.manosGrille, (v) => niveau(v, reg), cl.classe) : null;
+  }
+
   function calculerTests(dossier, reglages) {
     const d = normaliserDossier(dossier);
     const reg = normaliserReglages(reglages);
     return TESTS.map((t) => {
       const s = d.tests[t.id];
-      const lignes = s.lignes.map((l) => {
+      let lignes = s.lignes.map((l) => {
         const ds = dsLigne(l);
         return { epreuve: l.epreuve, type: l.type, valeurTexte: valeurLigne(l), commentaire: l.commentaire.trim(), ds: ds, niveau: niveau(ds, reg), remplie: nombre(l.valeur) !== null };
       });
-      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes };
+      // Man.O.S coté épreuve par épreuve (grille et normes du fichier du cabinet) : lignes calculées.
+      const manos = t.id === "manos" ? calculManos(d, reg) : null;
+      if (manos && manos.faites) lignes = Manos.lignesTest(manos).map((l) => Object.assign({ type: "manos", commentaire: "", remplie: true }, l));
+      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos };
     });
   }
 
@@ -1083,13 +1101,14 @@
     "eso-items": "ESO : réponses détaillées",
     "profil-ds": "Profil des résultats en déviations standard",
     "bhk-criteres": "Score de chaque critère du BHK",
+    manos: "Man.O.S : écart à la moyenne, outil par outil",
     mcro: "MCRO : rendement et satisfaction",
     dcdq: "DCDQ : scores par facteur",
     evolution: "Évolution des résultats depuis le bilan précédent",
   };
   const LARGEURS_GRAPHIQUES = {
     otipis: 14, "dunn-enfant": 14, "dunn-scolaire": 14, "eso-roues": 16.5, "eso-systemes": 14, "eso-items": 16,
-    "profil-ds": 16, "bhk-criteres": 15, mcro: 15, dcdq: 14, evolution: 15,
+    "profil-ds": 16, "bhk-criteres": 15, manos: 16, mcro: 15, dcdq: 14, evolution: 15,
   };
 
   // Le volet écriture est-il commencé ? (sinon ses sections restent vides dans un bilan seulement sensoriel)
@@ -1216,9 +1235,12 @@
     }
     tests.filter((t) => t.fait && t.section === "complementaires").forEach((t) => {
       const f = t.lignes.filter((l) => faible(l.niveau));
-      if (!f.length) return;
+      // Man.O.S : outils en difficulté, même quand le total reste dans la moyenne.
+      const outils = t.manos ? Manos.outilsEnDifficulte(t.manos) : [];
+      if (!f.length && !outils.length) return;
       const lib = LIBELLES_TESTS[t.id] || ["des difficultés", null];
-      constats.push(lib[0] + " (" + t.court + " : " + joindre(f.map((l) => min(l.epreuve) + " DS " + formaterDS(l.ds))) + ")");
+      const detail = [f.length ? joindre(f.map((l) => min(l.epreuve) + " DS " + formaterDS(l.ds))) : "", outils.length ? (f.length ? "surtout pour " : "pour ") + joindre(outils) : ""].filter(Boolean).join(" ; ");
+      constats.push(lib[0] + " (" + t.court + " : " + detail + ")");
       facteur(lib[0]);
       if (lib[1]) ajout(lib[1], lib[0].replace(/^des /, "les ") + " (" + t.court + ")");
       if (t.id === "mabc3" && f.some((l) => /dextérité/i.test(l.epreuve))) ajout("motriciteFine", "la dextérité manuelle (MABC-3)");
@@ -1279,7 +1301,11 @@
     if (r.niveauV && !faible(r.niveauV)) ajout("conclusionForces", "une vitesse d'écriture " + (r.niveauV === "superieur" ? "supérieure à" : "dans") + " la moyenne", r.nomTest);
     tests.filter((t) => t.fait).forEach((t) => {
       const l = t.lignes.filter((x) => x.niveau);
-      if (l.length && l.every((x) => !faible(x.niveau))) ajout("conclusionForces", "des résultats dans la moyenne au " + t.court, t.court);
+      if (l.length && l.every((x) => !faible(x.niveau)) && !(t.manos && Manos.outilsEnDifficulte(t.manos).length)) ajout("conclusionForces", "des résultats dans la moyenne au " + t.court, t.court);
+      // Man.O.S : manipulation des outils scolaires en difficulté.
+      const f = t.id === "manos" ? l.filter((x) => faible(x.niveau)) : [];
+      const outils = t.manos ? Manos.outilsEnDifficulte(t.manos) : [];
+      if (f.length || outils.length) ajoutOcc("outils", t.court + " : " + [f.slice(0, 3).map((x) => min(x.epreuve) + " DS " + formaterDS(x.ds)).join(", "), outils.length ? "outils en difficulté : " + outils.join(", ") : ""].filter(Boolean).join(" ; "));
     });
     if (d.grille["lisibilite.fatigue"] === "oui") ajout("diagImpact", "une fatigue en cours de tâche écrite", "grille d'observation de l'écriture");
     const frappe = Clavier.indicateur(d.clavier);
@@ -1773,6 +1799,12 @@
       return point(t);
     };
     const paragrapheTest = (t) => {
+      if (t.manos && t.manos.faites) {
+        const l = [Manos.rediger(t.manos, a, { appreciations: APPRECIATIONS, raison: classeManos(d).raison, notes: t.notes })];
+        const passation = Accueil.phrasePassation(d.passations[t.id]);
+        if (passation) l.push(passation);
+        return l.join("\n");
+      }
       const lignes = t.lignes.filter((l) => l.remplie || l.commentaire);
       const l = [t.titre + " :"];
       lignes.forEach((x) => l.push("– " + (x.remplie ? phraseLigne(x) : point(x.epreuve + " : " + x.commentaire))));
@@ -1984,6 +2016,7 @@
     if (r.dsV !== null) lignes.push({ bilan: r.nomTest, epreuve: "Vitesse", ds: r.dsV, niveau: r.niveauV });
     calculerTests(d, reg).filter((t) => t.fait).forEach((t) => t.lignes.filter((l) => l.ds !== null).forEach((l) => lignes.push({ bilan: t.court, epreuve: l.epreuve, ds: l.ds, niveau: l.niveau })));
     g["profil-ds"] = lignes.length >= 2 ? { lignes: lignes, seuils: seuils } : null;
+    g.manos = d.tests.manos.fait === "oui" ? Manos.donneesGraphique(calculManos(d, reg), seuils) : null;
     g["bhk-criteres"] = r.complet ? {
       titre: "Score de chaque critère (" + r.nomTest + ")",
       seuils: seuils, inverse: reg.inverserQualite, normes: r.criteres.some((c) => c.niveau),
@@ -2111,7 +2144,7 @@
         }
       }
       if (s.id === "bhk") blocs.push.apply(blocs, blocGraphique(g, "bhk-criteres"));
-      if (s.id === "complementaires") blocs.push.apply(blocs, blocGraphique(g, "dcdq"));
+      if (s.id === "complementaires") blocs.push.apply(blocs, blocGraphique(g, "manos").concat(blocGraphique(g, "dcdq")));
       if (s.id === "bhk" && d.photoCopie) blocs.push({ type: "photo", donnees: d.photoCopie, l: nombre(d.photoL), h: nombre(d.photoH), alt: "Copie du BHK", largeurCm: 15 });
       if (s.id === "mcro") blocs.push.apply(blocs, blocsMcro(d).concat(blocGraphique(g, "mcro")));
       if (s.id === "evolution") blocs.push.apply(blocs, blocsEvolution(d, reg).concat(blocGraphique(g, "evolution")));
@@ -2288,6 +2321,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
+    classeManos, calculManos,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });

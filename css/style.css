@@ -1327,3 +1327,30 @@ h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
 .cases-occupations label.occ-proposee > span { border-color: color-mix(in srgb, var(--accent) 45%, var(--seyes)); }
 .raison-occ { display: block; margin-top: 3px; font-size: .8rem; font-weight: 400; color: var(--gris); }
 .cases-occupations .occ-texte { display: block; flex: 1; font-weight: inherit; }
+
+/* Man.O.S : cotation épreuve par épreuve */
+.manos-epreuve { padding: 4px 0 10px; }
+.manos-parties { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .manos-parties { grid-template-columns: 1fr 1fr; } }
+.manos-partie { border: 1.5px solid var(--seyes-fin); border-radius: var(--rayon); padding: 8px 12px 4px; background: var(--papier); }
+.manos-partie h5 { margin: 4px 0 8px; font-size: 1rem; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.nb-manos { font-weight: 700; color: var(--accent); }
+.partie-manos { margin: 10px 0 4px; font-weight: 700; font-size: .9rem; color: var(--gris); border-bottom: 1px dashed var(--seyes); }
+.critere-manos { margin-bottom: 8px; }
+.critere-manos > span { font-size: .9rem; }
+.critere-manos .choix span { padding: 6px 12px; min-height: 38px; font-size: .9rem; }
+.critere-manos .pts { display: inline-block; min-width: 1.3em; margin-right: 4px; padding: 0 5px; border-radius: 6px; background: var(--accent-fond); color: var(--encre-fonce); font-weight: 700; text-align: center; }
+.critere-manos input:checked + span .pts { background: var(--sur-encre); color: var(--encre); }
+.consigne-manos { margin: 4px 0 10px; }
+.consigne-manos summary { cursor: pointer; color: var(--accent); font-weight: 700; padding: 4px 0; }
+.consigne-manos .consigne-texte { font-style: italic; border-left: 3px solid var(--accent); padding-left: 10px; }
+.manos-temps { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; margin-top: 10px; }
+.chrono-manos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.temps-chrono { font-weight: 700; font-variant-numeric: tabular-nums; }
+.resume-manos { font: 400 .82rem var(--police); margin-left: 6px; }
+.resume-manos span, .ds-manos span { white-space: nowrap; }
+.resume-manos span + span { margin-left: 6px; }
+.ds-manos .niveau-patho, .resume-manos .niveau-patho, #manos-totaux .niveau-patho { color: var(--marge); font-weight: 700; }
+.ds-manos .niveau-inferieur, .resume-manos .niveau-inferieur, #manos-totaux .niveau-inferieur { color: var(--ambre); font-weight: 700; }
+.ds-manos .niveau-moyenne, .resume-manos .niveau-moyenne, #manos-totaux .niveau-moyenne { color: var(--vert); }
+.ds-manos .niveau-superieur, .resume-manos .niveau-superieur, #manos-totaux .niveau-superieur { color: var(--encre); }

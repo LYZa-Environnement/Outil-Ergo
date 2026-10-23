@@ -264,6 +264,55 @@
     return { svg: svg(L, H, c, "Profil des résultats en déviations standard"), l: L, h: H };
   }
 
+  // Man.O.S : une ligne par outil, trois repères (manipulation, résultat, temps) sur l'échelle des DS.
+  function manosOutils(d) {
+    const vmin = -4, vmax = 3, lab = 190, larg = 380, droite = 190, L = lab + larg + droite, h = 40, haut = 64;
+    const lignes = d.lignes.concat(d.total ? [d.total] : []);
+    const textes = ["Écart avec " + (d.reference || "les enfants de la même classe") + " (étalonnage du Man.O.S), en déviations standard (DS). À gauche de 0 : en dessous de la moyenne." +
+      (d.temps ? " Pour le temps, une DS négative signifie plus lent que la moyenne." : ""), "Couleur : zone d'interprétation de chaque résultat."];
+    const lignesL = textes.reduce((a, t) => a.concat(couperLegende(t, L - 60, 11.5)), []);
+    const bas = haut + lignes.length * h;
+    const H = bas + 40 + 26 + lignesL.length * 16 + 52;
+    const X = (v) => lab + ((Math.max(vmin, Math.min(vmax, v)) - vmin) / (vmax - vmin)) * larg;
+    const formes = { m: ["Manipulation", -10], r: ["Résultat", 0], t: ["Temps", 10] };
+    const repere = (k, cx, cy, col) => {
+      if (k === "m") return `<circle cx="${n(cx)}" cy="${n(cy)}" r="6" fill="${col}" stroke="#FFFFFF" stroke-width="1.2"/>`;
+      if (k === "r") return `<rect x="${n(cx - 5.5)}" y="${n(cy - 5.5)}" width="11" height="11" fill="${col}" stroke="#FFFFFF" stroke-width="1.2"/>`;
+      return `<path d="M${n(cx)} ${n(cy - 6.5)} L${n(cx + 6.5)} ${n(cy + 5)} L${n(cx - 6.5)} ${n(cy + 5)} Z" fill="${col}" stroke="#FFFFFF" stroke-width="1.2"/>`;
+    };
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">${x(d.titre)}</text>`;
+    // Légende des repères
+    const cles = d.temps ? ["m", "r", "t"] : ["m", "r"];
+    cles.forEach((k, i) => {
+      const lx = L / 2 - (cles.length * 130) / 2 + i * 130 + 10;
+      c += repere(k, lx, 44, "#555") + `<text x="${lx + 12}" y="48" font-size="12" fill="#333">${formes[k][0]}</text>`;
+    });
+    c += axeDS(X, haut, bas, d.seuils, vmin, vmax);
+    lignes.forEach((ln, i) => {
+      const y = haut + i * h + h / 2, estTotal = d.total && i === lignes.length - 1;
+      if (i) c += `<line x1="${estTotal ? 20 : lab}" x2="${lab + larg}" y1="${haut + i * h}" y2="${haut + i * h}" stroke="${estTotal ? "#555" : "#FFFFFF"}" stroke-width="${estTotal ? 1.2 : 1}"/>`;
+      c += `<text x="${lab - 10}" y="${y + 4}" font-size="12.5" fill="#222" text-anchor="end"${estTotal ? ' font-weight="700"' : ""}>${x(coupe(ln.nom, 26))}</text>`;
+      const vals = [];
+      cles.forEach((k) => {
+        const p = ln[k];
+        if (!p) return;
+        const col = (NIVEAUX[p.niveau] || ["", "#555"])[1], cy = y + formes[k][1];
+        c += `<line x1="${n(X(0))}" x2="${n(X(p.ds))}" y1="${n(cy)}" y2="${n(cy)}" stroke="${col}" stroke-width="2" stroke-opacity="0.5"/>`;
+        c += repere(k, X(p.ds), cy, col);
+        vals.push([k, p, col]);
+      });
+      vals.forEach((v, j) => {
+        const tx = lab + larg + 12 + j * 60;
+        c += repere(v[0], tx, y, v[2]).replace(/r="6"/, 'r="4"').replace(/width="11" height="11"/, 'width="8" height="8"') +
+          `<text x="${tx + 8}" y="${y + 4}" font-size="11.5" font-weight="700" fill="${v[2]}">${signeDS(v[1].ds)}</text>`;
+      });
+    });
+    let yl = bas + 34;
+    lignesL.forEach((t) => { yl += 16; c += `<text x="30" y="${yl}" font-size="11.5" fill="#333">${x(t)}</text>`; });
+    c += legendeNiveaux(L, yl + 24, d.seuils, true);
+    return { svg: svg(L, H, c, d.titre), l: L, h: H };
+  }
+
   function criteresBHK(d) {
     const lab = 300, larg = 300, L = lab + larg + 110, h = 26, haut = 46;
     const avecNormes = d.normes && d.seuils;
@@ -417,6 +466,7 @@
     switch (id) {
       case "profil-ds": return donnees.lignes && donnees.lignes.length ? profilDS(donnees) : null;
       case "bhk-criteres": return criteresBHK(donnees);
+      case "manos": return donnees.lignes && donnees.lignes.length ? manosOutils(donnees) : null;
       case "mcro": return mcro(donnees);
       case "dcdq": return dcdq(donnees);
       case "evolution": return donnees.lignes && donnees.lignes.length ? evolution(donnees) : null;
