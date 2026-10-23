@@ -975,12 +975,23 @@ test("ESO : cotation à partir des réponses avec une grille (fictive), roues, s
   S.DOMAINES_ESO.forEach((dm) => S.SECTEURS_ESO.forEach((sc) => { if (c.roues[dm[0]][sc] !== undefined) e.roues[dm[0]][sc] = String(c.roues[dm[0]][sc]).replace(".", ","); }));
   S.SYSTEMES_ESO.forEach((sy) => { e.systemes[sy.id] = { sp: String(c.systemes[sy.id].sp || 0), p: String(c.systemes[sy.id].p || 0), l: String(c.systemes[sy.id].l || 0) }; });
   const s = S.normaliser({ eso: e });
-  const t = S.rediger(s, B.accords({ prenom: "Léa", sexe: "F" }), { libelles: { p: Array.from({ length: 36 }, (_, i) => "Situation " + (i + 1)) } }).eso;
+  const opts = { libelles: { p: Array.from({ length: 36 }, (_, i) => "Situation " + (i + 1) + " (ex : exemple)") }, cotation: cle };
+  // Synthèse rédigée pour le compte rendu
+  const r = S.rediger(s, B.accords({ prenom: "Léa", sexe: "F" }), opts).eso;
+  assert.match(r, /^Le profil de l'engagement sensori-occupationnel \(ESO\), rempli par sa mère, décrit chez Léa un engagement dans les activités du quotidien fragilisé \(moyenne 1,5 sur 3, où 3 correspond à un engagement adapté\)\./);
+  assert.match(r, /Il met en évidence /);
+  assert.match(r, /Le travail scolaire est le domaine le plus touché \(moyenne 0,0 sur 3\)\./);
+  assert.match(r, /Sur le plan des systèmes sensoriels, l'engagement est fragilisé sur les plans /);
+  assert.match(r, /Au quotidien, les parents relèvent notamment : « situation 1 » \(toujours\)/);
+  assert.match(r, /Ce profil évoque .*\. Ces difficultés (restreignent|peuvent gêner) la participation de Léa aux activités du quotidien ; elles sont à mettre en lien avec l'observation clinique/);
+  assert.ok(!/^– /m.test(r), "pas de liste dans la synthèse");
+  // Détail point par point (aperçu de l'outil)
+  const t = S.detailEso(s.eso, B.accords({ prenom: "Léa", sexe: "F" }), opts);
   assert.match(t, /Lecture : chaque réponse est cotée de 0 à 3 ; 3 correspond à un engagement adapté/);
   assert.match(t, /– Soins personnels \(moyenne 3,0\/3\) : engagement adapté dans tous les secteurs\./);
   assert.match(t, /– Productivité \(moyenne 0,0\/3\) : difficultés marquées en /);
   assert.match(t, /Le domaine le plus touché est celui de la productivité/);
-  assert.match(t, /Situations les plus difficiles selon les parents : travail scolaire : « situation 1 » \(toujours\), « situation 2 » \(toujours\), « situation 3 » \(toujours\)…\n/);
+  assert.match(t, /Situations les plus difficiles selon les parents : travail scolaire : « situation 1 \(ex : exemple\) » \(toujours\)/);
   assert.match(t, /En résumé, le profil ESO de Léa montre /);
   const an = S.analyseEso(s.eso);
   assert.ok(an.systemes.every((x) => x.pourcentage !== null));
@@ -989,5 +1000,33 @@ test("ESO : cotation à partir des réponses avec une grille (fictive), roues, s
   assert.ok(k.constats.some((x) => /engagement sensori-occupationnel/.test(x)));
   const tousBons = S.normaliser({ eso: { fait: "oui", roues: { sp: { SS: "3" }, p: { SS: "2,5" }, l: { SS: "3" } }, systemes: { audition: { sp: "12", p: "12", l: "10" } } } });
   assert.equal(S.constats(tousBons).constats.length, 0);
-  assert.match(S.rediger(tousBons, B.accords({ prenom: "Léa", sexe: "F" })).eso, /ne montre pas de difficulté notable/);
+  assert.match(S.rediger(tousBons, B.accords({ prenom: "Léa", sexe: "F" })).eso, /engagement dans les activités du quotidien adapté.*\nAucun secteur ne montre de difficulté notable/);
+});
+
+test("bilan synthétique : identité, résultats principaux, diagnostic ergothérapique, préconisations", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  const m = B.modeleBilanSynthese(d, reg);
+  const titres = m.blocs.filter((b) => b.type === "h").map((b) => b.texte);
+  assert.deepEqual(titres.filter((t) => ["Motif du bilan", "Résultats principaux", "Diagnostic ergothérapique", "Objectifs et préconisations"].indexOf(t) >= 0), ["Motif du bilan", "Résultats principaux", "Diagnostic ergothérapique", "Objectifs et préconisations"]);
+  assert.equal(m.blocs[0].texte, "Bilan en ergothérapie : synthèse");
+  assert.ok(m.blocs.some((b) => b.type === "tableau"));
+  assert.ok(m.entete && m.pied);
+  // Les textes retouchés dans l'onglet Compte rendu sont repris.
+  const m2 = B.modeleBilanSynthese(d, reg, { conclusion: "Diagnostic retouché." });
+  assert.ok(m2.blocs.some((b) => b.type === "p" && b.runs.some((r) => r.t === "Diagnostic retouché.")));
+});
+
+test("graphiques du BHK : légende détaillée (barres, DS, niveaux)", () => {
+  const G = require("../js/graphiques.js");
+  const g = G.dessiner("bhk-criteres", { titre: "Score de chaque critère", seuils: { patho: 2, inferieur: 1, superieur: 1 }, inverse: true, normes: true, reference: "les enfants de CE2",
+    criteres: [{ id: "1", nom: "Écriture grande", score: 2, ds: -1.2, niveau: "inferieur" }] });
+  assert.match(g.svg, /score de dégradation du critère, de 0 \(aucune dégradation\) à 5/);
+  assert.match(g.svg, /écart avec les enfants de CE2/);
+  assert.match(g.svg, /Très inférieur à la moyenne/);
+  assert.match(g.svg, /−1,0 &lt; DS &lt; \+1,0/);
+  const sans = G.dessiner("bhk-criteres", { titre: "T", criteres: [{ id: "1", nom: "A", score: 3, ds: null, niveau: null }] });
+  assert.match(sans.svg, /Sans normes : vert = aucune dégradation/);
+  const ds = G.dessiner("profil-ds", { seuils: { patho: 2, inferieur: 1, superieur: 1 }, lignes: [{ bilan: "BHK", epreuve: "Qualité", ds: -2.3, niveau: "patho" }, { bilan: "BHK", epreuve: "Vitesse", ds: 0, niveau: "moyenne" }] });
+  assert.match(ds.svg, /Fond coloré : zones/);
 });

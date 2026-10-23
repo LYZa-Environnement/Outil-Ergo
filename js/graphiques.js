@@ -190,6 +190,39 @@
   function signeDS(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + fr(Math.abs(v), 2); }
   function coupe(t, max) { t = String(t); return t.length > max ? t.slice(0, max - 1) + "…" : t; }
 
+  // Texte de légende coupé en lignes (largeur estimée des caractères).
+  function couperLegende(t, largeurMax, taille) {
+    const max = Math.floor(largeurMax / (taille * 0.53)), l = [];
+    let cur = "";
+    String(t).split(/\s+/).forEach((m) => { if (cur && (cur + " " + m).length > max) { l.push(cur); cur = m; } else cur = cur ? cur + " " + m : m; });
+    if (cur) l.push(cur);
+    return l;
+  }
+  // Légende des niveaux (couleurs) avec les bornes en DS, sur deux colonnes.
+  const NOMS_NIVEAUX = { patho: "Très inférieur à la moyenne", inferieur: "Inférieur à la moyenne", moyenne: "Dans la moyenne", superieur: "Supérieur à la moyenne" };
+  function bornesNiveaux(s, miroir) {
+    const f = (v) => fr(v, 1);
+    // miroir : DS où le positif signifie « moins bien » (critères du BHK sans inversion)
+    if (miroir) return {
+      patho: "DS ≥ +" + f(s.patho), inferieur: "+" + f(s.inferieur) + " ≤ DS < +" + f(s.patho),
+      moyenne: "−" + f(s.superieur) + " < DS < +" + f(s.inferieur), superieur: "DS ≤ −" + f(s.superieur),
+    };
+    return {
+      patho: "DS ≤ −" + f(s.patho), inferieur: "−" + f(s.patho) + " < DS ≤ −" + f(s.inferieur),
+      moyenne: "−" + f(s.inferieur) + " < DS < +" + f(s.superieur), superieur: "DS ≥ +" + f(s.superieur),
+    };
+  }
+  function legendeNiveaux(L, y, s, fonce, miroir) {
+    const b = bornesNiveaux(s, miroir);
+    let c = "";
+    ["patho", "inferieur", "moyenne", "superieur"].forEach((k, i) => {
+      const lx = 30 + (i % 2) * (L / 2), ly = y + Math.floor(i / 2) * 20;
+      c += `<rect x="${lx}" y="${ly - 11}" width="14" height="14" rx="3" fill="${fonce ? NIVEAUX[k][1] : NIVEAUX[k][0]}"${fonce ? ' fill-opacity="0.8"' : ' stroke="#999" stroke-width="0.6"'}/>`;
+      c += `<text x="${lx + 20}" y="${ly}" font-size="11.5" fill="#333">${NOMS_NIVEAUX[k]} <tspan fill="#666">(${x(b[k])})</tspan></text>`;
+    });
+    return c;
+  }
+
   // Échelle de DS commune : zones d'interprétation en fond.
   function axeDS(X, haut, bas, s, vmin, vmax) {
     let c = "";
@@ -209,7 +242,8 @@
   function profilDS(d) {
     const lignes = d.lignes, s = d.seuils, vmin = -4, vmax = 3;
     const lab = 270, larg = 380, L = lab + larg + 90, h = 30, haut = 58;
-    const H = haut + lignes.length * h + 46;
+    const texteL = couperLegende("Point : résultat de chaque épreuve en déviations standard (DS) ; trait : écart avec la moyenne des enfants du même âge ou de la même classe (0). À gauche de 0 : en dessous de la moyenne. Fond coloré : zones d'interprétation.", L - 60, 11.5);
+    const H = haut + lignes.length * h + 46 + 10 + texteL.length * 16 + 52;
     const X = (v) => lab + ((Math.max(vmin, Math.min(vmax, v)) - vmin) / (vmax - vmin)) * larg;
     let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">Profil des résultats (déviations standard)</text>`;
     c += `<text x="${L / 2}" y="44" font-size="11" fill="#555" text-anchor="middle">À gauche de 0 : en dessous de la moyenne des enfants du même âge ou de la même classe</text>`;
@@ -224,12 +258,20 @@
       if (r.ds < vmin || r.ds > vmax) c += `<text x="${n(X(r.ds) + (r.ds < vmin ? -12 : 12))}" y="${y + 4}" font-size="12" fill="${col}" text-anchor="middle">${r.ds < vmin ? "◀" : "▶"}</text>`;
       c += `<text x="${lab + larg + 10}" y="${y + 4}" font-size="12" font-weight="700" fill="${col}">${signeDS(r.ds)}</text>`;
     });
+    let yl = haut + lignes.length * h + 34;
+    texteL.forEach((t) => { yl += 16; c += `<text x="30" y="${yl}" font-size="11.5" fill="#333">${x(t)}</text>`; });
+    c += legendeNiveaux(L, yl + 24, s, false);
     return { svg: svg(L, H, c, "Profil des résultats en déviations standard"), l: L, h: H };
   }
 
   function criteresBHK(d) {
     const lab = 300, larg = 300, L = lab + larg + 110, h = 26, haut = 46;
-    const H = haut + d.criteres.length * h + 34;
+    const avecNormes = d.normes && d.seuils;
+    const textes = ["Barre : score de dégradation du critère, de 0 (aucune dégradation) à 5 (dégradation maximale). Plus la barre est longue, plus le critère est dégradé ; un point vert signale un critère sans dégradation."];
+    if (avecNormes) textes.push("Entre parenthèses et en couleur : écart avec " + (d.reference || "les enfants du même âge ou de la même classe") + ", en déviations standard (DS) ; " + (d.inverse ? "une DS négative signifie plus de dégradation que la moyenne." : "une DS positive signifie plus de dégradation que la moyenne."));
+    else textes.push("Sans normes : vert = aucune dégradation, orange = score de 1 à 2, rouge = score de 3 à 5.");
+    const lignesL = textes.reduce((a, t) => a.concat(couperLegende(t, L - 60, 11.5)), []);
+    const H = haut + d.criteres.length * h + 34 + 10 + lignesL.length * 16 + (avecNormes ? 52 : 8);
     const X = (v) => lab + (v / 5) * larg;
     let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">${x(d.titre)}</text>`;
     for (let v = 0; v <= 5; v++) {
@@ -244,6 +286,12 @@
       else c += `<circle cx="${lab + 5}" cy="${y + h / 2}" r="4" fill="${VERT}"/>`;
       c += `<text x="${n(X(Math.max(k.score, 0.15)) + 8)}" y="${y + 17}" font-size="12" font-weight="700" fill="${col}">${k.score}/5${k.ds !== null && k.ds !== undefined ? "  (DS " + signeDS(k.ds) + ")" : ""}</text>`;
     });
+    // Légende
+    let yl = haut + d.criteres.length * h + 34;
+    c += `<text x="${lab + larg / 2}" y="${yl - 6}" font-size="11" fill="#555" text-anchor="middle">Score de dégradation du critère</text>`;
+    yl += 4;
+    lignesL.forEach((t) => { yl += 16; c += `<text x="30" y="${yl}" font-size="11.5" fill="#333">${x(t)}</text>`; });
+    if (avecNormes) c += legendeNiveaux(L, yl + 24, d.seuils, true, d.inverse === false);
     return { svg: svg(L, H, c, d.titre), l: L, h: H };
   }
 

@@ -348,26 +348,15 @@
 
   function htmlEso() {
     const c = "senso.eso";
-    let h = `<div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
-      <p class="note">Avec les réponses des parents (ci-dessous ou PDF importé) et la grille de cotation du cabinet, les roues, les systèmes, les graphiques et l'interprétation se calculent tout seuls. Sinon, reportez les valeurs de la fiche de synthèse : roues de 0 à 3, sous-totaux de chaque domaine pour les systèmes sensoriels (le pourcentage se calcule). 3 correspond à un engagement adapté.</p>
-      <p class="calcule" id="etat-cotation-eso" aria-live="polite"></p>
-      <button type="button" class="bouton-lien" data-action="eso-recalculer" hidden>Recalculer à partir des réponses</button>
-      <h4 class="sous-groupe">Roues par domaine d'occupation</h4>
-      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Domaine</th>${S.SECTEURS_ESO.map((s) => `<th scope="col">${s}</th>`).join("")}</tr></thead><tbody>
-      ${S.DOMAINES_ESO.map((dm) => `<tr><th scope="row">${esc(dm[1])}</th>${S.SECTEURS_ESO.map((s) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.roues.${dm[0]}.${s}" aria-label="${esc(dm[1])}, ${s}"></td>`).join("")}</tr>`).join("")}
-      </tbody></table></div>
-      <h4 class="sous-groupe">Systèmes sensoriels</h4>
-      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Système</th><th scope="col">Soins pers.</th><th scope="col">Productivité</th><th scope="col">Loisirs</th><th scope="col">%</th></tr></thead><tbody>
-      ${S.SYSTEMES_ESO.map((sy) => `<tr><th scope="row">${esc(sy.nom)}</th>${["sp", "p", "l"].map((k) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.systemes.${sy.id}.${k}" aria-label="${esc(sy.nom)}, ${k}"></td>`).join("")}<td><output id="eso-pct-${sy.id}"></output></td></tr>`).join("")}
-      </tbody></table></div>
-      <h4 class="sous-groupe">Réponses détaillées au questionnaire (facultatif)</h4>
+    let h = `<h4 class="sous-groupe">📨 Réponses des parents</h4>
+      <div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
       <div class="barre-actions barre-eso-pdf">
         <button type="button" class="bouton bouton-second bouton-petit" data-action="eso-pdf">📄 PDF à remplir pour les parents</button>
         <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
           <input type="file" accept="application/pdf,.pdf" data-action="importer-pdf-parents" class="masque"></label>
       </div>
       <p class="calcule etat-eso-parents" aria-live="polite"></p>
-      <p class="note">Avec le PDF, les réponses des parents arrivent toutes seules. Sur papier, reportez le chiffre entouré pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
+      <p class="note">Avec le PDF, les réponses arrivent toutes seules. Sur papier, reportez le chiffre entouré pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
         ${reglages.esoLibelles.sp.length ? "" : `Pour voir ici le texte des questions, importez une fois le fichier du cabinet (ou collez le texte de votre exemplaire) dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
       ${S.DOMAINES_ITEMS_ESO.map((dm) => `<details class="eso-domaine"><summary>${esc(dm[1])} <span class="eso-compte" id="eso-n-${dm[0]}"></span></summary>
         <div class="eso-items${(reglages.esoLibelles[dm[0]] || []).length ? " avec-libelles" : ""}">${Array.from({ length: S.NB_ITEMS_ESO }, (_, i) => {
@@ -375,11 +364,27 @@
           return `<label class="eso-item"><span class="eso-num">${i + 1}</span>${lib ? `<span class="eso-lib">${esc(lib)}</span>` : ""}
             <input type="text" inputmode="numeric" maxlength="2" placeholder="0-10" data-chemin="${c}.items.${dm[0]}.${i + 1}" data-note10 aria-label="${esc(dm[1])}, question ${i + 1}"></label>`;
         }).join("")}</div></details>`).join("")}
-      ${champZone("Observations (reprises à la fin de l'interprétation)", c + ".notes")}
+      <h4 class="sous-groupe">🧮 Cotation : roues et systèmes sensoriels</h4>
+      <p class="note">Avec les réponses des parents et la grille de cotation du cabinet, tout se calcule seul. Sinon, reportez les valeurs de la fiche de synthèse : roues de 0 à 3, sous-totaux de chaque domaine pour les systèmes (le pourcentage se calcule). 3 correspond à un engagement adapté.</p>
+      <p class="calcule" id="etat-cotation-eso" aria-live="polite"></p>
+      <button type="button" class="bouton-lien" data-action="eso-recalculer" hidden>Recalculer à partir des réponses</button>
+      <p class="petit-titre">Roues par domaine d'occupation (0 à 3)</p>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Domaine</th>${S.SECTEURS_ESO.map((s) => `<th scope="col" title="${esc(S.SECTEURS_NOMS_ESO[s].nom)}">${s}</th>`).join("")}</tr></thead><tbody>
+      ${S.DOMAINES_ESO.map((dm) => `<tr><th scope="row">${esc(dm[1])}</th>${S.SECTEURS_ESO.map((s) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.roues.${dm[0]}.${s}" aria-label="${esc(dm[1])}, ${s}"></td>`).join("")}</tr>`).join("")}
+      </tbody></table></div>
+      <p class="note legende-secteurs">${S.SECTEURS_ESO.map((s) => `<strong>${s}</strong> ${esc(S.SECTEURS_NOMS_ESO[s].nom)}`).join(" · ")}</p>
+      <p class="petit-titre">Systèmes sensoriels</p>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Système</th><th scope="col">Soins pers.</th><th scope="col">Productivité</th><th scope="col">Loisirs</th><th scope="col">%</th></tr></thead><tbody>
+      ${S.SYSTEMES_ESO.map((sy) => `<tr><th scope="row">${esc(sy.nom)}</th>${["sp", "p", "l"].map((k) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.systemes.${sy.id}.${k}" aria-label="${esc(sy.nom)}, ${k}"></td>`).join("")}<td><output id="eso-pct-${sy.id}"></output></td></tr>`).join("")}
+      </tbody></table></div>
+      <h4 class="sous-groupe">📊 Graphiques</h4>
       <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div><div class="graphique" id="g-eso-items" hidden></div>
-      <h5 class="titre-apercu">Interprétation pour le compte rendu</h5>
+      <p class="note vide-graphiques-eso">Les graphiques apparaissent dès que les réponses ou les valeurs de la fiche de synthèse sont saisies.</p>
+      <h4 class="sous-groupe">🧠 Synthèse interprétée pour le compte rendu</h4>
       <div class="apercu-synthese" id="apercu-eso"></div>
-      <p class="note">Elle suit les réponses et vos observations. Pour la retoucher : onglet Compte rendu, section « Engagement sensori-occupationnel (ESO) ».</p>`;
+      <p class="note">Elle suit les réponses et vos observations. Pour la retoucher : onglet Compte rendu, section « Engagement sensori-occupationnel (ESO) ».</p>
+      ${champZone("Vos observations (ajoutées à la fin de la synthèse)", c + ".notes")}
+      <details class="detail-resultats"><summary>Détail des résultats, secteur par secteur (pour vous)</summary><div class="apercu-synthese" id="detail-eso"></div></details>`;
     return h;
   }
 
@@ -700,10 +705,12 @@
   function htmlAvq() {
     return `<fieldset class="groupe"><legend>Autonomie dans les activités quotidiennes</legend>
       ${htmlAvqParents()}
-      <h4 class="sous-groupe">Grille de l'ergothérapeute</h4>
+      <h4 class="sous-groupe">📝 Grille de l'ergothérapeute</h4>
+      <div class="grille-ergo-avq">
       <p class="note">À remplir avec les parents. La grille complète les lignes « À la maison » et « À l'école » du compte rendu ; un besoin d'aide s'ajoute aux occupations du diagnostic.</p>
       ${O.DOMAINES_AVQ.map((dm) => `<h4 class="sous-groupe">${esc(dm.nom)}</h4>` + dm.items.map((it) =>
         `<div class="item-grille item-avq"><span class="item-label">${esc(B.maj(it.nom))}</span>${pastilles("avq-" + it.id, "avq." + it.id, O.NIVEAUX_AVQ.map((n) => [n.id, n.label]))}</div>`).join("")).join("")}
+    </div>
     </fieldset>`;
   }
 
@@ -2059,7 +2066,17 @@
         </div>
         <textarea data-section="${s.id}" aria-labelledby="h-${s.id}" rows="3"></textarea>
       </div>`).join("");
-    $("#sections").innerHTML = html(B.SECTIONS);
+    // Texte du compte rendu en parties repliables : présentation, occupations, écriture, sensoriel, conclusion.
+    const parties = { occupations: "🌱 Occupations", ecriture: "✏️ Écriture", sensoriel: "🌈 Sensoriel" };
+    let partie = "", vuGroupe = false, h = "";
+    B.SECTIONS.forEach((sec) => {
+      const g = (sec.groupes || [])[0];
+      if (g) vuGroupe = true;
+      const p = g ? parties[g] || "" : vuGroupe ? "🎯 Conclusion et préconisations" : "📋 Présentation";
+      if (p && p !== partie) { h += `<h4 class="sous-groupe">${p}</h4>`; partie = p; }
+      h += html([sec]);
+    });
+    $("#sections").innerHTML = h;
     $("#sections-ecole").innerHTML = html(B.SECTIONS_ECOLE);
   }
 
@@ -2285,7 +2302,12 @@
       if (/^senso\.eso\.(roues|systemes)\./.test(el.dataset.chemin) && e.type === "input") dossier.senso.eso.calcul = "manuel";
       if (el.dataset.chemin === "auto.notes" && e.type === "input") dossier.auto.notesAuto = "";
       if (el.dataset.chemin === "auto.synthese" && e.type === "input") dossier.auto.syntheseAuto = "";
-      if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
+      if (el.dataset.bascule) {
+        const corps = $(el.dataset.bascule);
+        if (corps) corps.hidden = !el.checked;
+        const carte = el.closest("fieldset.groupe");
+        if (el.checked && carte && carte.classList.contains("replie")) replier(carte, false);
+      }
     } else if (el.dataset.champ) {
       if (el.type === "radio" && !el.checked) return;
       dossier[el.dataset.champ] = el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value;
@@ -2446,6 +2468,11 @@
   function majApercuEso() {
     const ap = $("#apercu-eso");
     if (!ap) return;
+    const det = $("#detail-eso");
+    if (det) {
+      const t = S.detailEso(S.normaliser(dossier.senso).eso, B.accords(dossier), { libelles: reglages.esoLibelles });
+      det.innerHTML = t ? t.split("\n").map((l) => `<p>${esc(l)}</p>`).join("") : `<p class="note">Saisissez ou importez les réponses.</p>`;
+    }
     const t = genere.eso || "";
     ap.innerHTML = t ? t.split("\n").map((l) => `<p>${esc(l)}</p>`).join("") : `<p class="note">Saisissez ou importez les réponses.</p>`;
     if (cr.eso && cr.eso.modifie) ap.insertAdjacentHTML("beforeend", `<p class="note">Vous avez retouché cette section dans l'onglet Compte rendu : c'est votre version qui est utilisée.</p>`);
@@ -2510,6 +2537,14 @@
       zone.hidden = !g;
       zone.innerHTML = g ? g.svg : "";
     });
+    $$(".vide-graphiques-eso").forEach((el) => { el.hidden = ["g-eso-roues", "g-eso-systemes", "g-eso-items"].some((id) => $("#" + id) && !$("#" + id).hidden); });
+    // BHK : graphique des critères avec sa légende, sous les résultats
+    const zoneBhk = $("#g-bhk-criteres");
+    if (zoneBhk) {
+      const gb = window.Graph.dessiner("bhk-criteres", B.donneesGraphiques(dossier, reglages)["bhk-criteres"]);
+      zoneBhk.hidden = !gb;
+      zoneBhk.innerHTML = gb ? gb.svg : "";
+    }
     S.systemesEso(S.normaliser(dossier.senso).eso).forEach((sy) => {
       const o = $("#eso-pct-" + sy.id);
       if (o) o.textContent = sy.pourcentage === null ? "" : Math.round(sy.pourcentage) + " %";
@@ -2547,6 +2582,7 @@
     });
     majAvqParents();
     majApercuEso();
+    $$("fieldset.groupe.replie").forEach(majResumeRepli);
     majACompleter();
     majGalerie();
     sauverBrouillon();
@@ -2681,6 +2717,7 @@
 
   const DOCS = {
     "compte-rendu": { titre: "Compte rendu de bilan", prefixe: "Bilan_ergo", modele: () => modele() },
+    "bilan-synthese": { titre: "Bilan synthétique", prefixe: "Bilan_synthese", modele: () => B.modeleBilanSynthese(dossier, reglages, textes()) },
     ecole: { titre: "Synthèse pour l'école", prefixe: "Synthese_ecole", modele: () => modeleEcole() },
     suivi: { titre: "Plan de suivi", prefixe: "Plan_suivi", modele: () => U.modeleSuivi(dossier, reglages) },
     livret: { titre: "Carnet d'activités pour les parents", prefixe: "Carnet_activites", modele: () => U.modeleLivret(dossier, reglages) },
@@ -3220,6 +3257,128 @@
     }, 250);
   }
 
+  /* ---------- Parties repliables : cartes et sous-parties ---------- */
+  // Chaque carte (fieldset.groupe) se replie en touchant son titre ; les sous-parties (h4.sous-groupe) aussi.
+  // Les blocs de bilans gardent leur case à cocher (faire / ne pas faire) et se replient avec la flèche une fois cochés.
+  // L'état replié est gardé sur l'appareil (commodité, sans conséquence si le stockage est indisponible).
+  const CLE_REPLIS = "outil-ergo:replis";
+  let replis = lireStockage(CLE_REPLIS) || {};
+  function titreDe(el) {
+    const c = el.cloneNode(true);
+    $$(".bouton-repli, .resume-repli", c).forEach((x) => x.remove());
+    return c.textContent.replace(/\s+/g, " ").trim();
+  }
+  function cleRepli(el, titre) {
+    const p = el.closest("[role=tabpanel]");
+    const parent = el.matches("h4") ? el.closest("fieldset.groupe") : null;
+    return (p ? p.id : "page") + ":" + (parent && parent.id ? parent.id + ":" : "") + (el.id || slug(titre).slice(0, 48));
+  }
+  function boutonRepli(titre) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "bouton-repli";
+    b.setAttribute("aria-label", "Replier ou déplier : " + titre);
+    return b;
+  }
+  function ameliorerReplis() {
+    $$("[role=tabpanel] fieldset.groupe").forEach((f) => {
+      if (f.dataset.repli) return;
+      const lg = f.querySelector(":scope > legend");
+      if (!lg || f.classList.contains("sans-repli")) return;
+      f.dataset.repli = "1";
+      const titre = titreDe(lg);
+      f.dataset.cleRepli = cleRepli(f, titre);
+      if (!f.classList.contains("test")) lg.classList.add("legende-repliable");
+      const resume = document.createElement("span");
+      resume.className = "resume-repli";
+      lg.appendChild(resume);
+      lg.appendChild(boutonRepli(titre));
+      if (replis[f.dataset.cleRepli]) replier(f, true, false);
+      else majBoutonRepli(f);
+    });
+    $$("[role=tabpanel] h4.sous-groupe").forEach((h) => {
+      if (h.dataset.repli || h.closest(".pas-de-repli")) return;
+      h.dataset.repli = "1";
+      const titre = titreDe(h);
+      const corps = document.createElement("div");
+      corps.className = "sous-corps";
+      let n = h.nextSibling;
+      while (n && !(n.nodeType === 1 && n.matches("h4.sous-groupe"))) { const suivant = n.nextSibling; corps.appendChild(n); n = suivant; }
+      h.after(corps);
+      h.classList.add("repliable");
+      h.dataset.cleRepli = cleRepli(h, titre);
+      h.appendChild(boutonRepli(titre));
+      if (replis[h.dataset.cleRepli]) replier(h, true, false);
+      else majBoutonRepli(h);
+    });
+    // « Tout replier / tout déplier » en haut des onglets qui ont plusieurs cartes
+    $$("[role=tabpanel]").forEach((p) => {
+      if (p.querySelector(":scope > .barre-replis") || p.querySelectorAll("fieldset.groupe[data-repli]").length < 3) return;
+      const barre = document.createElement("div");
+      barre.className = "barre-replis";
+      barre.innerHTML = `<button type="button" class="bouton-lien" data-replis="replier">⊟ Tout replier</button><button type="button" class="bouton-lien" data-replis="deplier">⊞ Tout déplier</button>`;
+      const aide = p.querySelector(":scope > details.aide");
+      if (aide) aide.after(barre); else p.prepend(barre);
+    });
+  }
+  function majBoutonRepli(el) {
+    const b = el.matches("fieldset") ? el.querySelector(":scope > legend > .bouton-repli") : el.querySelector(":scope > .bouton-repli");
+    if (b) b.setAttribute("aria-expanded", String(!el.classList.contains("replie")));
+    if (el.matches("fieldset")) majResumeRepli(el);
+  }
+  // Résumé d'une carte repliée : nombre de réponses saisies.
+  function majResumeRepli(f) {
+    const r = f.querySelector(":scope > legend > .resume-repli");
+    if (!r) return;
+    if (!f.classList.contains("replie")) { r.textContent = ""; return; }
+    let n = 0;
+    const radios = new Set();
+    $$("input, textarea, select", f).forEach((el) => {
+      if (el.closest("legend") || el.type === "file" || el.type === "button" || !(el.dataset.chemin || el.dataset.champ || el.dataset.liste || el.dataset.grille || el.dataset.ligne)) return;
+      if (el.type === "radio") { if (el.checked) radios.add(el.name); }
+      else if (el.type === "checkbox") { if (el.checked) n++; }
+      else if (String(el.value || "").trim()) n++;
+    });
+    n += radios.size;
+    r.textContent = n ? n + (n > 1 ? " réponses" : " réponse") : "vide";
+  }
+  function replier(el, oui, garder) {
+    el.classList.toggle("replie", oui);
+    majBoutonRepli(el);
+    if (garder === false) return;
+    if (oui) replis[el.dataset.cleRepli] = 1; else delete replis[el.dataset.cleRepli];
+    ecrireStockage(CLE_REPLIS, replis);
+  }
+  function surClicRepli(e) {
+    const tout = e.target.closest("[data-replis]");
+    if (tout) {
+      const p = tout.closest("[role=tabpanel]");
+      const oui = tout.dataset.replis === "replier";
+      $$("fieldset.groupe[data-repli]", p).forEach((f) => { if (!f.classList.contains("test") || f.querySelector(":scope > legend input:checked")) replier(f, oui); });
+      if (!oui) $$("h4.sous-groupe.repliable.replie", p).forEach((h) => replier(h, false));
+      return true;
+    }
+    const b = e.target.closest(".bouton-repli");
+    const lg = e.target.closest("legend.legende-repliable");
+    const h = e.target.closest("h4.sous-groupe.repliable");
+    if (!b && !lg && !h) return false;
+    if (!b && e.target.closest("input, label, a, select, textarea")) return false;
+    const el = h || (b ? (b.closest("h4.sous-groupe") || b.closest("fieldset.groupe")) : lg.parentElement);
+    if (!el) return false;
+    replier(el, !el.classList.contains("replie"));
+    return true;
+  }
+  let minuteurReplis = 0;
+  function surveillerReplis() {
+    ameliorerReplis();
+    try {
+      new MutationObserver(() => {
+        if (minuteurReplis) return;
+        minuteurReplis = requestAnimationFrame(() => { minuteurReplis = 0; ameliorerReplis(); });
+      }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+    } catch (e) { /* navigateur ancien : les cartes restent dépliées */ }
+  }
+
   /* ---------- Étapes remplies (onglets) ---------- */
 
   function majEtapes() {
@@ -3739,6 +3898,7 @@
     }
     const g = groupeDe(nom);
     if (g) dernierPanneau[g.id] = nom;
+    document.body.dataset.groupe = g ? g.id : nom;
     $$(".onglets [role=tab]").forEach((t) => {
       const actif = !!g && t.id === "g-" + g.id;
       t.setAttribute("aria-selected", String(actif));
@@ -3784,6 +3944,7 @@
   /* ================= Actions ================= */
 
   function surClic(e) {
+    if (surClicRepli(e)) return;
     const el = e.target.closest("button");
     if (!el) return;
     if (el.dataset.aller) return afficherOnglet(el.dataset.aller);
@@ -4138,6 +4299,7 @@
     rendreReglagesVerrou();
     remplirReglages();
     construireAuto();
+    surveillerReplis();
 
     const brouillon = reglages.brouillon ? lireStockage(CLE_BROUILLON) : null;
     if (brouillon && brouillon.dossier) {

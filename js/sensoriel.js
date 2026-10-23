@@ -466,7 +466,8 @@
   const ADJ_SYSTEMES_ESO = { audition: "auditif", olfagust: "olfactif et gustatif", visuel: "visuel", tactile: "tactile", proprio: "proprioceptif", vestib: "vestibulaire", intero: "intéroceptif" };
   const court = (x) => COURT_SYSTEMES_ESO[x.id] || min(x.nom);
   const plans = (l) => (l.length > 1 ? "les plans " : "le plan ") + joindre(l.map((x) => ADJ_SYSTEMES_ESO[x.id]));
-  function redigerEso(e, a, opts) {
+  // Détail des résultats, point par point (aperçu de l'outil, pour l'ergothérapeute).
+  function detailEso(e, a, opts) {
     if (e.fait !== "oui") return "";
     const libelles = (opts && opts.libelles) || null;
     const l = [];
@@ -510,6 +511,99 @@
       if (items.length) l.push("– Réponses détaillées : " + items.map((x) => min(x.nom) + " " + x.n + "/" + NB_ITEMS_ESO + " réponses").join(", ") + ". [Cotation à reporter ou à calculer avec la grille du cabinet.]");
       else l.push("[Synthèse ESO à saisir.]");
     }
+    if (e.notes.trim()) l.push(point(maj(e.notes.trim())));
+    return l.join("\n");
+  }
+
+  // Synthèse rédigée pour le compte rendu : profil d'ensemble, difficultés et domaines, systèmes, situations concrètes, hypothèse.
+  const PHRASES_SECTEURS_ESO = {
+    OR: (fort) => "une hyperréactivité sensorielle " + (fort ? "marquée" : "modérée"),
+    UR: (fort) => "une hyporéactivité sensorielle " + (fort ? "marquée" : "modérée"),
+    SS: (fort) => "une recherche sensorielle " + (fort ? "importante" : "modérée"),
+    DS: (fort) => "des difficultés " + (fort ? "marquées" : "modérées") + " de discrimination sensorielle",
+    CP: (fort) => "des difficultés " + (fort ? "marquées" : "modérées") + " de contrôle postural",
+    PX: (fort) => "des difficultés praxiques " + (fort ? "marquées" : "modérées"),
+    EO: (fort) => "un engagement dans les activités " + (fort ? "nettement" : "un peu") + " restreint",
+  };
+  const DANS_DOMAINES_ESO = { sp: "les soins personnels", p: "le travail scolaire", l: "les loisirs" };
+  function citationEso(r) {
+    const t = min(r.libelle.replace(/\s*\((ex|par ex)[^)]*\)/gi, "").replace(/[.\s]+$/, ""));
+    return "« " + t + " » (" + (r.v <= 1 ? "jamais" : r.v >= 9 ? "toujours" : fmt(r.v, 0) + " sur 10") + ")";
+  }
+  function redigerEso(e, a, opts) {
+    if (e.fait !== "oui") return "";
+    const libelles = (opts && opts.libelles) || null;
+    const an = analyseEso(e);
+    const roues = an.domaines.some((d) => d.secteurs.length);
+    const items = itemsEso(e, libelles).filter((x) => x.n > 0);
+    const l = [];
+    const qui = (e.repondant.trim() || "les parents") + (e.date ? " le " + dateCourte(e.date) : "");
+    if (!roues && !an.systemes.length) {
+      l.push("Profil de l'engagement sensori-occupationnel (ESO), questionnaire parental rempli par " + qui + ".");
+      if (items.length) l.push("– Réponses détaillées : " + items.map((x) => min(x.nom) + " " + x.n + "/" + NB_ITEMS_ESO + " réponses").join(", ") + ". [Cotation à reporter ou à calculer avec la grille du cabinet.]");
+      else l.push("[Synthèse ESO à saisir.]");
+      if (e.notes.trim()) l.push(point(maj(e.notes.trim())));
+      return l.join("\n");
+    }
+    // 1. Profil d'ensemble
+    const doms = an.domaines.filter((d) => d.moyenne !== null);
+    const moyenne = doms.length ? Math.round((doms.reduce((t, d) => t + d.moyenne, 0) / doms.length) * 10) / 10 : null;
+    const faibles = an.globaux.filter((x) => x.moyenne !== null && x.moyenne < 2).sort((x, y) => x.moyenne - y.moyenne);
+    let p1 = "Le profil de l'engagement sensori-occupationnel (ESO), rempli par " + qui + ", ";
+    if (moyenne !== null) {
+      const qualif = moyenne < 1.5 ? "nettement fragilisé" : moyenne < 2 ? "fragilisé" : faibles.length || an.bas.length ? "globalement adapté, avec des fragilités ciblées" : "adapté";
+      p1 += "décrit chez " + a.sujetMin + " un engagement dans les activités du quotidien " + qualif + " (moyenne " + fmt(moyenne, 1) + " sur 3, où 3 correspond à un engagement adapté).";
+    } else p1 += "a été coté de 0 à 3 par question (3 correspond à un engagement adapté).";
+    l.push(p1);
+    // 2. Difficultés : secteurs, intensité, domaines concernés
+    if (faibles.length) {
+      // Secteurs regroupés quand ils touchent les mêmes domaines : « A et B, surtout dans … ».
+      const groupes = [];
+      faibles.slice(0, 4).forEach((x) => {
+        const touches = an.domaines.filter((d) => { const sc = d.secteurs.find((y) => y.id === x.id); return sc && sc.v < 2; }).map((d) => d.id);
+        const cleG = touches.join(",");
+        let g = groupes.find((y) => y.cle === cleG);
+        if (!g) { g = { cle: cleG, touches: touches, phrases: [] }; groupes.push(g); }
+        g.phrases.push(PHRASES_SECTEURS_ESO[x.id](x.moyenne < 1));
+      });
+      const morceaux = groupes.map((g) => joindre(g.phrases) + (g.touches.length === an.domaines.length ? (g.phrases.length > 1 ? ", qui touchent" : ", qui touche") + " les trois domaines du quotidien" : g.touches.length ? ", surtout dans " + joindre(g.touches.map((id) => DANS_DOMAINES_ESO[id])) : ""));
+      const p2 = "Il met en évidence " + (morceaux.length === 2 ? morceaux[0] + ", ainsi que " + morceaux[1] : morceaux.join(" ; ")) + ".";
+      const tri = doms.slice().sort((x, y) => x.moyenne - y.moyenne);
+      l.push(p2 + (tri.length > 1 && tri[0].moyenne < 2 && tri[1].moyenne - tri[0].moyenne >= 0.3 ? " " + maj(DANS_DOMAINES_ESO[tri[0].id]) + (tri[0].id === "p" ? " est le domaine le plus touché" : " sont le domaine le plus touché") + " (moyenne " + fmt(tri[0].moyenne, 1) + " sur 3)." : ""));
+    } else if (roues) l.push("Aucun secteur ne montre de difficulté notable : l'engagement est adapté dans les soins personnels, le travail scolaire et les loisirs.");
+    // 3. Systèmes sensoriels
+    if (an.systemes.length) {
+      const tri = an.systemes.slice().sort((x, y) => x.pourcentage - y.pourcentage);
+      if (an.bas.length) {
+        const pcts = an.bas.map((x) => fmt(x.pourcentage, 0) + " %");
+        let p3 = "Sur le plan des systèmes sensoriels, l'engagement est fragilisé sur " + plans(an.bas) + " (" + (pcts.length > 1 ? (pcts.every((x) => x === pcts[0]) ? pcts[0] + " chacun" : "respectivement " + joindre(pcts)) : pcts[0]) + ", sous le repère de " + REPERE_ESO + " %)";
+        const autres = tri.filter((x) => x.pourcentage >= REPERE_ESO);
+        p3 += autres.length ? " ; les autres systèmes restent au-dessus du repère." : ".";
+        l.push(p3);
+      } else l.push("Tous les systèmes sensoriels sont au-dessus du repère de " + REPERE_ESO + " %" + (tri[0].pourcentage < 75 ? ", le plus bas étant " + plans([tri[0]]).replace(/^le plan /, "le plan ") + " (" + fmt(tri[0].pourcentage, 0) + " %)" : "") + ".");
+    }
+    // 4. Situations concrètes (questions à 0 point), en commençant par les secteurs les plus touchés
+    const cle = opts && opts.cotation ? normaliserCotationEso(opts.cotation) : null;
+    const ordre = faibles.map((x) => x.id);
+    const durs = [];
+    items.forEach((x) => x.reponses.forEach((r) => {
+      if (r.p !== 0 || !r.libelle) return;
+      const sc = cle ? cle.secteurs[r.num - 1] : "";
+      durs.push({ r: r, rang: ordre.indexOf(sc) < 0 ? 9 : ordre.indexOf(sc) });
+    }));
+    durs.sort((x, y) => x.rang - y.rang);
+    if (durs.length) l.push("Au quotidien, les parents relèvent notamment : " + durs.slice(0, 4).map((x) => citationEso(x.r)).join(", ") + ".");
+    // 5. Hypothèse prudente
+    const fragiles = faibles.slice(0, 4).map((x) => x.id);
+    const parties = [];
+    const modulation = fragiles.filter((x) => x === "OR" || x === "UR" || x === "SS");
+    if (modulation.length) parties.push("une difficulté de modulation sensorielle (" + joindre(modulation.map((x) => ({ OR: "hyperréactivité", UR: "hyporéactivité", SS: "recherche sensorielle" })[x])) + ")");
+    if (fragiles.indexOf("DS") >= 0) parties.push("une difficulté de discrimination sensorielle");
+    const motrices = fragiles.filter((x) => x === "CP" || x === "PX");
+    if (motrices.length) parties.push("des difficultés motrices d'origine sensorielle (" + joindre(motrices.map((x) => ({ CP: "contrôle postural", PX: "praxies" })[x])) + ")");
+    if (parties.length) l.push("Ce profil évoque " + joindre(parties) + ". " + (parties.length > 1 || /^des /.test(parties[0]) ? "Ces difficultés " + (fragiles.indexOf("EO") >= 0 ? "restreignent" : "peuvent gêner") : "Cette difficulté " + (fragiles.indexOf("EO") >= 0 ? "restreint" : "peut gêner")) + " la participation de " + a.sujetMin + " aux activités du quotidien ; elles sont à mettre en lien avec l'observation clinique et les autres résultats du bilan.".replace("; elles sont", parties.length > 1 || /^des /.test(parties[0]) ? "; elles sont" : "; elle est"));
+    else if (fragiles.indexOf("EO") >= 0) l.push("Ce profil évoque surtout un engagement restreint dans les activités du quotidien, à mettre en lien avec l'observation clinique et les autres résultats du bilan.");
+    else if (an.bas.length) l.push("Ce profil évoque surtout une fragilité sur " + plans(an.bas) + ", à confirmer par l'observation clinique.");
     if (e.notes.trim()) l.push(point(maj(e.notes.trim())));
     return l.join("\n");
   }
@@ -630,7 +724,7 @@
   return {
     DOMAINES_OC, OTIPIS, ORDRE_PROFIL, CLASSIFICATIONS, QUADRANTS, FORMES_DUNN,
     DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso,
-    SECTEURS_NOMS_ESO, NIVEAUX_ROUE_ESO, niveauRoueEso, POINTS_ESO, pointsEso, normaliserCotationEso, cotationEso, analyseEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
+    SECTEURS_NOMS_ESO, NIVEAUX_ROUE_ESO, niveauRoueEso, POINTS_ESO, pointsEso, normaliserCotationEso, cotationEso, analyseEso, detailEso, redigerEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
     vide, normaliser, syntheseOtipis, lignesDunn, systemesEso, valeursRoues, themesSensot, aDesDonnees, rediger, constats,
   };
 });

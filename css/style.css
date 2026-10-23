@@ -1233,3 +1233,92 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .apercu-synthese { background: var(--papier-2); border-radius: var(--rayon); padding: 8px 14px; }
 .apercu-synthese p { margin: .35rem 0; }
 .apercu-logo { display: block; max-height: 90px; max-width: 240px; margin: .3rem 0; background: #fff; border-radius: 8px; padding: 6px; }
+
+/* ================= Couleurs par onglet ================= */
+:root {
+  --acc-dossier: #2C64A0; --acc-dossier-fond: #E6EEF8;
+  --acc-entretien: #74479C; --acc-entretien-fond: #F1E9F8;
+  --acc-ecrit: #2F6B4F; --acc-ecrit-fond: #E2EFE6;
+  --acc-evaluations: #A84F1C; --acc-evaluations-fond: #FBEADF;
+  --acc-cr: #1D6870; --acc-cr-fond: #DFF0F1;
+  --acc-seances: #A23E6A; --acc-seances-fond: #F8E5EE;
+  --acc-reglages: #55606A; --acc-reglages-fond: #ECEFF2;
+  --sur-accent: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --acc-dossier: #8DB8E8; --acc-dossier-fond: #1C2A3A; --acc-entretien: #C7A6E6; --acc-entretien-fond: #2A2238;
+    --acc-ecrit: #8FD1A8; --acc-ecrit-fond: #1E3428; --acc-evaluations: #F0A877; --acc-evaluations-fond: #3A2A1E;
+    --acc-cr: #7DD0D6; --acc-cr-fond: #183234; --acc-seances: #EE9DC0; --acc-seances-fond: #3A2230;
+    --acc-reglages: #B5BEC6; --acc-reglages-fond: #262B30; --sur-accent: #111713;
+  }
+}
+:root[data-theme="dark"] {
+  --acc-dossier: #8DB8E8; --acc-dossier-fond: #1C2A3A; --acc-entretien: #C7A6E6; --acc-entretien-fond: #2A2238;
+  --acc-ecrit: #8FD1A8; --acc-ecrit-fond: #1E3428; --acc-evaluations: #F0A877; --acc-evaluations-fond: #3A2A1E;
+  --acc-cr: #7DD0D6; --acc-cr-fond: #183234; --acc-seances: #EE9DC0; --acc-seances-fond: #3A2230;
+  --acc-reglages: #B5BEC6; --acc-reglages-fond: #262B30; --sur-accent: #111713;
+}
+body { --accent: var(--encre); --accent-fond: var(--encre-claire); }
+body[data-groupe="dossier"] { --accent: var(--acc-dossier); --accent-fond: var(--acc-dossier-fond); }
+body[data-groupe="entretien"] { --accent: var(--acc-entretien); --accent-fond: var(--acc-entretien-fond); }
+body[data-groupe="ecrit"] { --accent: var(--acc-ecrit); --accent-fond: var(--acc-ecrit-fond); }
+body[data-groupe="evaluations"] { --accent: var(--acc-evaluations); --accent-fond: var(--acc-evaluations-fond); }
+body[data-groupe="compte-rendu"] { --accent: var(--acc-cr); --accent-fond: var(--acc-cr-fond); }
+body[data-groupe="seances"] { --accent: var(--acc-seances); --accent-fond: var(--acc-seances-fond); }
+body[data-groupe="reglages"] { --accent: var(--acc-reglages); --accent-fond: var(--acc-reglages-fond); }
+#g-dossier { --c: var(--acc-dossier); } #g-entretien { --c: var(--acc-entretien); } #g-ecrit { --c: var(--acc-ecrit); }
+#g-evaluations { --c: var(--acc-evaluations); } #g-compte-rendu { --c: var(--acc-cr); } #g-seances { --c: var(--acc-seances); }
+
+/* Onglets : couleur de chaque partie */
+.onglets button[id^="g-"]:not([aria-selected="true"]) { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--c) 55%, transparent); }
+.onglets button[id^="g-"][aria-selected="true"] { background: var(--c); color: var(--sur-accent); }
+.sous-onglets button[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--accent-fond); }
+@media (max-width: 1099px) {
+  .onglets button[id^="g-"][aria-selected="true"] { background: var(--accent-fond); color: var(--accent); box-shadow: inset 0 3px 0 var(--c); }
+  .onglets button[id^="g-"]:not([aria-selected="true"]) { box-shadow: none; }
+}
+
+/* Cartes : liseré et titre à la couleur de l'onglet */
+.panneau .groupe { border-left: 6px solid var(--accent); }
+.panneau .groupe > legend { color: var(--accent); }
+.panneau .groupe > legend::before { background: var(--accent); }
+.panneau .groupe.test:not(:has(> legend input:checked)) { border-left-color: var(--seyes); }
+.panneau .groupe.test:has(> legend input:checked) > legend .case-titre { color: var(--accent); }
+.panneau .case input { accent-color: var(--accent); }
+
+/* ================= Parties repliables ================= */
+.barre-replis { display: flex; justify-content: flex-end; gap: 14px; margin: 10px 4px -4px; }
+.barre-replis .bouton-lien { font-size: .92rem; }
+legend.legende-repliable { cursor: pointer; user-select: none; }
+.bouton-repli {
+  flex: 0 0 auto; margin-left: auto; width: 36px; height: 36px; border-radius: 50%;
+  border: 1.5px solid var(--seyes); background: var(--papier); color: var(--accent);
+  display: inline-grid; place-items: center; cursor: pointer; padding: 0; font-size: 1rem;
+}
+.bouton-repli::before { content: "▾"; display: block; line-height: 1; transition: transform .15s ease; }
+.bouton-repli:hover { background: var(--accent-fond); border-color: var(--accent); }
+.bouton-repli[aria-expanded="false"]::before { transform: rotate(-90deg); }
+.resume-repli { font: 400 .82rem var(--police); color: var(--gris); background: var(--accent-fond); padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.resume-repli:empty { display: none; }
+.groupe.replie > :not(legend) { display: none !important; }
+.groupe.replie { padding-bottom: 12px; }
+.groupe.replie > legend { margin-bottom: 0; }
+.groupe.test:not(:has(> legend input:checked)) > legend .bouton-repli,
+.groupe.test:not(:has(> legend input:checked)) > legend .resume-repli { display: none; }
+
+h4.sous-groupe.repliable {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  margin: 1.1rem 0 .5rem; padding: 6px 6px 6px 12px; border-radius: 12px;
+  font: 600 1rem var(--police-titre); color: var(--accent); background: var(--accent-fond);
+}
+h4.sous-groupe.repliable .bouton-repli { width: 30px; height: 30px; font-size: .9rem; }
+h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
+.sous-corps { min-width: 0; }
+.petit-titre { margin: .9rem 0 .3rem; font-weight: 700; color: var(--graphite); }
+.legende-secteurs { margin-top: .3rem; }
+.detail-resultats { margin: .8rem 0; }
+.detail-resultats summary { cursor: pointer; color: var(--accent); font-weight: 700; padding: 6px 0; }
+@media print { .bouton-repli, .barre-replis, .resume-repli { display: none !important; } }
+/* Sous-parties imbriquées : plus discrètes */
+.sous-corps h4.sous-groupe.repliable { background: transparent; border-bottom: 2px solid var(--accent-fond); border-radius: 0; padding-left: 4px; font-size: .95rem; }

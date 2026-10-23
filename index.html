@@ -551,6 +551,7 @@
         <h2 id="h-resultats">Résultats</h2>
         <div class="resultat" id="res-qualite"></div>
         <div class="resultat" id="res-vitesse"></div>
+        <div class="graphique" id="g-bhk-criteres" hidden></div>
       </section>
 
       <fieldset class="groupe">
@@ -676,7 +677,7 @@
         <ol>
           <li>Cochez les occupations en difficulté, puis les préconisations : celles que l'outil propose d'après les résultats sont en tête, avec leur raison.</li>
           <li>Relisez le texte plus bas : les passages [entre crochets] sont à compléter.</li>
-          <li>Téléchargez le compte rendu Word. La synthèse pour l'école et le plan de suivi (pour vous) se téléchargent aussi ici.</li>
+          <li>Téléchargez le compte rendu Word. Le bilan synthétique (une à deux pages, avec le diagnostic ergothérapique), la synthèse pour l'école et le plan de suivi (pour vous) se téléchargent aussi ici.</li>
         </ol>
       </details>
       <section class="documents" aria-labelledby="h-documents">
@@ -687,6 +688,12 @@
             <h3>Compte rendu de bilan</h3>
             <p>Pour la famille et le médecin.</p>
             <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="compte-rendu" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="compte-rendu" data-faire="word">Word</button></div>
+          </article>
+          <article class="doc-carte">
+            <span class="doc-icone" aria-hidden="true">📋</span>
+            <h3>Bilan synthétique</h3>
+            <p>Une à deux pages : résultats principaux et diagnostic ergothérapique.</p>
+            <div class="doc-actions"><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="apercu">Aperçu</button><button type="button" class="bouton bouton-second bouton-petit" data-doc="bilan-synthese" data-faire="imprimer">Imprimer</button><button type="button" class="bouton bouton-petit" data-doc="bilan-synthese" data-faire="word">Word</button></div>
           </article>
           <article class="doc-carte">
             <span class="doc-icone" aria-hidden="true">🏫</span>
@@ -758,17 +765,23 @@
         </div>
       </fieldset>
 
-      <h2>Graphiques du compte rendu</h2>
-      <p class="note">Ils sont ajoutés au Word, chacun à sa place.</p>
-      <div class="galerie" id="galerie"></div>
+      <fieldset class="groupe" id="bloc-galerie">
+        <legend>📊 Graphiques du compte rendu</legend>
+        <p class="note">Ils sont ajoutés au Word, chacun à sa place.</p>
+        <div class="galerie" id="galerie"></div>
+      </fieldset>
 
-      <h2>Texte du compte rendu</h2>
-      <p class="note">Le texte suit la saisie. Une section modifiée à la main ne suit plus la saisie, sauf si vous la rétablissez. Les passages entre crochets sont surlignés dans le Word.</p>
-      <div id="sections"></div>
+      <fieldset class="groupe" id="bloc-texte-cr">
+        <legend>📝 Texte du compte rendu</legend>
+        <p class="note">Le texte suit la saisie. Une section modifiée à la main ne suit plus la saisie, sauf si vous la rétablissez. Les passages entre crochets sont surlignés dans le Word. Chaque partie se replie en touchant son titre.</p>
+        <div id="sections"></div>
+      </fieldset>
 
-      <h2>Synthèse pour l'école</h2>
-      <p class="note">Document court pour l'équipe éducative : constats, points d'appui, aménagements et suivi, sans l'anamnèse ni les informations familiales.</p>
-      <div id="sections-ecole"></div>
+      <fieldset class="groupe" id="bloc-texte-ecole">
+        <legend>🏫 Texte de la synthèse pour l'école</legend>
+        <p class="note">Document court pour l'équipe éducative : constats, points d'appui, aménagements et suivi, sans l'anamnèse ni les informations familiales.</p>
+        <div id="sections-ecole"></div>
+      </fieldset>
     </section>
 
     <!-- ============ Réglages ============ -->

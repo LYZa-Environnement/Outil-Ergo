@@ -1676,7 +1676,7 @@
     if (!ecritureCommencee(d) && (sensorielCommence(d) || Occup.commence(d))) ["personne", "environnementale", "observation", "bhk", "vitesse", "clavier"].forEach((k) => { out[k] = ""; });
 
     // Bilan sensoriel
-    Object.assign(out, Senso.rediger(d.senso, a, { libelles: reg.esoLibelles }));
+    Object.assign(out, Senso.rediger(d.senso, a, { libelles: reg.esoLibelles, cotation: reg.esoCotation }));
 
     const ind = indicateurs(d, reg);
 
@@ -1808,6 +1808,8 @@
     g["profil-ds"] = lignes.length >= 2 ? { lignes: lignes, seuils: seuils } : null;
     g["bhk-criteres"] = r.complet ? {
       titre: "Score de chaque critère (" + r.nomTest + ")",
+      seuils: seuils, inverse: reg.inverserQualite, normes: r.criteres.some((c) => c.niveau),
+      reference: r.cle ? (r.ref === "classe" ? "les enfants de " + r.cle : "les enfants de " + r.cle + " ans") : "",
       criteres: r.liste.map((c, i) => ({ id: String(c.id), nom: c.nom, score: r.scores[i] || 0, ds: r.criteres[i].ds, niveau: r.criteres[i].niveau })),
     } : null;
     const m = Occup.calculMcro(d.mcro);
@@ -1946,6 +1948,37 @@
     return Object.assign({ titre: "Bilan en ergothérapie" + (nomComplet ? " – " + nomComplet : ""), blocs: blocs }, papier(reg));
   }
 
+  // Bilan synthétique : l'essentiel en une ou deux pages, avec le diagnostic ergothérapique.
+  function modeleBilanSynthese(dossier, reglages, textes) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const r = calculerBHK(d, reg);
+    const tests = calculerTests(d, reg);
+    const gen = rediger(d, reg);
+    const tx = (id) => texte(textes && typeof textes[id] === "string" ? textes[id] : gen[id]).trim();
+    const nomComplet = [texte(d.nom).trim().toUpperCase(), texte(d.prenom).trim()].filter(Boolean).join(" ");
+    const scol = [TOUTES_CLASSES.indexOf(d.groupe) >= 0 ? d.groupe : "", texte(d.etablissement).trim()].filter(Boolean).join(", ");
+    const blocs = [{ type: "titre", texte: "Bilan en ergothérapie : synthèse" }];
+    const infos = [["Nom, prénom", nomComplet], ["Date de naissance, âge", [dateCourte(d.naissance), r.age ? formaterAge(r.age) : ""].filter(Boolean).join(", ")],
+      ["Classe, établissement", scol], ["Date du bilan", dateCourte(d.passation)], ["Médecin prescripteur", d.prescripteur]]
+      .filter((x) => texte(x[1]).trim());
+    if (infos.length) blocs.push({ type: "tableau", largeurs: [0.34, 0.66], lignes: infos.map((x) => ({ cellules: [cellule(x[0], { gras: true, fond: "entete" }), cellule(texte(x[1]).trim())] })) });
+    const section = (titre, t) => { if (!t) return; blocs.push({ type: "h", niveau: 2, texte: titre }); blocs.push.apply(blocs, texteVersBlocs(t)); };
+    section("Motif du bilan", tx("motif"));
+    section("Bilans réalisés", tx("bilans"));
+    const recap = blocsRecap(r, tests, reg, d);
+    if (recap.length) {
+      blocs.push({ type: "h", niveau: 2, texte: "Résultats principaux" });
+      blocs.push.apply(blocs, recap.filter((b) => b.type !== "h"));
+    }
+    section("Diagnostic ergothérapique", tx("conclusion"));
+    section("Objectifs et préconisations", tx("preconisations"));
+    blocs.push({ type: "p", petit: true, runs: [{ t: "Ce document résume le bilan. Le compte rendu complet détaille l'ensemble des observations, des résultats et des questionnaires.", i: true }] });
+    const sig = signataire(reg);
+    if (sig && (sig.nom || sig.titre)) blocs.push({ type: "signature", texte: [sig.nom, sig.titre].filter(Boolean).join(", ") });
+    return Object.assign({ titre: "Synthèse du bilan en ergothérapie" + (nomComplet ? " – " + nomComplet : ""), blocs: blocs }, papier(reg));
+  }
+
   function signataire(reg) { return reg.praticiens[reg.signataire] || reg.praticiens[0]; }
 
   // En-tête (cabinet, praticiens) et pied de page communs aux documents.
@@ -2075,7 +2108,7 @@
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
-    SECTIONS_ECOLE, modeleSyntheseEcole, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
+    SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
