@@ -316,6 +316,95 @@
     return { nums: nums, colonnes: colonnes, repondues: nums.length, frequentes: nums.filter((n) => val(n) >= 3).length, domaines: domaines };
   }
 
+  // Synthèse rédigée de l'auto-appréciation : profil par thématique, lecture des réponses du questionnaire du cabinet
+  // (seulement si la question est restée la même), et comparaison avec les mesures du bilan. Texte proposé, modifiable.
+  function syntheseAutoTexte(dossier, reglages) {
+    const d = normaliserDossier(dossier);
+    const reg = normaliserReglages(reglages);
+    const sa = syntheseAuto(d.auto, reg);
+    if (!sa.repondues) return "";
+    const a = accords(d);
+    const e = a.e;
+    const v = (n) => {
+      if (reg.autoQuestions[n - 1] !== (QUESTIONS_AUTO[n - 1] || [])[0]) return null; // question modifiée : pas de lecture détaillée
+      const x = d.auto.reponses[n];
+      return x === undefined || x === null ? null : Number(x);
+    };
+    const mot = (x) => ECHELLE_AUTO[x].toLowerCase();
+    const haut = (x) => x !== null && x >= 3, bas = (x) => x !== null && x <= 1, present = (x) => x !== null && x >= 2;
+    const l = [], comparaisons = [];
+    const le = d.sexe === "F" ? "la" : "le";
+
+    // 1. Profil par thématique (sans répéter les nombres, déjà dans le compte rendu).
+    const doms = sa.domaines.filter((dm) => dm.repondues).map((dm) => Object.assign({ part: dm.points / dm.max }, dm)).sort((x, y) => y.part - x.part);
+    if (doms.length) {
+      const fortes = doms.filter((dm) => dm.part >= 0.625), moyennes = doms.filter((dm) => dm.part >= 0.4 && dm.part < 0.625), faibles = doms.filter((dm) => dm.part < 0.4);
+      const NOMS = { lisibilite: ["la lisibilité", "f"], vitesse: ["la vitesse", "f"], satisfaction: ["le vécu de l'écriture (satisfaction, émotions)", "m"] };
+      const noms = (t) => joindre(t.map((dm) => NOMS[dm.id][0]));
+      if (fortes.length || moyennes.length) {
+        let t = "La gêne ressentie par " + a.sujetMin + " porte surtout sur " + (fortes.length ? noms(fortes) : noms(moyennes));
+        if (fortes.length && moyennes.length) t += ", et dans une moindre mesure sur " + noms(moyennes);
+        if (faibles.length) {
+          const masc = faibles.some((dm) => NOMS[dm.id][1] === "m");
+          t += " ; " + noms(faibles) + (faibles.length > 1 ? " sont peu touchés" + (masc ? "" : "es") : " est peu touché" + (masc ? "" : "e"));
+        }
+        l.push(t + ".");
+      } else l.push(a.sujet + " exprime peu de gêne dans son écriture, quelle que soit la thématique.");
+    } else if (sa.frequentes) l.push(a.sujet + " répond « souvent » ou « toujours » à " + sa.frequentes + " question" + (sa.frequentes > 1 ? "s" : "") + " sur " + sa.repondues + ".");
+
+    // 2. Lecture des réponses (questionnaire du cabinet).
+    const q = {}; for (let n = 1; n <= 12; n++) q[n] = v(n);
+    if (haut(q[2]) && bas(q[1])) l.push(maj(a.il) + " se relit sans difficulté mais pense que les autres ont " + mot(q[2]) + " du mal à " + le + " relire : la lisibilité gêne surtout le lecteur extérieur, l'enseignant notamment.");
+    else if (haut(q[1]) && haut(q[2])) l.push(maj(a.il) + " a du mal à se relire, comme les autres : la lisibilité gêne aussi la relecture de ses propres écrits (leçons, brouillons).");
+    else if (haut(q[1])) l.push(maj(a.il) + " a " + mot(q[1]) + " du mal à se relire.");
+    if (haut(q[9]) && present(q[3])) l.push(maj(a.il) + " regarde " + mot(q[9]) + " le tableau en écrivant et manque " + mot(q[3]) + " de temps pour copier : la copie au tableau, avec ses allers-retours entre le tableau et le cahier, semble coûteuse.");
+    else if (haut(q[3])) l.push(maj(a.il) + " manque " + mot(q[3]) + " de temps pour copier au tableau.");
+    else if (haut(q[9])) l.push(maj(a.il) + " a " + mot(q[9]) + " besoin de regarder le tableau en écrivant, ce qui suggère une prise d'information par petits morceaux.");
+    if (haut(q[11])) l.push(maj(a.il) + " se perçoit plus lent" + e + " que ses camarades.");
+    if (haut(q[4])) l.push(maj(a.il) + " rature ou efface " + mot(q[4]) + " ce qu'" + a.il + " écrit, ce qui ralentit encore la production.");
+    if (present(q[7])) l.push(maj(a.il) + " dit avoir " + mot(q[7]) + " mal en écrivant : à rapprocher de la prise du crayon, de la pression exercée et de la posture.");
+    if (haut(q[8])) l.push(maj(a.il) + " se dit " + mot(q[8]) + " vite fatigué" + e + " quand " + a.il + " écrit.");
+    if (haut(q[10])) l.push(maj(a.il) + " est " + mot(q[10]) + " insatisfait" + e + " de son écriture" + (bas(q[5]) ? ", sans trouver pour autant difficile d'écrire : l'insatisfaction porte sur le résultat plus que sur l'effort" : "") + ".");
+    else if (haut(q[5])) l.push(maj(a.il) + " trouve " + mot(q[5]) + " difficile d'écrire à la main.");
+    if (present(q[6])) l.push(maj(a.il) + " évite " + mot(q[6]) + " le travail écrit à la maison : le retentissement sur les devoirs est à explorer avec la famille.");
+    const emotionsBasses = [5, 7, 8].every((n) => q[n] === null || bas(q[n])) && [5, 7, 8].some((n) => q[n] !== null);
+    if (emotionsBasses && !haut(q[10])) l.push("Écrire ne semble ni pénible ni douloureux pour " + a.sujetMin + ", ce qui est un appui pour l'accompagnement.");
+
+    // 3. Comparaison avec les mesures du bilan.
+    const r = calculerBHK(d, reg);
+    const faible = (n) => n === "patho" || n === "inferieur";
+    const vitesse = sa.domaines.find((dm) => dm.id === "vitesse");
+    const lisib = sa.domaines.find((dm) => dm.id === "lisibilite");
+    const lentRessenti = haut(q[11]) || (vitesse && vitesse.repondues && vitesse.frequentes / vitesse.repondues >= 0.5);
+    const pasLentRessenti = bas(q[11]) || (q[11] === null && vitesse && vitesse.repondues && vitesse.frequentes === 0);
+    if (r.niveauV) {
+      const ds = r.nomTest + " : DS " + formaterDS(r.dsV);
+      if (lentRessenti && faible(r.niveauV)) comparaisons.push("Ce sentiment de lenteur est confirmé par le bilan (vitesse au " + ds + ").");
+      else if (lentRessenti) comparaisons.push(maj(a.il) + " se sent lent" + e + " alors que sa vitesse au " + r.nomTest + " est dans la moyenne (DS " + formaterDS(r.dsV) + ") : la lenteur ressentie en classe tient sans doute à la copie au tableau, à la fatigue ou à la longueur des écrits plus qu'au geste seul.");
+      else if (pasLentRessenti && faible(r.niveauV)) comparaisons.push(maj(a.il) + " ne se perçoit pas plus lent" + e + " que les autres, alors que le bilan montre une lenteur (vitesse au " + ds + ") : sa conscience de la difficulté est encore partielle.");
+    }
+    if (r.niveauQ && lisib && lisib.repondues) {
+      const gene = lisib.frequentes > 0, ds = "DS " + formaterDS(r.dsQ);
+      if (gene && faible(r.niveauQ)) comparaisons.push("Sa perception d'une écriture difficile à relire rejoint la qualité d'écriture mesurée au " + r.nomTest + " (" + ds + ").");
+      else if (gene) comparaisons.push("La qualité d'écriture au " + r.nomTest + " est pourtant dans la moyenne (" + ds + ") : l'écriture se dégrade sans doute en situation de classe (vitesse, longueur), ou " + a.il + " est très exigeant" + e + " envers " + (a.il === "elle" ? "elle" : "lui") + "-même.");
+      else if (faible(r.niveauQ)) comparaisons.push(maj(a.il) + " ne perçoit pas les difficultés de lisibilité relevées au " + r.nomTest + " (" + ds + ").");
+    }
+    const eva = nombre(d.douleurEva);
+    if (present(q[7]) && eva !== null) comparaisons.push(eva > 0 ? "Une douleur a aussi été relevée pendant la copie (EVA " + formaterNombre(eva) + "/10)." : "Aucune douleur n'a été relevée pendant la copie : la douleur apparaîtrait plutôt sur des écrits longs.");
+    else if (bas(q[7]) && eva !== null && eva >= 3) comparaisons.push(maj(a.il) + " ne signale pas de douleur dans le questionnaire, mais en a exprimé pendant la copie (EVA " + formaterNombre(eva) + "/10).");
+    if (haut(q[8]) && d.grille["lisibilite.fatigue"] === "oui") comparaisons.push("La fatigue a aussi été observée pendant la copie.");
+    const prefere = d.clavier && d.clavier.enfant ? d.clavier.enfant.prefere : "";
+    if (present(q[12])) comparaisons.push(maj(a.il) + " aimerait " + mot(q[12]) + " utiliser un autre moyen pour écrire" + (prefere === "clavier" ? ", ce que confirme sa préférence pour le clavier à l'EViC" : "") + " : une piste à explorer, comme l'outil numérique.");
+    else if (bas(q[12])) comparaisons.push(maj(a.il) + " ne souhaite pas, pour l'instant, écrire autrement qu'à la main" + (prefere === "clavier" ? " (alors qu'" + a.il + " dit préférer le clavier à l'EViC)" : "") + " : à prendre en compte avant de proposer un outil numérique.");
+
+    // 4. Pour l'accompagnement.
+    const pistes = { vitesse: "alléger les copies en classe, automatiser le geste", lisibilite: "travailler la lisibilité (formes des lettres, espacements, tenue de la ligne)", satisfaction: "redonner plaisir et confiance à l'écrit en valorisant les réussites" };
+    const prio = doms.filter((dm) => dm.part >= 0.4).map((dm) => pistes[dm.id]).filter(Boolean);
+    const blocs = [l.join(" "), comparaisons.join(" ")];
+    if (prio.length) blocs.push("Pour l'accompagnement : " + joindre(prio) + ".");
+    return blocs.filter(Boolean).join("\n");
+  }
+
   // Préconisations proposées d'après les résultats : « raisons » = indicateurs qui les justifient (voir indicateurs()).
   const CATEGORIES_PRECO = [
     { id: "reeducation", titre: "Accompagnement en ergothérapie" },
@@ -556,7 +645,7 @@
     TESTS.forEach((t) => { d.tests[t.id] = testVide(t); });
     d.senso = Senso.vide();
     d.manip = { fait: "", md: {}, mg: {}, notes: "" };
-    d.auto = { fait: "", reponses: {}, notes: "" };
+    d.auto = { fait: "", reponses: {}, notes: "", notesAuto: "" };
     Object.assign(d, Occup.vide());
     d.precedent = null;
     d.suivi = { debut: "", frequence: "14", nombre: "", duree: "45", exclus: [], notes: "" };
@@ -609,6 +698,7 @@
     if (src.auto && typeof src.auto === "object") {
       d.auto.fait = src.auto.fait ? "oui" : "";
       d.auto.notes = texte(src.auto.notes);
+      d.auto.notesAuto = src.auto.notesAuto === "oui" ? "oui" : "";
       Object.keys(src.auto.reponses || {}).forEach((k) => {
         const v = nombre(src.auto.reponses[k]);
         if (v !== null && v >= 0 && v <= 4 && /^\d+$/.test(k)) d.auto.reponses[k] = Math.round(v);
@@ -1902,7 +1992,7 @@
   return {
     SCORE_MAX, NB_LIGNES, SCORE_TOTAL_MAX, CLASSES, AGES, DOMAINES, CRITERES, BAREME_TAILLE, REMARQUES, MODES_COPIE,
     PRISES, GRILLE, TYPES_SCORE, TESTS, BILANS_COURANTS, AMENAGEMENTS, PRECONISATIONS, CATEGORIES_PRECO, OCCUPATIONS, DISPOSITIFS, SECTIONS, APPRECIATIONS,
-    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, QUESTIONS_AUTO, NOM_AUTO, syntheseAuto,
+    proposerPreconisations, ecritureCommencee, CLASSES_ADO, TOUTES_CLASSES, CRITERES_ADO, DOMAINES_ADO, versionBHK, MANIPULATIONS, COTATION_MANIP, ECHELLE_AUTO, NB_QUESTIONS_AUTO, DOMAINES_AUTO, QUESTIONS_AUTO, NOM_AUTO, syntheseAuto, syntheseAutoTexte,
     nombre, maj, min, age, formaterAge, formaterDS, formaterNombre, dateCourte, dateLongue, aujourdhui, quantileNormal,
     normesVides, normaliserNormes, reglagesParDefaut, normaliserReglages, praticienVide,
     dossierVide, normaliserDossier, pointsTaille, niveau, dsLigne, zonesLegende,

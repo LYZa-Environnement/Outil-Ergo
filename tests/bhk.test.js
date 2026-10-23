@@ -900,3 +900,32 @@ test("auto-appréciation : questionnaire du cabinet intégré, anciens réglages
   const perso = B.normaliserReglages({ autoNom: "Mon questionnaire", autoQuestions: ["Q1", "Q2"] });
   assert.deepEqual([perso.autoNom, perso.autoQuestions, perso.autoDomaines], ["Mon questionnaire", ["Q1", "Q2"], ["", ""]]);
 });
+
+test("auto-appréciation : synthèse rédigée (profil, lecture des réponses, comparaison avec le bilan)", () => {
+  const reg = reglagesTest();
+  const d = dossierTest({ sexe: "M", prenom: "Tom", douleurEva: "0" });
+  d.auto = { fait: "oui", reponses: { 1: 1, 2: 3, 3: 2, 4: 3, 5: 1, 6: 2, 7: 2, 8: 1, 9: 3, 10: 3, 11: 3, 12: 2 }, notes: "" };
+  d.clavier = { enfant: { prefere: "clavier" } };
+  const t = B.syntheseAutoTexte(d, reg);
+  assert.match(t, /La gêne ressentie par Tom porte surtout sur la vitesse/);
+  assert.match(t, /Il se relit sans difficulté mais pense que les autres ont souvent du mal à le relire/);
+  assert.match(t, /la copie au tableau, avec ses allers-retours/);
+  assert.match(t, /Aucune douleur n'a été relevée pendant la copie/);
+  assert.match(t, /ce que confirme sa préférence pour le clavier à l'EViC/);
+  assert.match(t, /Pour l'accompagnement : alléger les copies en classe/);
+  // Vitesse ressentie comparée au BHK (normes fictives du test).
+  const r = B.calculerBHK(d, reg);
+  if (r.niveauV) assert.match(t, /(confirmé par le bilan|dans la moyenne)/);
+  // Peu de gêne exprimée, fille.
+  const f = dossierTest({ sexe: "F", prenom: "Léa" });
+  f.auto = { fait: "oui", reponses: { 1: 0, 2: 1, 3: 0, 4: 1, 5: 0, 6: 0, 7: 0, 8: 1, 9: 1, 10: 0, 11: 1, 12: 0 }, notes: "" };
+  const tf = B.syntheseAutoTexte(f, reg);
+  assert.match(tf, /Léa exprime peu de gêne/);
+  assert.match(tf, /Elle ne souhaite pas, pour l'instant, écrire autrement qu'à la main/);
+  // Question modifiée par l'ergothérapeute : pas de lecture détaillée de cette question.
+  const reg2 = B.normaliserReglages(Object.assign({}, reg, { autoQuestions: reg.autoQuestions.map((q, i) => i === 1 ? "Autre question" : q) }));
+  assert.doesNotMatch(B.syntheseAutoTexte(d, reg2), /les autres ont souvent du mal/);
+  // La synthèse gardée par le dossier, avec son statut.
+  d.auto.notes = t; d.auto.notesAuto = "oui";
+  assert.equal(B.normaliserDossier(d).auto.notesAuto, "oui");
+});

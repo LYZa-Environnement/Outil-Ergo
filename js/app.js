@@ -391,7 +391,41 @@
         ${pastilles("auto-" + i, "auto.reponses." + i, B.ECHELLE_AUTO.map((e, k) => [String(k), e + " (" + k + ")"]))}</div>`;
     }
     h += `<div class="synthese-auto" id="synthese-auto" aria-live="polite"></div>`;
-    $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h + champZone("Synthèse de l'auto-évaluation", "auto.notes"));
+    h += `<div class="champ"><label for="notes-auto">Synthèse de l'auto-évaluation</label>
+      <p class="note" id="etat-synthese-auto"></p>
+      <textarea id="notes-auto" data-chemin="auto.notes" rows="13"></textarea>
+      <div class="barre-actions"><button type="button" class="bouton bouton-second bouton-petit" data-action="reproposer-synthese-auto">Reproposer la synthèse</button></div></div>`;
+    $("#auto").innerHTML = blocRealise("auto", reglages.autoNom, "auto", h);
+  }
+  // Synthèse rédigée par l'outil dans le champ, tant que l'ergothérapeute ne l'a pas modifiée.
+  function majSyntheseAuto(forcer) {
+    if (!dossier.auto || typeof dossier.auto !== "object") return;
+    const propose = B.syntheseAutoTexte(dossier, reglages);
+    const actuel = String(dossier.auto.notes || "");
+    const libre = !actuel.trim() || dossier.auto.notesAuto === "oui";
+    if ((libre || forcer) && propose && actuel !== propose) {
+      dossier.auto.notes = propose;
+      dossier.auto.notesAuto = "oui";
+      const z = $("#notes-auto");
+      if (z && document.activeElement !== z) z.value = propose;
+      nonEnregistre = true;
+      sauverBrouillon();
+    }
+    const etat = $("#etat-synthese-auto");
+    if (etat) etat.textContent = !propose ? "Une synthèse sera proposée dès les premières réponses."
+      : dossier.auto.notesAuto === "oui" ? "Proposée par l'outil à partir des réponses et des résultats du bilan. Modifiez-la librement : dès que vous la modifiez, elle n'est plus changée automatiquement."
+      : "Synthèse modifiée par vous : elle n'est plus mise à jour automatiquement.";
+  }
+  async function reproposerSyntheseAuto() {
+    const propose = B.syntheseAutoTexte(dossier, reglages);
+    if (!propose) return annoncer("Saisissez d'abord des réponses au questionnaire.");
+    const modifiee = String(dossier.auto.notes || "").trim() && dossier.auto.notesAuto !== "oui";
+    if (modifiee && !(await demander("Remplacer votre synthèse par celle proposée par l'outil ?", "Remplacer"))) return;
+    majSyntheseAuto(true);
+    const z = $("#notes-auto");
+    if (z) z.value = dossier.auto.notes;
+    majTout();
+    annoncer("Synthèse proposée");
   }
   function majAuto() {
     const el = $("#synthese-auto");
@@ -1881,6 +1915,7 @@
       if (el.type === "radio" && !el.checked) return;
       if (el.tagName === "SELECT" && el.value === "" && el.dataset.chemin.indexOf("manip.") === 0) effacerChemin(dossier, el.dataset.chemin);
       else ecrireChemin(dossier, el.dataset.chemin, el.type === "checkbox" ? (el.checked ? "oui" : "") : el.value);
+      if (el.dataset.chemin === "auto.notes" && e.type === "input") dossier.auto.notesAuto = "";
       if (el.dataset.bascule) { const corps = $(el.dataset.bascule); if (corps) corps.hidden = !el.checked; }
     } else if (el.dataset.champ) {
       if (el.type === "radio" && !el.checked) return;
@@ -2014,6 +2049,8 @@
   }
 
   function majTout() {
+    // La synthèse proposée de l'auto-évaluation est mise à jour avant la rédaction du compte rendu.
+    if (dossier.auto && dossier.auto.fait === "oui") majSyntheseAuto(false);
     const r = B.calculerBHK(dossier, reglages);
 
     $("#age").textContent = r.age ? B.formaterAge(r.age) : "renseignez la date de naissance";
@@ -3524,6 +3561,7 @@
       case "infos-enregistrement": return ouvrirInfosEnregistrement();
       case "preparer-evic": return preparerEvic();
       case "compter-copie": return compterCopieMain();
+      case "reproposer-synthese-auto": return reproposerSyntheseAuto();
       case "nouveau-bilan": return nouveau();
       case "noter-seance": afficherOnglet("seances"); return agendaPret.then(ouvrirFormSeance);
       case "voir-planning": return afficherOnglet("seances");
