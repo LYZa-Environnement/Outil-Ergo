@@ -1199,3 +1199,9 @@ body.mode-enfant > :not(#ecran-frappe):not(#verrou) { visibility: hidden; }
 .camera-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .camera-actions [hidden] { display: none; }
 .camera-declencheur { min-height: 60px; padding: 12px 32px; font-size: 1.2rem; }
+
+/* ESO : PDF à remplir par les parents */
+.etapes-eso { margin: 0 0 0.8rem; padding-left: 1.4rem; line-height: 1.5; }
+.etapes-eso li { margin: 0.3rem 0; }
+.barre-eso-pdf { margin: 0.3rem 0 0.4rem; }
+.etat-eso-parents { margin: 0.4rem 0; }

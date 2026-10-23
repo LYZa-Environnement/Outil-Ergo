@@ -348,7 +348,13 @@
       ${S.SYSTEMES_ESO.map((sy) => `<tr><th scope="row">${esc(sy.nom)}</th>${["sp", "p", "l"].map((k) => `<td><input type="text" inputmode="decimal" data-chemin="${c}.systemes.${sy.id}.${k}" aria-label="${esc(sy.nom)}, ${k}"></td>`).join("")}<td><output id="eso-pct-${sy.id}"></output></td></tr>`).join("")}
       </tbody></table></div>
       <h4 class="sous-groupe">Réponses détaillées au questionnaire (facultatif)</h4>
-      <p class="note">Reportez le chiffre entouré par les parents pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
+      <div class="barre-actions barre-eso-pdf">
+        <button type="button" class="bouton bouton-second bouton-petit" data-action="eso-pdf">📄 PDF à remplir pour les parents</button>
+        <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
+          <input type="file" accept="application/pdf,.pdf" data-action="eso-importer-pdf" class="masque"></label>
+      </div>
+      <p class="calcule etat-eso-parents" aria-live="polite"></p>
+      <p class="note">Avec le PDF, les réponses des parents arrivent toutes seules. Sur papier, reportez le chiffre entouré pour chaque question : de 0 (jamais, pas du tout) à 10 (toujours, tout à fait).
         ${reglages.esoLibelles.sp.length ? "" : `Pour voir ici le texte des questions, importez une fois le fichier du cabinet (ou collez le texte de votre exemplaire) dans les <button type="button" class="bouton-lien" data-aller="reglages">Réglages</button>.`}</p>
       ${S.DOMAINES_ITEMS_ESO.map((dm) => `<details class="eso-domaine"><summary>${esc(dm[1])} <span class="eso-compte" id="eso-n-${dm[0]}"></span></summary>
         <div class="eso-items${(reglages.esoLibelles[dm[0]] || []).length ? " avec-libelles" : ""}">${Array.from({ length: S.NB_ITEMS_ESO }, (_, i) => {
@@ -359,6 +365,106 @@
       ${champZone("Observations", c + ".notes")}
       <div class="graphique" id="g-eso-roues" hidden></div><div class="graphique" id="g-eso-systemes" hidden></div><div class="graphique" id="g-eso-items" hidden></div>`;
     return h;
+  }
+
+  /* ESO : PDF à remplir par les parents avant le rendez-vous, puis import des réponses */
+  const PE = window.PdfEso;
+  function libellesEsoPresents() { const l = reglages.esoLibelles; return l.sp.length + l.p.length + l.l.length > 0; }
+  function dateDepuisTexte(t) {
+    const s = String(t || "").trim();
+    let a, m, j, r;
+    if ((r = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) { a = +r[1]; m = +r[2]; j = +r[3]; }
+    else if ((r = /^(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{4}|\d{2})$/.exec(s))) { j = +r[1]; m = +r[2]; a = r[3].length === 2 ? 2000 + +r[3] : +r[3]; }
+    else return "";
+    const d = new Date(a, m - 1, j);
+    if (d.getFullYear() !== a || d.getMonth() !== m - 1 || d.getDate() !== j) return "";
+    return a + "-" + String(m).padStart(2, "0") + "-" + String(j).padStart(2, "0");
+  }
+  function majEtatEsoParents(items) {
+    const e = (dossier.senso && dossier.senso.eso) || {};
+    const n = (items || S.itemsEso(S.normaliser(dossier.senso).eso)).reduce((t, x) => t + x.n, 0);
+    let t;
+    if (!libellesEsoPresents()) t = "Pour créer le PDF, le texte des questions doit être sur cet appareil : importez une fois le fichier du cabinet dans les Réglages.";
+    else if (e.pdfImporte) t = "✅ Réponses des parents importées le " + B.dateCourte(e.pdfImporte) + " : " + n + " sur " + S.NB_ITEMS_ESO * 3 + ".";
+    else if (e.pdfCree) t = "📤 PDF créé le " + B.dateCourte(e.pdfCree) + ". En attente des réponses des parents.";
+    else t = "";
+    $$(".etat-eso-parents").forEach((el) => { el.textContent = t; el.hidden = !t; });
+  }
+  async function exporterPdfEso() {
+    if (!libellesEsoPresents()) {
+      if (await demander("Le texte des questions de l'ESO n'est pas encore sur cet appareil. Importez une fois le fichier du cabinet dans les Réglages, puis revenez ici.", "Ouvrir les Réglages")) afficherOnglet("reglages");
+      return;
+    }
+    const prenom = String(dossier.prenom || "").trim(), nom = String(dossier.nom || "").trim();
+    if (!prenom && !nom) {
+      annoncer("Écrivez d'abord le prénom de l'enfant dans le dossier : il figure en haut du PDF.");
+      afficherOnglet("dossier");
+      const champ = $('[data-champ="prenom"]');
+      if (champ) champ.focus();
+      return;
+    }
+    assurerId();
+    const sig = reglages.praticiens[reglages.signataire] || reglages.praticiens[0] || {};
+    const net = (x) => String(x || "").trim();
+    const entete = [reglages.cabinet.nom].concat(net(reglages.cabinet.adresse).split("\n")).map(net).filter(Boolean).slice(0, 3);
+    const coord = [sig.tel, sig.email].map(net).filter(Boolean).join(" – ");
+    if (net(sig.nom)) entete.push(net(sig.nom) + (coord ? " · " + coord : ""));
+    let octets;
+    try {
+      octets = PE.creerFormulaireEso({
+        titre: "Questionnaire ESO : engagement sensori-occupationnel",
+        enfant: [prenom, nom].filter(Boolean).join(" "),
+        naissance: B.dateCourte(dossier.naissance),
+        cabinet: entete,
+        contact: net(sig.email),
+        libelles: reglages.esoLibelles,
+        meta: { type: "outil-ergo-eso", v: 1, dossier: dossier.id, enfant: nomEnfant(dossier), cree: B.aujourdhui() },
+        mention: "Document confidentiel : à renvoyer uniquement à votre ergothérapeute.",
+      });
+    } catch (err) {
+      annoncer("Le PDF n'a pas pu être créé : " + (err && err.message ? err.message : "erreur inconnue") + ".");
+      return;
+    }
+    const ok = await telecharger(nomFichier("ESO_a_remplir", "pdf"), octets, "application/pdf", "PDF créé : joignez-le à un e-mail pour les parents");
+    if (!ok) return;
+    ecrireChemin(dossier, "senso.eso.pdfCree", B.aujourdhui());
+    nonEnregistre = true;
+    sauverBrouillon();
+    majEtatEsoParents();
+  }
+  async function importerPdfEso(f) {
+    if (!/\.pdf$/i.test(f.name || "") && f.type !== "application/pdf") throw new Error("Choisissez le fichier PDF renvoyé par les parents (son nom se termine par .pdf).");
+    let r;
+    try { r = await PE.lireFormulaireEso(new Uint8Array(await f.arrayBuffer())); }
+    catch (e) { throw new Error("Ce PDF n'a pas pu être lu. Demandez aux parents de le renvoyer, ou reportez les réponses à la main."); }
+    if (!r.formulaire) throw new Error("Ce PDF n'est pas le questionnaire ESO créé par l'outil. S'il a été imprimé puis scanné, reportez les réponses à la main dans l'ESO (🌈 Sensoriel).");
+    if (!r.nombre) throw new Error("Ce PDF ne contient aucune réponse. Les parents l'ont peut-être rempli sans l'enregistrer : demandez-leur de cliquer sur « Enregistrer » avant de vous le renvoyer.");
+    const pour = (r.meta && r.meta.enfant) || "un autre enfant";
+    if (!net(dossier.prenom) && !net(dossier.nom)) throw new Error("Ouvrez d'abord le dossier de " + pour + " (ou écrivez son prénom dans un nouveau dossier), puis importez le PDF.");
+    if (r.meta && r.meta.dossier && r.meta.dossier !== dossier.id
+      && !(await demander("Ce questionnaire a été créé pour le dossier « " + pour + " ». L'importer quand même dans le dossier « " + nomEnfant(dossier) + " » ?", "Importer quand même"))) return;
+    const eso = lireChemin(dossier, "senso.eso") || {};
+    const avant = S.itemsEso(S.normaliser(dossier.senso).eso).reduce((t, x) => t + x.n, 0);
+    if (avant && !(await demander(avant + (avant > 1 ? " réponses sont déjà saisies" : " réponse est déjà saisie") + " dans l'ESO. Les remplacer par les " + r.nombre + " réponses du PDF ?", "Remplacer"))) return;
+    ecrireChemin(dossier, "senso.eso.items", { sp: r.reponses.sp, p: r.reponses.p, l: r.reponses.l });
+    ecrireChemin(dossier, "senso.eso.fait", "oui");
+    if (!net(eso.repondant) && r.repondant) ecrireChemin(dossier, "senso.eso.repondant", r.repondant.slice(0, 120));
+    if (!eso.date) ecrireChemin(dossier, "senso.eso.date", dateDepuisTexte(r.date) || B.aujourdhui());
+    ecrireChemin(dossier, "senso.eso.pdfImporte", B.aujourdhui());
+    nonEnregistre = true;
+    remplirFormulaire();
+    majTout();
+    sauverBrouillon();
+    afficherOnglet("sensoriel");
+    const bloc = $("#bloc-eso");
+    if (bloc) {
+      const premier = $("details.eso-domaine", bloc);
+      if (premier) premier.open = true;
+      bloc.scrollIntoView({ block: "start" });
+    }
+    const manque = S.NB_ITEMS_ESO * 3 - r.nombre;
+    annoncer(r.nombre + " réponses importées dans l'ESO" + (manque ? " (" + manque + " sans réponse)" : ""));
+    function net(x) { return String(x || "").trim(); }
   }
 
   function htmlSensot() {
@@ -2258,6 +2364,7 @@
     majEnfantCourant();
     const items = S.itemsEso(S.normaliser(dossier.senso).eso);
     items.forEach((x) => { const o = $("#eso-n-" + x.id); if (o) o.textContent = x.n ? x.n + "/" + S.NB_ITEMS_ESO + " réponses, moyenne " + B.formaterNombre(x.moyenne, 1) : ""; });
+    majEtatEsoParents(items);
 
     // Réévaluation
     const p = dossier.precedent;
@@ -3757,6 +3864,7 @@
         sauverReglages(); remplirReglages(); construireSenso(); remplirFormulaire(); majTout();
         annoncer("Texte des questions effacé de ce navigateur");
         return;
+      case "eso-pdf": return exporterPdfEso();
       case "exporter-reglages":
         return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
     }
@@ -3775,6 +3883,10 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
       chargerPhoto(f).then(garderPhotoCopie).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "eso-importer-pdf") {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return true;
+      importerPdfEso(f).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "restaurer") {
       lireFichier(e.target).then(restaurerCopie).catch((err) => annoncer(err.message));
     } else if (action === "precedent") {

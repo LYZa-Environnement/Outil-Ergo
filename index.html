@@ -178,6 +178,21 @@
         <label class="champ"><span>Orienté par</span><input type="text" data-champ="orientation" placeholder="l'enseignante, le médecin scolaire…"></label>
       </fieldset>
 
+      <fieldset class="groupe" id="bloc-eso-parents">
+        <legend>📨 Avant le rendez-vous : questionnaire ESO pour les parents</legend>
+        <ol class="etapes-eso">
+          <li><strong>Créez le PDF</strong> et envoyez-le aux parents par e-mail (en pièce jointe).</li>
+          <li>Les parents <strong>cliquent sur les chiffres</strong> sur leur ordinateur, tablette ou téléphone, <strong>enregistrent</strong> le fichier et vous le renvoient. Pas besoin d'imprimer ni de scanner.</li>
+          <li><strong>Importez le PDF rempli</strong> : les réponses vont directement dans l'ESO (🌈 Sensoriel).</li>
+        </ol>
+        <div class="barre-actions">
+          <button type="button" class="bouton bouton-second" data-action="eso-pdf">📄 Créer le PDF à envoyer</button>
+          <label class="bouton bouton-second">📥 Importer le PDF rempli
+            <input type="file" accept="application/pdf,.pdf" data-action="eso-importer-pdf" class="masque"></label>
+        </div>
+        <p class="calcule etat-eso-parents" aria-live="polite"></p>
+      </fieldset>
+
       <fieldset class="groupe test" id="bloc-adaptation">
         <legend><label class="case case-titre"><input type="checkbox" data-chemin="adaptation.actif" data-bascule="#corps-adaptation"><span>🤝 Adapter l'accueil et le bilan</span></label></legend>
         <p class="note">Pour un enfant qui a besoin d'un cadre très prévisible : TSA connu ou suspecté, grande anxiété, fortes sensibilités sensorielles… Ajoute « Accueil adapté » à côté de « Dossier » : questionnaire pour les parents, fiche « Ce qui aide », planning en images.</p>
@@ -993,6 +1008,7 @@
   <script src="js/docx.js"></script>
   <script src="js/analyse.js"></script>
   <script src="js/tri.js"></script>
+  <script src="js/pdf.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
