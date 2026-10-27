@@ -1460,6 +1460,13 @@ h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
 .dtvp-grille .case-num { width: 100%; max-width: 3.4em; }
 .case-num.invalide { border-color: #c0392b; background: #fdecea; }
 .apres-plafond { opacity: .4; }
+/* NEPSY-II : Cubes et Copie de figures */
+.table-nepsy td, .table-nepsy th { vertical-align: middle; }
+.table-nepsy .choix span { padding: 6px 10px; }
+.table-nepsy-cf td { text-align: center; }
+.table-nepsy-cf .case { justify-content: center; margin: 0; }
+.table-nepsy tr.nepsy-depart th { color: var(--accent); }
+.table-nepsy tr.nepsy-depart th::after { content: " ▶ départ"; font-size: .8rem; }
 .dtvp-item-eh { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: flex-start; padding: 4px 0; border-bottom: 1px dashed var(--seyes); }
 .dtvp-segments summary { font-size: .9rem; cursor: pointer; padding: 8px 0; }
 .resume-dtvp { font-weight: 700; color: var(--accent); font-size: .95rem; }

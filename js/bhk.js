@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"), require("./dtvp3.js"), require("./lespargot.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri, racine.Dtvp3, racine.Lespargot);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri, Dtvp3, Lespargot) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"), require("./dtvp3.js"), require("./lespargot.js"), require("./nepsy.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri, racine.Dtvp3, racine.Lespargot, racine.Nepsy);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri, Dtvp3, Lespargot, Nepsy) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -255,6 +255,9 @@
       lignes: [["coordination", "Coordination œil-main", "ns"], ["copie", "Copie", "ns"], ["figure-fond", "Figure-fond", "ns"],
         ["closure", "Closure visuelle", "ns"], ["constance", "Constance de la forme", "ns"],
         ["pvrmr", "Perception visuelle à réponse motrice réduite", "indice"], ["ivm", "Intégration visuo-motrice", "indice"], ["pvg", "Perception visuelle générale", "indice"]] },
+    { id: "nepsy2", section: "complementaires", court: "NEPSY-II", titre: "NEPSY-II : traitements visuospatiaux (Cubes, Copie de figures)",
+      lignes: [["cubes", "Cubes", "ns"], ["cfp", "Copie de figures (Processus)", "ns"], ["cfp-motricite", "Copie de figures : motricité", "ns"],
+        ["cfp-global", "Copie de figures : traitement global", "ns"], ["cfp-local", "Copie de figures : traitement local", "ns"]] },
     { id: "mabc3", section: "complementaires", court: "MABC-3", titre: "MABC-3 : batterie d'évaluation du mouvement chez l'enfant",
       lignes: [["dexterite", "Dextérité manuelle", "ns"], ["viser", "Habileté à viser et attraper", "ns"], ["equilibre", "Équilibre et locomotion", "ns"], ["total", "Note totale de motricité", "ns"]] },
     { id: "manos", section: "complementaires", court: "Man.O.S", titre: "Man.O.S : test de manipulation des outils scolaires",
@@ -732,6 +735,7 @@
     d.ajuri = Ajuri.vide();
     d.lespargot = Lespargot.vide();
     d.dtvp3 = Dtvp3.vide();
+    d.nepsy = Nepsy.vide();
     return d;
   }
 
@@ -765,6 +769,7 @@
     d.ajuri = Ajuri.normaliser(src.ajuri);
     d.lespargot = Lespargot.normaliser(src.lespargot);
     d.dtvp3 = Dtvp3.normaliser(src.dtvp3);
+    d.nepsy = Nepsy.normaliser(src.nepsy);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -1050,7 +1055,13 @@
         const comp = Dtvp3.complements(dtvp3);
         lignes.forEach((l, i) => { const c = comp[s.lignes[i].id]; if (c) { l.terme = c.terme; l.complement = c.autres; } });
       }
-      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos, ajuri: ajuriSaisi ? ajuri : null, dtvp3: dtvp3 };
+      // NEPSY-II : notes brutes (Cubes, Copie de figures corrigée) à côté des notes étalonnées.
+      const nepsy = t.id === "nepsy2" ? Nepsy.calcul(d.nepsy, age(d.naissance, d.passation)) : null;
+      if (nepsy) {
+        const comp = Nepsy.complements(nepsy);
+        lignes.forEach((l, i) => { const c = comp[s.lignes[i].id]; if (c) l.complement = c.autres; });
+      }
+      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos, ajuri: ajuriSaisi ? ajuri : null, dtvp3: dtvp3, nepsy: nepsy };
     });
   }
 
@@ -1253,6 +1264,7 @@
 
     const LIBELLES_TESTS = {
       dtvp3: ["des difficultés visuo-perceptives et visuo-motrices", "visuel"],
+      nepsy2: ["des difficultés visuospatiales et visuoconstructives", "visuel"],
       mabc3: ["des difficultés de coordination motrice", "praxies"],
       manos: ["des difficultés de manipulation des outils scolaires", "motriciteFine"],
       evic: ["une frappe au clavier lente", "clavier"],
@@ -2372,7 +2384,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
-    classeManos, calculManos, calculAjuri, calculLespargot, Lespargot, Dtvp3,
+    classeManos, calculManos, calculAjuri, calculLespargot, Lespargot, Dtvp3, Nepsy,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });

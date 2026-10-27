@@ -2799,6 +2799,123 @@
       : "Score de différence : renseignez les indices IVM et PVRMR.";
   }
 
+  /* ---------- NEPSY-II : Cubes et Copie de figures (cahier d'administration) ---------- */
+  const NP = window.Nepsy;
+  function nepsyDonnees() { dossier.nepsy = NP.normaliser(dossier.nepsy); return dossier.nepsy; }
+  function ligneNepsy(id) {
+    const s = dossier.tests.nepsy2;
+    let l = s.lignes.find((x) => x.id === id);
+    if (!l) {
+      const def = B.TESTS.find((t) => t.id === "nepsy2").lignes.find((x) => x[0] === id);
+      l = { id: id, epreuve: def ? def[1] : id, type: "ns", valeur: "", moy: "", et: "", sens: "haut", commentaire: "" };
+      s.lignes.push(l);
+    }
+    return l;
+  }
+  function htmlNepsy(t) {
+    const s = dossier.tests.nepsy2, fait = s.fait === "oui";
+    const x = NP.normaliser(dossier.nepsy);
+    const num = (cle, val, attrs) => `<input type="text" inputmode="numeric" class="case-num" data-nepsy="${cle}" value="${esc(val === undefined || val === null ? "" : val)}"${attrs || ""}>`;
+    // Cubes
+    const lignesCubes = NP.CUBES.map((it) => {
+      const v = x.cubes.items[it.n] || {};
+      const bareme = it.bonus === null ? "1 pt" : `2 pts ≤ ${it.bonus} s · 1 pt ${it.bonus + 1}-60 s`;
+      return `<tr id="nepsy-cb-${it.n}"><th scope="row">${it.n} <small>(${it.cubes} cubes)</small></th>
+        <td><div class="choix" role="radiogroup" aria-label="Item ${it.n}">
+          <label><input type="radio" name="nepsy-cb-${it.n}" value="oui" data-nepsy="cb-ok:${it.n}"${v.ok === "oui" ? " checked" : ""}><span>✓ Réussi</span></label>
+          <label><input type="radio" name="nepsy-cb-${it.n}" value="non" data-nepsy="cb-ok:${it.n}"${v.ok === "non" ? " checked" : ""}><span>✗ Échoué</span></label></div></td>
+        <td>${num(`cb-t:${it.n}`, v.t, ` maxlength="3" aria-label="Durée de l'item ${it.n} en secondes"`)}</td>
+        <td><small>${it.limite} s · ${bareme}</small></td>
+        <td><output id="nepsy-cb-pts-${it.n}"></output></td></tr>`;
+    }).join("");
+    const optDepart = `<option value="">Selon l'âge</option>` + NP.CUBES.map((it) => `<option value="${it.n}"${x.cubes.depart === it.n ? " selected" : ""}>Item ${it.n}</option>`).join("");
+    // Copie de figures
+    const lignesCf = Array.from({ length: NP.CF_ITEMS[1] }, (_, i) => {
+      const n = i + 1, v = x.cf.items[n];
+      return `<tr id="nepsy-cf-${n}"><th scope="row">${n}</th>
+        <td><label class="case"><input type="checkbox" data-nepsy="cf-cote:${n}"${v ? " checked" : ""} aria-label="Item ${n} coté"><span></span></label></td>
+        ${NP.CRITERES.map((c) => `<td><label class="case"><input type="checkbox" data-nepsy="cf:${n}:${c.id}"${v && v[c.id] === 1 ? " checked" : ""} aria-label="Item ${n}, ${esc(c.nom)}"><span></span></label></td>`).join("")}</tr>`;
+    }).join("");
+    const lignesNotesCf = NP.NOTES_CF.map((nt) => `<tr><th scope="row">${esc(nt.code)}</th>
+      <td><output id="nepsy-cf-somme-${nt.id}"></output></td>
+      <td>${num(`cf-brut:${nt.id}`, x.cf.bruts[nt.id], ` aria-label="Note brute ${esc(nt.code)}"`)}</td>
+      <td>− ${nt.correction}</td><td><output id="nepsy-cf-corr-${nt.id}"></output></td></tr>`).join("");
+    // Notes étalonnées (manuel clinique, table A.1)
+    const val = (id) => { const l = s.lignes.find((y) => y.id === id); return l ? l.valeur : ""; };
+    const lignesNs = t.lignes.map((d, i) => `<tr><th scope="row">${esc(d[1])}</th>
+      <td>${num(`ns:${d[0]}`, val(d[0]), ` maxlength="2" aria-label="Note étalonnée ${esc(d[1])}"`)}</td>
+      <td><output id="tl-nepsy2-${s.lignes.findIndex((y) => y.id === d[0])}" class="ds-ligne"></output></td></tr>`).join("");
+    return `<fieldset class="groupe test" data-bloc-test="nepsy2">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="nepsy2" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        <p class="note">Feuille de cotation du cahier d'administration : notez chaque item, les notes brutes et leurs corrections se calculent. Reportez ensuite les notes étalonnées de la table A.1 du manuel clinique.</p>
+        <p class="dtvp-age" id="nepsy-age"></p>
+
+        <h4 class="sous-groupe">Cubes <span class="resume-dtvp" id="nepsy-res-cubes"></span></h4>
+        <p class="note">Départ : item 6 (5-6 ans), item 8 (7-16 ans). Si l'un des deux premiers items est à 0, revenir en arrière jusqu'à deux items réussis de suite ; les items avant ceux-là comptent tous leurs points. Arrêt après 4 notes 0 consécutives. Notez la durée en secondes : elle donne le bonus de temps des items 11 à 19 (facultative pour les items 1 à 10).</p>
+        <label class="champ champ-court"><span>Item de départ</span><select data-nepsy="cb-depart">${optDepart}</select></label>
+        <div class="defile"><table class="table-normes table-nepsy"><thead><tr><th scope="col">Item</th><th scope="col">Construction</th><th scope="col">Durée (s)</th><th scope="col">Limite et barème</th><th scope="col">Points</th></tr></thead><tbody>${lignesCubes}</tbody></table></div>
+        <p class="note dtvp-plafond" id="nepsy-cb-etat" hidden></p>
+        <div class="grille2">
+          <label class="champ champ-court"><span>Ou note totale directement (sur ${NP.CUBES_MAX})</span>${num("cb-total", x.cubes.total)}</label>
+          <label class="champ"><span>Observation</span><input type="text" data-nepsy="cb-obs" value="${esc(x.cubes.obs)}" placeholder="manipulation, chutes de cubes, approche prudente…"></label>
+        </div>
+
+        <h4 class="sous-groupe">Copie de figures <span class="resume-dtvp" id="nepsy-res-cf"></span></h4>
+        <p class="note">Tous les items sont proposés (pas de règle d'arrêt) ; fin après l'item 18 pour les 5-6 ans. Cochez les critères atteints selon l'annexe B du manuel ; un item coché « Coté » sans critère vaut 0. Les critères Local ne s'appliquent pas à tous les items : laissez-les vides quand l'annexe n'en prévoit pas.</p>
+        <div class="defile"><table class="table-normes table-nepsy table-nepsy-cf"><thead><tr><th scope="col">Item</th><th scope="col">Coté</th>${NP.CRITERES.map((c) => `<th scope="col" title="${esc(c.nom)}">${c.code}</th>`).join("")}</tr></thead><tbody>${lignesCf}</tbody></table></div>
+        <div class="defile"><table class="table-normes table-nepsy"><thead><tr><th scope="col">Note</th><th scope="col">Note brute</th><th scope="col">Ou saisie</th><th scope="col">Correction</th><th scope="col">Note corrigée</th></tr></thead><tbody>${lignesNotesCf}
+          <tr><th scope="row">CFP Note totale</th><td colspan="3"><small>Motricité + Global + Local corrigés</small></td><td><output id="nepsy-cfp-total"></output></td></tr></tbody></table></div>
+        <div class="grille2">
+          <label class="champ champ-court"><span>Rang percentile CFG (table A.1)</span><input type="text" class="case-num" data-nepsy="cf-rp" value="${esc(x.cf.rpCfg)}" placeholder="26-75"></label>
+          <label class="champ champ-court"><span>Note étalonnée de comparaison Global / Local (table C.2)</span>${num("cf-comparaison", x.cf.comparaison, ` maxlength="2"`)}</label>
+        </div>
+        <label class="champ"><span>Observation</span><input type="text" data-nepsy="cf-obs" value="${esc(x.cf.obs)}" placeholder="planification, regard sur le modèle, tenue du crayon…"></label>
+
+        <h4 class="sous-groupe">Notes étalonnées (moyenne 10, écart-type 3)</h4>
+        <div class="defile"><table class="table-normes table-nepsy"><thead><tr><th scope="col">Note</th><th scope="col">Note étalonnée</th><th scope="col">Lecture</th></tr></thead><tbody>${lignesNs}</tbody></table></div>
+        <label class="champ"><span>Observations générales</span><textarea data-test="nepsy2" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation("nepsy2")}
+      </div>
+    </fieldset>`;
+  }
+  function majNepsy() {
+    const bloc = $('[data-bloc-test="nepsy2"]');
+    if (!bloc) return;
+    const a = B.age(dossier.naissance, dossier.passation);
+    const c = NP.calcul(dossier.nepsy, a);
+    $("#nepsy-age").textContent = !a ? "Renseignez la date de naissance et la date du bilan (Dossier) : l'âge donne l'item de départ des Cubes et le nombre d'items de la Copie de figures."
+      : c.cubes.tranche ? "Âge : " + a.ans + " ans " + a.mois + " mois, tranche " + c.cubes.tranche + " ans (à utiliser dans la table A.1)." : "Âge : " + a.ans + " ans " + a.mois + " mois. Ces subtests sont prévus de 5 à 16 ans.";
+    // Cubes
+    const cb = c.cubes;
+    cb.items.forEach((it) => {
+      const tr = $("#nepsy-cb-" + it.n);
+      tr.classList.toggle("apres-plafond", it.apresArret);
+      tr.classList.toggle("nepsy-depart", cb.depart === it.n);
+      $("#nepsy-cb-pts-" + it.n).textContent = it.credite ? it.points + " (accordé)" : it.attenteTemps ? "durée ?" : it.points === null ? "" : String(it.points);
+    });
+    const etat = [];
+    if (cb.depart) etat.push("Départ à l'item " + cb.depart + (cb.departAuto === cb.depart ? " (selon l'âge)." : "."));
+    if (cb.retourAFaire) etat.push("Règle de retour : présentez les items précédents en ordre inverse jusqu'à deux items réussis de suite.");
+    else if (cb.retour && cb.base !== null) etat.push("Retour terminé : items 1 à " + (cb.base - 1) + " accordés.");
+    if (cb.arret !== null) etat.push("Arrêt après l'item " + cb.arret + " (4 notes 0 consécutives).");
+    const pe = $("#nepsy-cb-etat");
+    pe.hidden = !etat.length; pe.textContent = etat.join(" ");
+    $("#nepsy-res-cubes").textContent = cb.brut !== null ? "· " + cb.brut + " / " + cb.max + (cb.brutSaisi ? " (saisi)" : "")
+      : cb.somme !== null ? "· " + cb.somme + " / " + cb.max + " (en cours" + (cb.manquants.length ? ", " + (cb.manquants.length === 1 ? "item " + cb.manquants[0] : cb.manquants.length + " items") + " à coter" : "") + ")" : "";
+    // Copie de figures
+    const cf = c.cf;
+    cf.items.forEach((it) => { const tr = $("#nepsy-cf-" + it.n); tr.classList.toggle("apres-plafond", !it.propose); });
+    cf.notes.forEach((n) => {
+      $("#nepsy-cf-somme-" + n.id).textContent = n.somme !== null ? n.somme + " / " + n.max : "–";
+      $("#nepsy-cf-corr-" + n.id).textContent = n.corrigee !== null ? String(n.corrigee) : "–";
+    });
+    $("#nepsy-cfp-total").textContent = cf.cfp !== null ? cf.cfp + " / " + cf.cfpMax : "–";
+    const g = cf.notes.find((n) => n.id === "cfg");
+    $("#nepsy-res-cf").textContent = cf.cfp !== null ? "· CFP " + cf.cfp + " / " + cf.cfpMax + (g.corrigee !== null ? " · CFG " + g.corrigee : "")
+      : cf.cotes ? "· " + cf.cotes + " / " + cf.nbItems + " items cotés" : "";
+  }
+
   function htmlLigneTest(t, l, i) {
     return `<div class="epreuve">
           <div class="grille-epreuve">
@@ -2821,6 +2938,7 @@
     if (t.id === "ajuriaguerra") return htmlAjuri(t);
     if (t.id === "lespargot") return htmlLespargot(t);
     if (t.id === "dtvp3") return htmlDtvp3(t);
+    if (t.id === "nepsy2") return htmlNepsy(t);
     const s = dossier.tests[t.id];
     const fait = s.fait === "oui";
     return `<fieldset class="groupe test" data-bloc-test="${t.id}">
@@ -3176,6 +3294,37 @@
         const ok = v === "" || D3.normaliser({ items: { [id]: { [n]: v } }, segments: { eh: { [n]: { [m]: v } } }, bruts: { [id]: v } });
         el.classList.toggle("invalide", v !== "" && !(k === "item" ? (ok.items[id] || {})[n] !== undefined : k === "seg" ? (((ok.segments.eh || {})[n]) || {})[m] !== undefined : ok.bruts[id] !== undefined));
       }
+    } else if (el.dataset.nepsy) {
+      const [k, n, m] = el.dataset.nepsy.split(":"), x = nepsyDonnees();
+      const v = el.value.trim();
+      const ranger = (obj, cle, val) => { if (val === "" || val === null || val === undefined) delete obj[cle]; else obj[cle] = val; };
+      if (k === "cb-ok") { if (e.type !== "change" || !el.checked) return; x.cubes.items[n] = Object.assign(x.cubes.items[n] || {}, { ok: el.value }); }
+      else if (k === "cb-t") { const it = x.cubes.items[n] || {}; ranger(it, "t", v === "" ? "" : Number(v.replace(",", "."))); if (Object.keys(it).length) x.cubes.items[n] = it; else delete x.cubes.items[n]; }
+      else if (k === "cb-depart") x.cubes.depart = v === "" ? "" : Number(v);
+      else if (k === "cb-total") x.cubes.total = v === "" ? "" : Number(v);
+      else if (k === "cb-obs") x.cubes.obs = el.value;
+      else if (k === "cf-cote" || k === "cf") {
+        if (e.type !== "change") return;
+        const ligne = $("#nepsy-cf-" + n);
+        if (k === "cf-cote" && !el.checked) { delete x.cf.items[n]; $$('[data-nepsy^="cf:' + n + ':"]', ligne).forEach((c) => { c.checked = false; }); }
+        else {
+          const o = {};
+          window.Nepsy.CRITERES.forEach((cr) => { o[cr.id] = $(`[data-nepsy="cf:${n}:${cr.id}"]`, ligne).checked ? 1 : 0; });
+          x.cf.items[n] = o;
+          $(`[data-nepsy="cf-cote:${n}"]`, ligne).checked = true;
+        }
+      }
+      else if (k === "cf-brut") ranger(x.cf.bruts, n, v === "" ? "" : Number(v));
+      else if (k === "cf-rp") x.cf.rpCfg = el.value;
+      else if (k === "cf-comparaison") x.cf.comparaison = v === "" ? "" : Number(v);
+      else if (k === "cf-obs") x.cf.obs = el.value;
+      else if (k === "ns") ligneNepsy(n).valeur = el.value;
+      dossier.nepsy = NP.normaliser(x);
+      if (["cb-t", "cb-total", "cf-brut", "cf-comparaison"].indexOf(k) >= 0) {
+        const ok = NP.normaliser({ cubes: { items: { [n]: { ok: "oui", t: v } }, total: v }, cf: { bruts: { [n]: v }, comparaison: v } });
+        const valide = k === "cb-t" ? (ok.cubes.items[n] || {}).t !== undefined : k === "cb-total" ? ok.cubes.total !== "" : k === "cf-brut" ? ok.cf.bruts[n] !== undefined : ok.cf.comparaison !== "";
+        el.classList.toggle("invalide", v !== "" && !valide);
+      }
     } else if (el.dataset.test) {
       const s = dossier.tests[el.dataset.test];
       if (el.dataset.tchamp === "fait") {
@@ -3464,6 +3613,7 @@
     majAjuri();
     majLespargot();
     majDtvp3();
+    majNepsy();
     majPreconisations();
     majOccupation();
     majTdc();
