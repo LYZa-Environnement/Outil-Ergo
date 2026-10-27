@@ -21,7 +21,7 @@ En ligne (GitHub Pages, une fois activé) : https://lyza-environnement.github.io
 | Onglet | Sous-onglets et contenu |
 | --- | --- |
 | 📁 Dossier | **Dossier** : Mes dossiers, identité, âge calculé, parents, prescription, scolarité, motif, questionnaires à envoyer aux parents en PDF à remplir (ESO, autonomie au quotidien), accueil adapté, plateforme TND, bilans utilisés, réévaluation, résumé des séances. **Accueil adapté** (si la case est cochée) : questionnaire des parents, fiche « Ce qui aide », planning en images, « Ma visite » |
-| 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : questionnaire d'autonomie rempli par les parents (PDF à remplir, import, commentaires de l'ergothérapeute, synthèse pour le compte rendu), grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), résultats de l'OT'Hope, tri de cartes « Mes activités » fait par l'enfant à l'écran |
+| 💬 Entretien | **Anamnèse** : développement, environnement, occupations à la maison et à l'école (vide = « RAS »). **Occupations** : questionnaire d'autonomie rempli par les parents (PDF à remplir, import, commentaires de l'ergothérapeute, synthèse pour le compte rendu), grille d'autonomie dans les activités quotidiennes, MCRO (initiale et réévaluation), OT'Hope passé par l'enfant à l'écran (choix des cartes par l'ergothérapeute, grille de réponses), tri de cartes « Mes activités » fait par l'enfant à l'écran |
 | ✏️ Écriture | **Observation** : questionnaire d'auto-évaluation, grille d'observation de l'écriture manuscrite (posture, prise et tonus, geste graphique, lettres et chiffres, organisation de la page, lisibilité), environnement. **BHK** : BHK enfant (CP à CM2) ou BHK ado (6e à 3e) selon la classe choisie, normes, cotation ligne par ligne, DS par critère (enfant), vitesse, photo de la copie (prise avec la caméra de l'appareil dans l'outil, ou choisie dans les fichiers) et son analyse, résultats, observations pendant la copie, douleur (EVA). **Clavier** : EViC, vitesse de frappe au clavier, chronométrée dans l'outil |
 | 🌈 Bilans | **Sensoriel** : OTIPIS et profil OC, Profil sensoriel 2 de Dunn, ESO (réponses détaillées, import du PDF rempli par les parents, roues, systèmes, graphiques et interprétation calculés avec la grille de cotation du cabinet), SensOT-dir en jeu de cartes sur tablette (plateaux, gabarit, sensations, réglette ; grilles et tableaux de cotation remplis seuls), tri de cartes « Ce que je ressens ». **Moteur et autres** : Lespargot, Ajuriaguerra, DTVP-3, MABC-3, Man.O.S (cotation épreuve par épreuve, chronomètre, DS, graphique et lecture rédigée, avec la grille et les normes du fichier du cabinet), EVIC (DS et appréciation calculées), manipulations dans la main (Exner et Benbow), DCDQ, repères TDC |
 | 📄 Compte rendu | Diagnostic ergothérapique pré-rempli d'après les bilans et questionnaires (avec la source de chaque proposition), objectifs et préconisations proposées d'après les résultats, plan de suivi, puis la section **📄 Documents** (aperçu, impression, Word) : compte rendu, bilan synthétique (une à deux pages : identité, motif, bilans réalisés, tableau des résultats principaux, diagnostic ergothérapique, objectifs et préconisations, en reprenant les textes retouchés), synthèse pour l'école, plan de suivi, carnet pour les parents ; enfin le texte du compte rendu, modifiable section par section |
@@ -68,6 +68,16 @@ L'outil propose les préconisations justifiées par les résultats (par exemple 
 ### Tri de cartes à l'écran
 
 L'enfant range lui-même des cartes sur la tablette (en les glissant ou en touchant la boîte), puis choisit les trois qui comptent le plus pour lui : activités qu'il voudrait mieux réussir, ou situations sensorielles qui le gênent le plus. Lecture des cartes à voix haute possible. Les cartes (textes et pictogrammes) sont propres à l'outil ; l'ergothérapeute peut ajouter ses cartes, avec photo, dans les réglages, et retirer des cartes pour un enfant. C'est une observation informelle, non étalonnée : elle complète les outils validés sans les remplacer. Les résultats alimentent le diagnostic (occupations difficiles, gênes sensorielles) et les objectifs.
+
+### OT'Hope à l'écran
+
+Outil d'autodétermination des objectifs (A. Perrault et C. Giraux, cabinet La Rose des Vents ; ANFE). L'outil reprend les cartes items du kit (136 cartes, 3 familles, 13 sous-familles avec leur couleur : soins personnels, sécurité, déplacements, productivité ; dans l'école, ordinateur, crayon, outils, mathématiques, devoirs ; sports, jeux d'extérieur, jeux d'intérieur), avec des pictogrammes propres à l'outil.
+
+1. **Choix des cartes** : l'ergothérapeute coche les cartes à montrer, une à une ou par sous-famille et famille (« Tout », « Aucune »). Un compteur signale quand on dépasse 50 cartes, maximum conseillé par le guide. La dernière sélection est gardée sur l'appareil (« Reprendre ma dernière sélection »). Des cartes personnelles peuvent être ajoutées dans les réglages (jeu « OT'Hope »).
+2. **Passation** : l'enfant range chaque carte dans « Oui », « Oui, avec aide », « Pas très bien » ou « Non », ou la retire (« Pas pour moi ») si l'activité n'a pas d'importance pour lui. Les cartes passent dans l'ordre des familles, avec le bandeau de leur sous-famille. Il voit ensuite tout ce qu'il sait déjà faire, touche ce qu'il aimerait réussir (♥), puis choisit 1 à 5 objectifs (★) ; s'il en a désigné 5 ou moins, ce sont ses objectifs.
+3. **Grille de réponses** : les réponses sont rangées par sous-famille. Toucher une case corrige un classement ou reporte celui fait sur le plateau du kit.
+
+Le compte rendu reprend les colonnes, le nombre de cartes retirées, les souhaits et les objectifs ; les activités « pas très bien » et « non » alimentent les occupations du diagnostic, les objectifs les préconisations.
 
 ### Réévaluation
 
@@ -282,7 +292,7 @@ js/bhk.js         référentiel, calculs, diagnostic, rédaction, modèle du doc
 js/docx.js        génération du .docx (texte, tableaux, images)
 js/pdf.js         formulaires PDF à remplir (moteur générique, ESO) et relecture des réponses du PDF rempli
 js/analyse.js     analyse locale de la photo de la copie (feuille, lignes, taille, marge, lignes non planes)
-js/tri.js         écran de tri de cartes pour l'enfant
+js/tri.js         écran de tri de cartes pour l'enfant (dont OT'Hope : 4 colonnes, réussites, souhaits, objectifs)
 js/app.js         interface
 tests/          tests (node --test)
 ```

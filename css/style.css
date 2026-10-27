@@ -658,6 +658,44 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 .puce-carte.choisie { border-color: #d49a06; font-weight: 700; }
 .puce-carte .etoile { color: #d49a06; }
 .liste-cartes-perso { list-style: none; margin: .4rem 0; padding: 0; }
+
+/* ---------- OT'Hope à l'écran ---------- */
+.tri [data-couleur="ciel"] { --c: #2b6fae; --c-fond: rgba(43, 111, 174, .13); }
+.tri [data-couleur="violet"] { --c: #7a4aa3; --c-fond: rgba(122, 74, 163, .13); }
+.tri .tri-piles.tri-piles-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 620px) {
+  .tri .tri-piles.tri-piles-4 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .tri .tri-piles-4 .tri-pile { min-height: 62px; padding: 6px; flex-direction: row; gap: 8px; }
+  .tri .tri-piles-4 .tri-pile-emoji { font-size: 1.8rem; }
+  .tri .tri-piles-4 .tri-pile-aide { display: none; }
+  .tri .tri-carte.avec-bande { width: min(260px, 68vw, 34vh); }
+}
+.tri-pile-aide { font-weight: 400; font-size: .78rem; opacity: .85; }
+.tri-carte.avec-bande { position: relative; padding-top: 52px; }
+.tri-bande { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px 8px 30px; border-radius: 20px 20px 0 0; background: var(--bande); color: #fff; font-size: .9rem; font-weight: 700; text-align: center; }
+@media (max-height: 560px) { .tri-carte.avec-bande { padding-top: 40px; } .tri-bande { padding: 5px 12px; font-size: .8rem; } }
+.tri-grille-fixe .tri-reussie { cursor: default; border-color: #2b6fae; }
+.othope-barre { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; background: var(--papier); border-bottom: 1px solid var(--seyes-fin); }
+.othope-compte { font-weight: 700; }
+.othope-compte.trop { color: var(--ambre); }
+.othope-famille { margin: .8rem 0 .2rem; }
+.othope-famille-tete, .othope-sf-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.othope-famille-tete h4 { margin: 0; font-size: 1rem; }
+.othope-sf { margin: .4rem 0 .6rem; padding-left: 10px; border-left: 5px solid var(--sf); }
+.othope-sf-tete strong { font-size: .95rem; }
+.othope-sf-tete small { color: var(--gris); }
+.othope-grille { width: 100%; border-collapse: collapse; margin: .4rem 0 .8rem; font-size: .92rem; }
+.othope-grille th, .othope-grille td { padding: 4px 4px; border-bottom: 1px solid var(--seyes-fin); text-align: center; }
+.othope-grille th:first-child, .othope-grille td:first-child { text-align: left; }
+.othope-grille thead th { font-size: .8rem; color: var(--gris); font-weight: 700; }
+.othope-grille .othope-sf-ligne td { text-align: left; font-weight: 700; color: #fff; background: var(--sf); padding: 4px 8px; font-size: .85rem; }
+.othope-cell { width: 40px; height: 36px; border: 1px solid var(--seyes); border-radius: 8px; background: var(--papier); color: var(--graphite); font: 700 .95rem var(--police); cursor: pointer; }
+.othope-cell[aria-pressed="true"] { background: var(--encre); border-color: var(--encre); color: var(--papier); }
+.othope-cell.objectif[aria-pressed="true"] { background: #d49a06; border-color: #d49a06; }
+.othope-cell.souhait[aria-pressed="true"] { background: #c4527f; border-color: #c4527f; }
+.othope-grille tr.retiree td:first-child { color: var(--gris); text-decoration: line-through; }
+@media (max-width: 560px) { .othope-grille thead .long { display: none; } .othope-cell { width: 34px; } }
+
 .liste-cartes-perso li { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--seyes-fin); }
 .liste-cartes-perso img, .liste-cartes-perso .vignette { width: 48px; height: 48px; border-radius: var(--rayon); object-fit: cover; display: grid; place-items: center; font-size: 1.6rem; background: var(--papier-2); flex: 0 0 auto; }
 .carte-perso-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; }

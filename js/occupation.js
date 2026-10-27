@@ -306,6 +306,162 @@
   ];
   const NB_OTHOPE = 8;
   const MAX_OTHOPE = 30;
+  const MAX_OBJECTIFS_OTHOPE = 5;
+  const CONSEIL_OTHOPE = 50; // le guide conseille de proposer 50 cartes au plus à la fois
+
+  /* ---------- OT'Hope : cartes items à l'écran (textes des cartes, pictogrammes propres à l'outil) ---------- */
+
+  // Colonnes du plateau ; « retiree » = carte sans importance pour l'enfant, retirée du plateau.
+  const PILES_OTHOPE = [
+    { id: "sait", label: "Oui", aide: "je sais faire", emoji: "😀", couleur: "ciel" },
+    { id: "aide", label: "Oui, avec aide", aide: "j'ai besoin d'aide", emoji: "🤝", couleur: "ambre" },
+    { id: "pas-bien", label: "Pas très bien", aide: "je fais, mais ce n'est pas bien", emoji: "😐", couleur: "violet" },
+    { id: "non", label: "Non", aide: "je ne sais pas faire", emoji: "😟", couleur: "corail" },
+  ];
+  const RETIREE_OTHOPE = { id: "retiree", label: "Pas pour moi", emoji: "✋" };
+
+  // [id, texte de la carte, texte du compte rendu, pictogramme, occupation du diagnostic]
+  const FAMILLES_OTHOPE = [
+    { id: "avq", nom: "Activités de vie quotidienne", sousFamilles: [
+      { id: "soins", nom: "Soins personnels", couleur: "#1f7fbf", cartes: [
+        ["maquiller", "Me maquiller", "se maquiller", "💄", "toilette"], ["raser", "Me raser", "se raser", "🪒", "toilette"],
+        ["epiler", "M'épiler", "s'épiler", "🦵", "toilette"], ["hygiene", "Gérer mon hygiène féminine", "gérer son hygiène féminine", "🌸", "toilette"],
+        ["tartine", "Me faire une tartine", "se faire une tartine", "🍞", "repas"], ["vetements", "Mettre et enlever mes vêtements", "mettre et enlever ses vêtements", "👕", "habillage"],
+        ["dents", "Me brosser les dents", "se brosser les dents", "🪥", "toilette"], ["verre", "Servir un verre d'eau", "servir un verre d'eau", "🥛", "repas"],
+        ["reveil", "Me réveiller seul", "se réveiller seul", "⏰", "sommeil"], ["moucher", "Me moucher", "se moucher", "🤧", "toilette"],
+        ["manger", "Manger / boire", "manger et boire", "🍽️", "repas"], ["visage", "Me laver le visage", "se laver le visage", "🧼", "toilette"],
+        ["manteau", "Fermer mon manteau", "fermer son manteau", "🧥", "habillage"], ["wc", "Aller aux WC", "aller aux toilettes", "🚽", "toilette"],
+        ["dormir", "Dormir", "dormir", "😴", "sommeil"], ["eplucher", "Éplucher un fruit", "éplucher un fruit", "🍊", "repas"],
+        ["doucher", "Me doucher", "se doucher", "🚿", "toilette"], ["mains", "Me laver les mains", "se laver les mains", "🫧", "toilette"],
+        ["chaussures", "Mettre mes chaussures", "mettre ses chaussures", "👟", "habillage"], ["coiffer", "Me coiffer", "se coiffer", "💇", "toilette"],
+        ["boutons", "Mettre mes boutons", "fermer ses boutons", "🔘", "habillage"], ["viande", "Couper ma viande", "couper sa viande", "🔪", "repas"],
+        ["lacets", "Faire mes lacets", "faire ses lacets", "🎀", "habillage"], ["bijoux", "Mettre mes bijoux", "mettre ses bijoux", "📿", "habillage"],
+      ] },
+      { id: "securite", nom: "Gérer ma sécurité", couleur: "#6f9a1f", cartes: [
+        ["parents", "Appeler mes parents", "appeler ses parents", "📱", ""], ["casque", "Mettre mon casque", "mettre son casque", "⛑️", ""],
+        ["protections", "Mettre mes protections", "mettre ses protections", "🛡️", ""], ["ceinture", "Attacher ma ceinture", "attacher sa ceinture", "🚗", ""],
+        ["cle", "Utiliser une clé, un cadenas", "utiliser une clé ou un cadenas", "🔑", ""], ["traverser", "Traverser la rue", "traverser la rue", "🚸", "deplacements"],
+        ["secours", "Appeler les secours", "appeler les secours", "🚑", ""],
+      ] },
+      { id: "deplacements", nom: "Déplacements", couleur: "#1e7a5a", cartes: [
+        ["trottinette", "Me déplacer à roller / skate / trottinette", "se déplacer en roller, skate ou trottinette", "🛴", "deplacements"],
+        ["transports", "Utiliser les transports en commun", "utiliser les transports en commun", "🚌", "deplacements"],
+        ["velo-trajet", "Me déplacer à vélo", "se déplacer à vélo", "🚴", "deplacements"],
+      ] },
+      { id: "productivite", nom: "Productivité", couleur: "#1f3f8f", cartes: [
+        ["repasser", "Repasser", "repasser le linge", "👔", ""], ["etendre", "Étendre le linge", "étendre le linge", "🧺", ""],
+        ["balayer", "Balayer", "balayer", "🧹", ""], ["animaux", "S'occuper des animaux", "s'occuper des animaux", "🐇", ""],
+        ["poubelle", "Sortir la poubelle", "sortir la poubelle", "🗑️", ""], ["lave-vaisselle", "Vider le lave-vaisselle", "vider le lave-vaisselle", "🥣", ""],
+        ["lessive", "Faire la lessive", "faire la lessive", "🌀", ""], ["plier", "Plier le linge", "plier le linge", "👚", ""],
+        ["vaisselle", "Faire la vaisselle", "faire la vaisselle", "🧽", ""], ["aspirateur", "Passer l'aspirateur", "passer l'aspirateur", "🔌", ""],
+        ["table", "Mettre la table / débarrasser", "mettre et débarrasser la table", "🍴", "repas"], ["lit", "Faire mon lit", "faire son lit", "🛏️", ""],
+        ["chambre", "Ranger ma chambre", "ranger sa chambre", "🧸", ""], ["micro-ondes", "Utiliser le micro-ondes", "utiliser le micro-ondes", "♨️", ""],
+        ["poussiere", "Enlever la poussière", "enlever la poussière", "🪶", ""], ["argent", "Compter mon argent", "compter son argent", "🪙", ""],
+        ["cuisiner", "Cuisiner", "cuisiner", "🍳", "repas"],
+      ] },
+    ] },
+    { id: "scolaire", nom: "Activités scolaires", sousFamilles: [
+      { id: "ecole", nom: "Dans l'école", couleur: "#9a5426", cartes: [
+        ["delegue", "Être délégué de classe", "être délégué de classe", "🗳️", "social"], ["plateau", "Tenir mon plateau à la cantine", "tenir son plateau à la cantine", "🍱", "repas"],
+        ["installer", "M'installer confortablement à mon bureau", "s'installer confortablement à son bureau", "🪑", "ecrit-classe"],
+        ["changer-sport", "Me changer pour le sport", "se changer pour le sport", "🩳", "habillage"], ["heure", "Lire l'heure", "lire l'heure", "🕒", ""],
+        ["bureau", "Retrouver mes affaires dans mon bureau", "retrouver ses affaires dans son bureau", "🗂️", "outils"],
+        ["debarrasser", "Débarrasser mon plateau", "débarrasser son plateau", "🥡", "repas"], ["reperer", "Me repérer dans l'école", "se repérer dans l'école", "🏫", ""],
+        ["sport-ecole", "Faire du sport", "faire du sport à l'école", "🤸", "sport"], ["classeur", "Ranger dans mon classeur", "ranger ses feuilles dans son classeur", "📒", "outils"],
+        ["tableau", "Écrire au tableau", "écrire au tableau", "🧑‍🏫", "ecrit-classe"],
+        ["casier", "Retrouver mes affaires dans mon casier", "retrouver ses affaires dans son casier", "🗄️", "outils"],
+        ["recre", "Jouer à la récréation", "jouer à la récréation", "🤝", "social"],
+      ] },
+      { id: "ordinateur", nom: "Avec mon ordinateur", couleur: "#b8961a", cartes: [
+        ["ordi-classe", "Utiliser l'ordinateur en classe", "utiliser l'ordinateur en classe", "💻", "ecrit-classe"],
+        ["ordi-maison", "Utiliser l'ordinateur à la maison", "utiliser l'ordinateur à la maison", "🏠", "devoirs"],
+        ["ordi-evaluation", "Utiliser l'ordinateur en évaluation", "utiliser l'ordinateur en évaluation", "🖥️", "evaluations"],
+      ] },
+      { id: "crayon", nom: "Avec mon crayon", couleur: "#c8202f", cartes: [
+        ["lecon", "Écrire une leçon sans être fatigué", "écrire une leçon sans être fatigué", "😮‍💨", "ecrit-classe"],
+        ["lignes", "Écrire en suivant les lignes", "écrire en suivant les lignes", "〰️", "ecrit-classe"],
+        ["dessiner", "Dessiner sur une feuille", "dessiner sur une feuille", "🖼️", "outils"],
+        ["lisible", "Écrire lisiblement pour les autres", "écrire lisiblement pour les autres", "✍️", "ecrit-classe"],
+        ["relire", "Me relire", "se relire", "🔁", "ecrit-classe"], ["lettres", "Former toutes les lettres correctement", "former toutes les lettres correctement", "🔤", "ecrit-classe"],
+        ["endroit", "Écrire au bon endroit sur la feuille", "écrire au bon endroit sur la feuille", "📄", "ecrit-classe"],
+      ] },
+      { id: "outils", nom: "Avec mes outils", couleur: "#e06b10", cartes: [
+        ["tailler", "Tailler mes crayons", "tailler ses crayons", "✏️", "outils"], ["coller", "Coller une feuille dans mon cahier", "coller une feuille dans son cahier", "📓", "outils"],
+        ["pinceau", "Utiliser un pinceau", "utiliser un pinceau", "🖌️", "outils"], ["regle", "Tracer un trait à la règle", "tracer un trait à la règle", "📏", "outils"],
+        ["souligner", "Souligner", "souligner", "🖊️", "outils"], ["decouper", "Découper", "découper", "✂️", "outils"],
+        ["gommer", "Gommer", "gommer", "🔲", "outils"], ["colorier", "Colorier sans dépasser", "colorier sans dépasser", "🖍️", "outils"],
+      ] },
+      { id: "maths", nom: "En mathématiques", couleur: "#c9a800", cartes: [
+        ["calculatrice", "Utiliser une calculatrice", "utiliser une calculatrice", "🧮", "outils"], ["equerre", "Utiliser mon équerre", "utiliser son équerre", "📐", "outils"],
+        ["triangle", "Tracer un triangle", "tracer un triangle", "🔺", "outils"], ["compter", "Compter", "compter", "🔢", ""],
+        ["carre", "Tracer un carré", "tracer un carré", "🟦", "outils"], ["operation", "Poser une opération", "poser une opération", "➕", "ecrit-classe"],
+        ["rapporteur", "Utiliser mon rapporteur", "utiliser son rapporteur", "🌓", "outils"], ["rond", "Tracer un rond", "tracer un rond", "⭕", "outils"],
+        ["compas", "Utiliser mon compas", "utiliser son compas", "🧭", "outils"],
+      ] },
+      { id: "devoirs", nom: "Pour les devoirs", couleur: "#d98a00", cartes: [
+        ["organiser", "M'organiser pour faire mes devoirs", "s'organiser pour faire ses devoirs", "🗓️", "devoirs"],
+        ["exercices", "Faire mes exercices", "faire ses exercices", "📗", "devoirs"],
+        ["agenda", "Écrire mes devoirs dans mon agenda", "noter ses devoirs dans son agenda", "📔", "devoirs"],
+        ["apprendre", "Savoir quoi apprendre", "savoir quoi apprendre", "🤔", "devoirs"],
+        ["cartable", "Préparer mon cartable", "préparer son cartable", "🎒", "outils"], ["cours", "Relire mes cours", "relire ses cours", "📖", "devoirs"],
+      ] },
+    ] },
+    { id: "loisirs", nom: "Loisirs", sousFamilles: [
+      { id: "sports", nom: "Sports", couleur: "#3a2470", cartes: [
+        ["basket", "Faire du basket", "faire du basket", "🏀", "sport"], ["courir", "Courir", "courir", "🏃", "sport"],
+        ["rugby", "Faire du rugby", "faire du rugby", "🏉", "sport"], ["badminton", "Faire du badminton / tennis", "faire du badminton ou du tennis", "🏸", "sport"],
+        ["volley", "Faire du volley", "faire du volley", "🏐", "sport"], ["gym", "Faire de la gym / danse", "faire de la gymnastique ou de la danse", "🤸‍♀️", "sport"],
+        ["handball", "Faire du handball", "faire du handball", "🤾", "sport"], ["foot", "Faire du foot", "faire du football", "🥅", "sport"],
+        ["nager", "Nager", "nager", "🏊", "sport"], ["ski", "Faire du ski", "faire du ski", "⛷️", "sport"],
+        ["patin", "Faire du patin à glace", "faire du patin à glace", "⛸️", "sport"], ["judo", "Faire du judo / karaté", "faire du judo ou du karaté", "🥋", "sport"],
+      ] },
+      { id: "exterieur", nom: "Jeux d'extérieur", couleur: "#c4527f", cartes: [
+        ["roller", "Faire du roller", "faire du roller", "🛼", "sport"], ["balancoire", "Faire de la balançoire", "faire de la balançoire", "🎢", "jeux"],
+        ["neige", "Jouer dans la neige", "jouer dans la neige", "⛄", "jeux"], ["amis-dehors", "Se retrouver entre amis", "se retrouver entre amis", "👫", "social"],
+        ["sable", "Jouer dans le sable", "jouer dans le sable", "🏖️", "jeux"], ["ballon", "Jouer au ballon", "jouer au ballon", "⚽", "sport"],
+        ["grimper", "Grimper aux arbres", "grimper aux arbres", "🌳", "jeux"], ["corde", "Sauter à la corde", "sauter à la corde", "🪢", "jeux"],
+        ["marelle", "Jouer à la marelle", "jouer à la marelle", "👣", "jeux"], ["velo", "Faire du vélo", "faire du vélo", "🚲", "sport"],
+        ["petanque", "Jouer au palet / à la pétanque", "jouer au palet ou à la pétanque", "🎳", "jeux"], ["trampoline", "Faire du trampoline", "faire du trampoline", "🦘", "jeux"],
+        ["eau", "Jouer dans l'eau", "jouer dans l'eau", "💦", "jeux"], ["frisbee", "Jouer au frisbee", "jouer au frisbee", "🥏", "jeux"],
+      ] },
+      { id: "interieur", nom: "Jeux d'intérieur", couleur: "#8e1b5c", cartes: [
+        ["jeux-video", "Jouer aux jeux vidéo", "jouer aux jeux vidéo", "🎮", "jeux"], ["flechettes", "Jouer aux fléchettes", "jouer aux fléchettes", "🎯", "jeux"],
+        ["construction", "Faire des jeux de construction", "faire des jeux de construction", "🧱", "jeux"],
+        ["instrument", "Jouer d'un instrument de musique", "jouer d'un instrument de musique", "🎸", "jeux"],
+        ["ecrire-histoires", "Écrire des histoires", "écrire des histoires", "🖋️", "jeux"], ["amis", "Jouer avec des amis", "jouer avec des amis", "🃏", "social"],
+        ["lire", "Lire des histoires", "lire des histoires", "📚", "jeux"], ["arts", "Faire des arts plastiques", "faire des arts plastiques", "🎨", "jeux"],
+        ["bricoler", "Bricoler", "bricoler", "🔨", "jeux"], ["societe", "Jouer aux jeux de société", "jouer aux jeux de société", "🎲", "jeux"],
+        ["collections", "Faire des collections", "faire des collections", "🏷️", "jeux"], ["musique", "Écouter de la musique", "écouter de la musique", "🎧", "jeux"],
+        ["telephone", "Répondre au téléphone", "répondre au téléphone", "☎️", "social"],
+      ] },
+    ] },
+  ];
+  const SOUS_FAMILLES_OTHOPE = [];
+  const CARTES_OTHOPE = [];
+  FAMILLES_OTHOPE.forEach((f) => f.sousFamilles.forEach((sf) => {
+    sf.famille = f.id;
+    sf.cartes = sf.cartes.map((c) => {
+      const carte = { id: "o-" + c[0], enfant: c[1], rapport: c[2], emoji: c[3], occ: c[4], sf: sf.id, famille: f.id };
+      CARTES_OTHOPE.push(carte);
+      return carte;
+    });
+    SOUS_FAMILLES_OTHOPE.push(sf);
+  }));
+  const SF_PERSO_OTHOPE = { id: "perso", nom: "Mes cartes", couleur: "#5a6470", famille: "perso" };
+
+  // Jeu passé à l'écran par l'enfant (TriCartes) : 4 colonnes, carte retirée, valorisation, souhaits, objectifs.
+  const JEU_OTHOPE = {
+    id: "othope", titre: "Moi, je sais faire !", ordre: "fixe",
+    consigne: "Est-ce que tu sais le faire ?",
+    accueil: "Je vais te montrer des cartes.<br>Pour chaque carte, dis-moi si tu sais le faire.",
+    piles: PILES_OTHOPE,
+    passer: RETIREE_OTHOPE,
+    valoriser: { pile: "sait", titre: "Tout ça, tu sais déjà le faire !" },
+    souhait: { consigne: "Quelles activités aimerais-tu savoir bien faire ?", piles: ["aide", "pas-bien", "non"] },
+    choix: { consigne: "Choisis jusqu'à 5 activités à travailler avec moi", piles: ["aide", "pas-bien", "non"], max: MAX_OBJECTIFS_OTHOPE, parmiSouhaits: true },
+  };
+
+  function sousFamilleOthope(id) { return SOUS_FAMILLES_OTHOPE.find((s) => s.id === id) || (id === "perso" ? SF_PERSO_OTHOPE : null); }
 
   const NB_DCDQ = 15;
   const FACTEURS_DCDQ = [
@@ -388,7 +544,7 @@
   // Cartes personnelles des réglages : { id, jeu, texte, photo, l, h }.
   function normaliserCartesPerso(l) {
     if (!Array.isArray(l)) return [];
-    return l.filter((c) => c && JEUX[c.jeu] && texte(c.texte).trim()).slice(0, MAX_CARTES_PERSO).map((c) => {
+    return l.filter((c) => c && (JEUX[c.jeu] || c.jeu === "othope") && texte(c.texte).trim()).slice(0, MAX_CARTES_PERSO).map((c) => {
       const photo = typeof c.photo === "string" && /^data:image\/(jpeg|png);base64,/.test(c.photo) && c.photo.length < 600000 ? c.photo : "";
       return {
         id: /^p-[a-z0-9]+$/.test(texte(c.id)) ? c.id : "p-" + Math.random().toString(36).slice(2, 9),
@@ -404,6 +560,22 @@
     })));
   }
 
+  // Cartes OT'Hope proposables, dans l'ordre des familles, suivies des cartes personnelles.
+  function cartesOthope(perso) {
+    return CARTES_OTHOPE.concat(normaliserCartesPerso(perso).filter((c) => c.jeu === "othope").map((c) => ({
+      id: c.id, enfant: c.texte, rapport: min(c.texte), emoji: "", photo: c.photo, occ: "", sf: "perso", famille: "perso", perso: true,
+    })));
+  }
+  const PILES_OTHOPE_IDS = PILES_OTHOPE.map((p) => p.id).concat([RETIREE_OTHOPE.id]);
+
+  // Résultats de l'écran (ou du plateau, reportés dans la grille) → lignes { activite, niveau, objectif, souhait }.
+  function itemsOthope(t) {
+    const ecran = (t.resultats || []).filter((x) => x.pile !== RETIREE_OTHOPE.id).map((x) => ({
+      activite: maj(x.rapport || min(x.enfant)), niveau: x.pile, objectif: (t.choix || []).indexOf(x.id) >= 0 ? "oui" : "", souhait: x.souhait ? "oui" : "",
+    }));
+    return ecran.concat((t.items || []).filter((x) => texte(x.activite).trim()).map((x) => Object.assign({ souhait: "" }, x)));
+  }
+
   function triVide() { return { fait: "", date: "", resultats: [], choix: [], exclues: [], notes: "" }; }
 
   /* ================= Dossier ================= */
@@ -415,7 +587,7 @@
       avq: {},
       avqParents: avqParentsVide(),
       mcro: { fait: "", date: "", date2: "", repondant: "", problemes: Array.from({ length: NB_MCRO }, problemeVide), notes: "" },
-      othope: { fait: "", items: Array.from({ length: NB_OTHOPE }, () => ({ activite: "", niveau: "", objectif: "" })), notes: "" },
+      othope: { fait: "", date: "", selection: [], resultats: [], choix: [], items: Array.from({ length: NB_OTHOPE }, () => ({ activite: "", niveau: "", objectif: "" })), notes: "" },
       dcdq: { fait: "", repondant: "", reponses: {}, notes: "" },
       cartes: { activites: triVide(), sensoriel: triVide() },
     };
@@ -438,6 +610,23 @@
     const t = src.othope || {};
     o.othope.fait = oui(t.fait);
     if (t.notes !== undefined) o.othope.notes = texte(t.notes);
+    o.othope.date = texte(t.date);
+    if (Array.isArray(t.selection)) o.othope.selection = Array.from(new Set(t.selection.map(texte).filter((id) => /^[op]-[a-z0-9-]+$/.test(id)))).slice(0, 200);
+    if (Array.isArray(t.resultats)) {
+      const vus = {};
+      o.othope.resultats = t.resultats.filter((x) => {
+        if (!x || !/^[op]-[a-z0-9-]+$/.test(texte(x.id)) || PILES_OTHOPE_IDS.indexOf(x.pile) < 0 || vus[x.id]) return false;
+        vus[x.id] = true;
+        return true;
+      }).slice(0, 200).map((x) => ({
+        id: texte(x.id), enfant: texte(x.enfant), rapport: texte(x.rapport) || min(texte(x.enfant)), emoji: texte(x.emoji),
+        sf: sousFamilleOthope(texte(x.sf)) ? texte(x.sf) : "perso", occ: texte(x.occ), pile: x.pile, souhait: !!x.souhait && x.pile !== RETIREE_OTHOPE.id,
+      }));
+    }
+    if (Array.isArray(t.choix)) {
+      const ok = o.othope.resultats.filter((x) => x.pile !== RETIREE_OTHOPE.id).map((x) => x.id);
+      o.othope.choix = Array.from(new Set(t.choix.map(texte))).filter((id) => ok.indexOf(id) >= 0).slice(0, MAX_OBJECTIFS_OTHOPE);
+    }
     if (Array.isArray(t.items)) {
       const n = Math.max(NB_OTHOPE, Math.min(MAX_OTHOPE, t.items.length));
       o.othope.items = Array.from({ length: n }, (_, i) => {
@@ -528,13 +717,22 @@
 
   function redigerOthope(t, a) {
     if (t.fait !== "oui") return "";
-    const items = t.items.filter((x) => x.activite.trim());
-    const l = ["OT'Hope : " + a.sujetMin + " a classé les cartes d'activités selon son niveau de réussite, puis choisi ses objectifs."];
+    const items = itemsOthope(t);
+    const res = t.resultats || [];
+    const nEcran = res.length;
+    const retirees = res.filter((x) => x.pile === RETIREE_OTHOPE.id).length;
+    let intro = "OT'Hope (outil d'autodétermination des objectifs) : " + a.sujetMin + " a classé ";
+    intro += nEcran ? nEcran + " carte" + (nEcran > 1 ? "s" : "") + " d'activités" + (t.date ? " le " + dateCourte(t.date) : "") : "les cartes d'activités";
+    intro += " selon son niveau de réussite, sur ses propres critères, puis choisi ses objectifs.";
+    const l = [intro];
     if (!items.length) { l.push("[Résultats à saisir.]"); return l.join("\n"); }
+    if (retirees) l.push("Cartes retirées car sans importance pour " + a.sujetMin + " : " + retirees + ".");
     NIVEAUX_OTHOPE.forEach((nv) => {
       const xs = items.filter((x) => x.niveau === nv.id).map((x) => min(sansPoint(x.activite)));
       if (xs.length) l.push("– " + maj(nv.texte) + " : " + joindre(xs) + ".");
     });
+    const souh = items.filter((x) => x.souhait === "oui" && x.objectif !== "oui").map((x) => min(sansPoint(x.activite)));
+    if (souh.length) l.push("Autres activités que " + a.sujetMin + " aimerait réussir : " + joindre(souh) + ".");
     const obj = items.filter((x) => x.objectif === "oui").map((x) => min(sansPoint(x.activite)));
     if (obj.length) l.push("Objectifs choisis par " + a.sujetMin + " : " + joindre(obj) + ".");
     if (t.notes.trim()) l.push(point(maj(t.notes.trim())));
@@ -600,7 +798,7 @@
       }
     }
     if (o.othope.fait === "oui") {
-      const items = o.othope.items.filter((x) => x.activite.trim());
+      const items = itemsOthope(o.othope);
       const diff = items.filter((x) => x.niveau === "pas-bien" || x.niveau === "non").map((x) => min(sansPoint(x.activite)));
       if (diff.length) c.occupations.push("activités que " + a.sujetMin + " dit ne pas bien réussir (OT'Hope) : " + joindre(diff));
       items.filter((x) => x.objectif === "oui").forEach((x) => c.objectifs.push(maj(sansPoint(x.activite)) + " (objectif choisi par " + a.sujetMin + ")"));
@@ -643,7 +841,8 @@
     NIVEAUX_AVQ, DOMAINES_AVQ, ITEMS_AVQ, AIDE_AVQ,
     FREQ_AVQP, DOMAINES_AVQP, LIBELLES_AVQP, MAX_AVQP, SENS_AVQP, sensAvqp, libellesAvqp, nbQuestionsAvqp, avqParentsVide, normaliserAvqParents, depuisChampsAvqParents,
     specAvqParents, classeAvqp, analyseAvqParents, redigerAvqParents, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, FACTEURS_DCDQ, SEUILS_DCDQ,
-    JEUX, MAX_CARTES_PERSO, pilesDe, cartesDuJeu, normaliserCartesPerso, problemeVide,
+    JEUX, MAX_CARTES_PERSO, FAMILLES_OTHOPE, SOUS_FAMILLES_OTHOPE, CARTES_OTHOPE, PILES_OTHOPE, RETIREE_OTHOPE, JEU_OTHOPE,
+    MAX_OBJECTIFS_OTHOPE, CONSEIL_OTHOPE, cartesOthope, sousFamilleOthope, itemsOthope, pilesDe, cartesDuJeu, normaliserCartesPerso, problemeVide,
     vide, normaliser, calculMcro, calculDcdq, phraseAvq, occupationsAvq, redigerMcro, redigerOthope, redigerDcdq, redigerCartes, constats, commence,
   };
 });

@@ -815,14 +815,54 @@
       ${champZone("Observations", "mcro.notes")}`;
   }
 
-  function htmlOthope() {
-    return `<p class="note">Saisissez le titre de chaque carte classée par l'enfant, son niveau, et cochez les objectifs qu'il a choisis. Les cartes OT'Hope ne sont pas reproduites dans l'outil.</p>
-      ${dossier.othope.items.map((x, i) => `<div class="ligne-othope">
+  // OT'Hope : l'ergothérapeute choisit les cartes, l'enfant les classe à l'écran ; la grille reçoit aussi un report du plateau.
+  function htmlOthopeLibre() {
+    return `${dossier.othope.items.map((x, i) => `<div class="ligne-othope">
         <input type="text" data-chemin="othope.items.${i}.activite" placeholder="Activité ${i + 1}" aria-label="Activité ${i + 1}">
         ${pastilles("oh-" + i, "othope.items." + i + ".niveau", O.NIVEAUX_OTHOPE.map((n) => [n.id, n.label]))}
         <label class="case case-objectif"><input type="checkbox" data-chemin="othope.items.${i}.objectif"><span>Objectif</span></label>
       </div>`).join("")}
-      ${dossier.othope.items.length < O.MAX_OTHOPE ? `<button type="button" class="bouton bouton-second" data-action="othope-lignes">Ajouter des lignes</button>` : ""}
+      ${dossier.othope.items.length < O.MAX_OTHOPE ? `<button type="button" class="bouton bouton-second" data-action="othope-lignes">Ajouter des lignes</button>` : ""}`;
+  }
+
+  function sousFamillesOthopeAvecPerso() {
+    const perso = O.cartesOthope(reglages.cartesPerso).filter((c) => c.perso);
+    return { perso: perso, familles: O.FAMILLES_OTHOPE.concat(perso.length ? [{ id: "perso", nom: "Mes cartes", sousFamilles: [Object.assign({}, O.sousFamilleOthope("perso"), { cartes: perso })] }] : []) };
+  }
+
+  function htmlSelectionOthope() {
+    const { familles } = sousFamillesOthopeAvecPerso();
+    const boutons = (g) => `<button type="button" class="bouton-lien" data-action="othope-groupe" data-groupe="${g}" data-etat="1">Tout</button>
+      <button type="button" class="bouton-lien" data-action="othope-groupe" data-groupe="${g}" data-etat="0">Aucune</button>`;
+    return familles.map((f) => `<div class="othope-famille">
+        <div class="othope-famille-tete"><h4>${esc(f.nom)}</h4>${boutons("f:" + f.id)}</div>
+        ${f.sousFamilles.map((sf) => `<div class="othope-sf" style="--sf:${esc(sf.couleur)}">
+          <div class="othope-sf-tete"><strong>${esc(sf.nom)}</strong><small id="othope-n-${sf.id}"></small>${boutons("s:" + sf.id)}</div>
+          <div class="cartes-liste">${sf.cartes.map((c) => `<label class="carte-case"><input type="checkbox" data-othope-carte="${esc(c.id)}">
+            <span>${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<span aria-hidden="true">${esc(c.emoji)}</span>`}${esc(c.enfant)}</span></label>`).join("")}</div>
+        </div>`).join("")}
+      </div>`).join("");
+  }
+
+  function htmlOthope() {
+    return `<p class="note">OT'Hope (outil d'autodétermination des objectifs, A. Perrault et C. Giraux, ANFE) : l'enfant classe lui-même des cartes d'activités dans quatre colonnes, « Oui », « Oui, avec aide », « Pas très bien », « Non », sur ses propres critères. Les cartes sans importance pour lui (un sport qu'il ne pratique pas…) sont retirées. On valorise ensuite ce qu'il sait faire, il désigne ce qu'il aimerait réussir, puis choisit 1 à 5 objectifs. Textes des cartes repris du kit ; pictogrammes propres à l'outil.</p>
+      <details class="cartes-proposees" id="othope-choix-cartes"><summary>1. Cartes à montrer à l'enfant : <span id="othope-nb"></span></summary>
+        <div class="othope-barre">
+          <span class="othope-compte" id="othope-compte" aria-live="polite"></span>
+          <button type="button" class="bouton-lien" data-action="othope-aucune">Tout décocher</button>
+          <button type="button" class="bouton-lien" data-action="othope-reprendre" hidden>Reprendre ma dernière sélection</button>
+        </div>
+        <p class="note">Choisissez les cartes selon les besoins de l'enfant : le guide conseille ${O.CONSEIL_OTHOPE} cartes au plus à la fois. Les cartes passent dans l'ordre des familles, avec la couleur de leur sous-famille.</p>
+        <div id="othope-selection">${htmlSelectionOthope()}</div>
+      </details>
+      <div class="barre-actions">
+        <button type="button" class="bouton" data-action="othope-lancer">2. Lancer la passation avec l'enfant</button>
+        <button type="button" class="bouton-lien" data-action="othope-effacer" hidden>Effacer les réponses</button>
+      </div>
+      <h4 class="sous-groupe">3. Grille de réponses</h4>
+      <p class="note">Remplie par la passation à l'écran. Touchez une case pour corriger, ou pour reporter le classement fait sur le plateau du kit. ♥ : l'enfant aimerait réussir ; ★ : objectif choisi (5 au plus, parmi « avec aide », « pas très bien » et « non »).</p>
+      <div id="othope-grille"></div>
+      <details class="cartes-proposees"><summary>Autres activités (saisie libre)</summary><div id="othope-libre">${htmlOthopeLibre()}</div></details>
       ${champZone("Observations", "othope.notes")}`;
   }
 
@@ -849,7 +889,7 @@
   function construireOccupation() {
     $("#occupation").innerHTML = htmlAvq() +
       blocRealise("mcro", "MCRO : mesure canadienne du rendement occupationnel", "mcro", htmlMcro()) +
-      blocRealise("othope", "OT'Hope : résultats du tri de l'enfant", "othope", htmlOthope()) +
+      blocRealise("othope", "OT'Hope : autodétermination des objectifs par l'enfant", "othope", htmlOthope()) +
       blocRealise("cartes-activites", "Tri de cartes sur écran : mes activités", "cartes.activites", htmlCartes("activites"));
     $("#cartes-sensoriel").innerHTML = blocRealise("cartes-sensoriel", "Tri de cartes sur écran : ce que je ressens", "cartes.sensoriel", htmlCartes("sensoriel"));
   }
@@ -2010,6 +2050,7 @@
         <p>Score total : <strong>${q.total}/75</strong> · ${interp}</p>`;
     }
     majCartes(d);
+    majOthope();
     majSensot(d);
   }
 
@@ -2036,6 +2077,122 @@
     });
   }
 
+  /* ---------- OT'Hope : sélection, passation, grille ---------- */
+
+  const COLONNES_OTHOPE = O.PILES_OTHOPE.map((p) => ({ id: p.id, court: p.id === "sait" ? "Oui" : p.id === "aide" ? "Aide" : p.id === "pas-bien" ? "Pas bien" : "Non", long: p.label }))
+    .concat([{ id: O.RETIREE_OTHOPE.id, court: "✋", long: "Retirée" }]);
+
+  function cartesOthopeConnues() {
+    const m = {};
+    O.cartesOthope(reglages.cartesPerso).forEach((c) => { m[c.id] = c; });
+    return m;
+  }
+
+  function majOthope() {
+    const t = dossier.othope;
+    const zone = $("#othope-grille");
+    if (!zone) return;
+    const sel = new Set(t.selection);
+    $$("[data-othope-carte]").forEach((el) => { el.checked = sel.has(el.dataset.othopeCarte); });
+    const { familles } = sousFamillesOthopeAvecPerso();
+    familles.forEach((f) => f.sousFamilles.forEach((sf) => {
+      const o = $("#othope-n-" + sf.id);
+      if (o) { const n = sf.cartes.filter((c) => sel.has(c.id)).length; o.textContent = n + " / " + sf.cartes.length; }
+    }));
+    const connues = cartesOthopeConnues();
+    const n = t.selection.filter((id) => connues[id]).length;
+    $("#othope-nb").textContent = n ? n + " carte" + (n > 1 ? "s" : "") + " choisie" + (n > 1 ? "s" : "") : "aucune pour l'instant";
+    const compte = $("#othope-compte");
+    compte.textContent = n + " carte" + (n > 1 ? "s" : "") + " sélectionnée" + (n > 1 ? "s" : "") + (n > O.CONSEIL_OTHOPE ? " · plus de " + O.CONSEIL_OTHOPE + " : pensez à alléger" : "");
+    compte.classList.toggle("trop", n > O.CONSEIL_OTHOPE);
+    const det = $("#othope-choix-cartes");
+    if (det && !n && !t.resultats.length && !det.dataset.vu) { det.open = true; det.dataset.vu = "1"; }
+    const rep = $('[data-action="othope-reprendre"]');
+    rep.hidden = !reglages.othopeSelection.length || reglages.othopeSelection.join() === t.selection.join();
+    $('[data-action="othope-effacer"]').hidden = !t.resultats.length;
+    $('[data-action="othope-lancer"]').textContent = t.resultats.length ? "2. Refaire la passation avec l'enfant" : "2. Lancer la passation avec l'enfant";
+
+    // Grille : cartes sélectionnées et cartes déjà classées, dans l'ordre des familles.
+    const res = {};
+    t.resultats.forEach((x) => { res[x.id] = x; });
+    const ordre = O.cartesOthope(reglages.cartesPerso).map((c) => c.id);
+    const ids = Array.from(new Set(t.selection.filter((id) => connues[id]).concat(t.resultats.map((x) => x.id))))
+      .sort((a, b) => (ordre.indexOf(a) < 0 ? 1e4 : ordre.indexOf(a)) - (ordre.indexOf(b) < 0 ? 1e4 : ordre.indexOf(b)));
+    if (!ids.length) { zone.innerHTML = `<p class="note">Choisissez d'abord les cartes à montrer.</p>`; return; }
+    let sfCourante = null;
+    const lignes = ids.map((id) => {
+      const c = connues[id] || res[id];
+      const r = res[id];
+      const sfId = (connues[id] && connues[id].sf) || (r && r.sf) || "perso";
+      const sf = O.sousFamilleOthope(sfId) || O.sousFamilleOthope("perso");
+      let tete = "";
+      if (sf.id !== sfCourante) { sfCourante = sf.id; tete = `<tr class="othope-sf-ligne" style="--sf:${esc(sf.couleur)}"><td colspan="${COLONNES_OTHOPE.length + 3}">${esc(sf.nom)}</td></tr>`; }
+      const pile = r ? r.pile : "";
+      const peutObjectif = r && ["aide", "pas-bien", "non"].indexOf(pile) >= 0;
+      const obj = t.choix.indexOf(id) >= 0;
+      return tete + `<tr class="${pile === "retiree" ? "retiree" : ""}"><td>${c.emoji ? `<span aria-hidden="true">${esc(c.emoji)}</span> ` : ""}${esc(c.enfant)}</td>
+        ${COLONNES_OTHOPE.map((k) => `<td><button type="button" class="othope-cell" data-action="othope-cell" data-id="${esc(id)}" data-pile="${k.id}" aria-pressed="${pile === k.id}" aria-label="${esc(c.enfant)} : ${esc(k.long)}">${pile === k.id ? "✕" : ""}</button></td>`).join("")}
+        <td><button type="button" class="othope-cell souhait" data-action="othope-souhait" data-id="${esc(id)}" aria-pressed="${!!(r && r.souhait)}" aria-label="${esc(c.enfant)} : aimerait réussir"${peutObjectif ? "" : " disabled"}>♥</button></td>
+        <td><button type="button" class="othope-cell objectif" data-action="othope-objectif" data-id="${esc(id)}" aria-pressed="${obj}" aria-label="${esc(c.enfant)} : objectif"${peutObjectif || obj ? "" : " disabled"}>★</button></td></tr>`;
+    }).join("");
+    const nb = (p) => t.resultats.filter((x) => x.pile === p).length;
+    zone.innerHTML = `${t.date ? `<p class="calcule">Passation du ${esc(B.dateCourte(t.date))} : ${t.resultats.length} cartes classées${nb("retiree") ? ", " + nb("retiree") + " retirée" + (nb("retiree") > 1 ? "s" : "") : ""} · objectifs : ${t.choix.length} / ${O.MAX_OBJECTIFS_OTHOPE}.</p>` : ""}
+      <table class="othope-grille"><thead><tr><th>Carte</th>${COLONNES_OTHOPE.map((k) => `<th title="${esc(k.long)}">${esc(k.court)}</th>`).join("")}<th title="Aimerait réussir">♥</th><th title="Objectif">★</th></tr></thead>
+      <tbody>${lignes}</tbody></table>`;
+  }
+
+  function changerOthope(fn) {
+    fn(dossier.othope);
+    if (dossier.othope.resultats.length && dossier.othope.fait !== "oui") dossier.othope.fait = "oui";
+    nonEnregistre = true;
+    majTout();
+  }
+
+  function celluleOthope(id, pile) {
+    const connues = cartesOthopeConnues();
+    changerOthope((t) => {
+      const i = t.resultats.findIndex((x) => x.id === id);
+      if (i >= 0 && t.resultats[i].pile === pile) {
+        t.resultats.splice(i, 1);
+      } else if (i >= 0) {
+        t.resultats[i].pile = pile;
+      } else {
+        const c = connues[id];
+        if (!c) return;
+        t.resultats.push({ id: c.id, enfant: c.enfant, rapport: c.rapport, emoji: c.emoji || "", sf: c.sf, occ: c.occ || "", pile: pile, souhait: false });
+        if (!t.date) t.date = B.aujourdhui();
+      }
+      const r = t.resultats.find((x) => x.id === id);
+      if (!r || ["aide", "pas-bien", "non"].indexOf(r.pile) < 0) {
+        if (r) r.souhait = false;
+        t.choix = t.choix.filter((x) => x !== id);
+      }
+    });
+  }
+
+  async function lancerOthope() {
+    const t = dossier.othope;
+    const connues = cartesOthopeConnues();
+    const ordre = O.cartesOthope(reglages.cartesPerso);
+    const cartes = ordre.filter((c) => t.selection.indexOf(c.id) >= 0).map((c) => {
+      const sf = O.sousFamilleOthope(c.sf);
+      return Object.assign({}, c, { bande: sf ? { nom: sf.nom, couleur: sf.couleur } : null });
+    });
+    if (!cartes.length) { annoncer("Choisissez d'abord les cartes à montrer à l'enfant."); const d = $("#othope-choix-cartes"); if (d) d.open = true; return; }
+    if (t.resultats.length && !(await demander("Refaire la passation ? Les réponses actuelles seront remplacées.", "Refaire la passation"))) return;
+    reglages.othopeSelection = t.selection.filter((id) => connues[id]);
+    sauverReglages();
+    const res = await window.TriCartes.lancer({ jeu: O.JEU_OTHOPE, cartes: cartes, prenom: dossier.prenom });
+    if (!res) { annoncer("Passation arrêtée, aucune carte classée."); return; }
+    changerOthope((x) => {
+      x.resultats = res.resultats.map((r) => ({ id: r.id, enfant: r.enfant, rapport: r.rapport, emoji: r.emoji, sf: r.sf, occ: r.occ, pile: r.pile, souhait: r.souhait }));
+      x.choix = res.choix.slice(0, O.MAX_OBJECTIFS_OTHOPE);
+      x.date = B.aujourdhui();
+      x.fait = "oui";
+    });
+    annoncer("Passation enregistrée : " + res.resultats.length + " cartes, " + res.choix.length + " objectif" + (res.choix.length > 1 ? "s" : ""));
+  }
+
   async function lancerTri(jeu) {
     const r = dossier.cartes[jeu];
     if (r.resultats.length && !(await demander("Refaire le tri ? Les résultats actuels seront remplacés.", "Refaire le tri"))) return;
@@ -2056,7 +2213,7 @@
     const l = reglages.cartesPerso;
     $("#cartes-perso").innerHTML = l.length
       ? `<ul class="liste-cartes-perso">${l.map((c) => `<li>${c.photo ? `<img src="${esc(c.photo)}" alt="">` : `<span class="vignette" aria-hidden="true">🃏</span>`}
-          <span class="carte-perso-texte"><strong>${esc(c.texte)}</strong><small>${esc(O.JEUX[c.jeu].titre)}</small></span>
+          <span class="carte-perso-texte"><strong>${esc(c.texte)}</strong><small>${esc(c.jeu === "othope" ? "OT'Hope" : O.JEUX[c.jeu].titre)}</small></span>
           <button type="button" class="bouton-lien" data-suppr-carte="${esc(c.id)}">Retirer</button></li>`).join("")}</ul>`
       : `<p class="note">Aucune carte personnelle pour l'instant.</p>`;
   }
@@ -2065,7 +2222,10 @@
       const el = $("#liste-cartes-" + jeu);
       if (el) el.innerHTML = htmlListeCartes(jeu);
     });
+    const so = $("#othope-selection");
+    if (so) so.innerHTML = htmlSelectionOthope();
     remplirCasesCartes();
+    majOthope();
   }
   function remplirCasesCartes() {
     $$("[data-carte-incluse]").forEach((el) => {
@@ -2475,7 +2635,7 @@
     });
     $$("[data-grille]").forEach((el) => { el.checked = dossier.grille[el.dataset.grille] === el.value; });
     $$("[data-grille-note]").forEach((el) => { el.value = dossier.grilleNotes[el.dataset.grilleNote] || ""; });
-    if ($$('[data-chemin^="othope.items."][type="text"]').length !== dossier.othope.items.length) $("#corps-othope").innerHTML = htmlOthope();
+    if ($$('[data-chemin^="othope.items."][type="text"]').length !== dossier.othope.items.length) $("#othope-libre").innerHTML = htmlOthopeLibre();
     remplirCasesCartes();
     $$("[data-chemin]").forEach((el) => {
       const v = lireChemin(dossier, el.dataset.chemin);
@@ -2585,6 +2745,11 @@
       dossier.grille[el.dataset.grille] = el.value;
     } else if (el.dataset.grilleNote) {
       dossier.grilleNotes[el.dataset.grilleNote] = el.value;
+    } else if (el.dataset.othopeCarte) {
+      if (e.type !== "change") return;
+      const s = new Set(dossier.othope.selection);
+      if (el.checked) s.add(el.dataset.othopeCarte); else s.delete(el.dataset.othopeCarte);
+      dossier.othope.selection = Array.from(s);
     } else if (el.dataset.carteIncluse) {
       if (e.type !== "change") return;
       const [jeu, id] = el.dataset.carteIncluse.split(":");
@@ -4386,6 +4551,35 @@
       case "theme": return basculerTheme();
       case "analyser-photo": return analyserPhoto();
       case "lancer-tri": return lancerTri(el.dataset.jeu);
+      case "othope-lancer": return lancerOthope();
+      case "othope-cell": return celluleOthope(el.dataset.id, el.dataset.pile);
+      case "othope-souhait":
+        return changerOthope((t) => { const r = t.resultats.find((x) => x.id === el.dataset.id); if (r) r.souhait = !r.souhait; });
+      case "othope-objectif": {
+        const t = dossier.othope, id = el.dataset.id;
+        if (t.choix.indexOf(id) < 0 && t.choix.length >= O.MAX_OBJECTIFS_OTHOPE) { annoncer(O.MAX_OBJECTIFS_OTHOPE + " objectifs au plus : retirez-en un d'abord."); return; }
+        return changerOthope((x) => {
+          if (x.choix.indexOf(id) >= 0) x.choix = x.choix.filter((v) => v !== id);
+          else { x.choix.push(id); const r = x.resultats.find((v) => v.id === id); if (r) r.souhait = true; }
+        });
+      }
+      case "othope-groupe": {
+        const [type, g] = el.dataset.groupe.split(":");
+        const ids = O.cartesOthope(reglages.cartesPerso).filter((c) => (type === "f" ? c.famille : c.sf) === g).map((c) => c.id);
+        return changerOthope((t) => {
+          const s = new Set(t.selection);
+          ids.forEach((id) => { if (el.dataset.etat === "1") s.add(id); else s.delete(id); });
+          t.selection = Array.from(s);
+        });
+      }
+      case "othope-aucune": return changerOthope((t) => { t.selection = []; });
+      case "othope-reprendre": return changerOthope((t) => { t.selection = reglages.othopeSelection.slice(); });
+      case "othope-effacer": {
+        const avant = instantane();
+        changerOthope((t) => { t.resultats = []; t.choix = []; t.date = ""; });
+        proposerAnnulation("Réponses OT'Hope effacées.", restaurerInstantane(avant));
+        return;
+      }
       case "lancer-sensot": return lancerSensot();
       case "effacer-sensot": {
         const avant = instantane();

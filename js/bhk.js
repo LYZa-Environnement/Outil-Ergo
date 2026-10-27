@@ -615,6 +615,7 @@
       autoQuestions: QUESTIONS_AUTO.map((q) => q[0]),
       autoDomaines: QUESTIONS_AUTO.map((q) => q[1]),
       cartesPerso: [],
+      othopeSelection: [],
       esoLibelles: { sp: [], p: [], l: [] },
       esoCotation: null,
       manosGrille: null,
@@ -655,6 +656,7 @@
       return DOMAINES_AUTO.some((x) => x[0] === v) ? v : "";
     });
     out.cartesPerso = Occup.normaliserCartesPerso(r.cartesPerso);
+    if (Array.isArray(r.othopeSelection)) out.othopeSelection = Array.from(new Set(r.othopeSelection.map(texte).filter((id) => /^[op]-[a-z0-9-]+$/.test(id)))).slice(0, 200);
     if (r.esoLibelles && typeof r.esoLibelles === "object") ["sp", "p", "l"].forEach((k) => {
       if (Array.isArray(r.esoLibelles[k])) out.esoLibelles[k] = r.esoLibelles[k].slice(0, Senso.NB_ITEMS_ESO).map((t) => texte(t).slice(0, 300));
     });
@@ -1387,6 +1389,7 @@
     }
     const ta = d.cartes.activites;
     if (ta.fait === "oui") ta.resultats.filter((x) => x.pile === "difficile").forEach((x) => ajoutOcc(OCC_CARTES[x.id], "tri de cartes : " + x.rapport));
+    if (d.othope.fait === "oui") d.othope.resultats.filter((x) => (x.pile === "non" || x.pile === "pas-bien") && x.occ).forEach((x) => ajoutOcc(x.occ, "OT'Hope : " + x.rapport));
     const qd = Occup.calculDcdq(d.dcdq, ageMois(d));
     if (d.dcdq.fait === "oui" && qd.indication === true) ajoutOcc("sport", "DCDQ " + qd.total + "/75");
 

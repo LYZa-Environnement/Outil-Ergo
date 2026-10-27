@@ -323,6 +323,45 @@ test("OT'Hope et tri de cartes : résultats, objectifs et raisons", () => {
   assert.deepEqual(n.cartes.sensoriel.choix, ["s-cantine"]);
 });
 
+test("OT'Hope à l'écran : jeu de cartes, passation, grille et rédaction", () => {
+  const O = require("../js/occupation.js");
+  assert.equal(O.SOUS_FAMILLES_OTHOPE.length, 13);
+  assert.equal(O.FAMILLES_OTHOPE.length, 3);
+  const ids = O.CARTES_OTHOPE.map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(O.CARTES_OTHOPE.length >= 135);
+  const occ = new Set(B.OCCUPATIONS ? B.OCCUPATIONS.map((x) => x.id) : []);
+  if (occ.size) O.CARTES_OTHOPE.filter((c) => c.occ).forEach((c) => assert.ok(occ.has(c.occ), c.id));
+  const carte = (id) => O.CARTES_OTHOPE.find((c) => c.id === id);
+  const r = (id, pile, souhait) => Object.assign({}, carte(id), { pile: pile, souhait: !!souhait });
+  const d = dossierTest({
+    othope: Object.assign(O.vide().othope, {
+      fait: "oui", date: "2026-10-27", selection: ["o-lacets", "o-velo", "o-ski", "o-dents", "o-inconnue!"],
+      resultats: [r("o-lacets", "non", true), r("o-velo", "pas-bien", true), r("o-ski", "retiree"), r("o-dents", "sait"), { id: "o-x", pile: "faux" }],
+      choix: ["o-lacets", "o-ski"],
+    }),
+  });
+  const n = B.normaliserDossier(JSON.parse(JSON.stringify(d)));
+  assert.deepEqual(n.othope.selection, ["o-lacets", "o-velo", "o-ski", "o-dents"]);
+  assert.equal(n.othope.resultats.length, 4);
+  assert.deepEqual(n.othope.choix, ["o-lacets"]); // une carte retirée ne peut pas être un objectif
+  const t = B.rediger(n, reglagesTest());
+  assert.match(t.othope, /a classé 4 cartes d'activités le 27\/10\/2026/);
+  assert.match(t.othope, /Cartes retirées car sans importance pour Léa : 1\./);
+  assert.match(t.othope, /– Sait faire : se brosser les dents\./);
+  assert.match(t.othope, /– Ne sait pas faire : faire ses lacets\./);
+  assert.match(t.othope, /Autres activités que Léa aimerait réussir : faire du vélo\./);
+  assert.match(t.othope, /Objectifs choisis par Léa : faire ses lacets\./);
+  assert.doesNotMatch(t.othope, /ski/);
+  assert.match(t.preconisations, /Faire ses lacets \(objectif choisi par Léa\)/);
+  // Réglages : dernière sélection gardée, cartes personnelles OT'Hope acceptées.
+  const reg = B.normaliserReglages(Object.assign(B.reglagesParDefaut(), { othopeSelection: ["o-lacets", "bad id"], cartesPerso: [{ jeu: "othope", texte: "Faire du poney" }] }));
+  assert.deepEqual(reg.othopeSelection, ["o-lacets"]);
+  const perso = O.cartesOthope(reg.cartesPerso).filter((c) => c.perso);
+  assert.equal(perso.length, 1);
+  assert.equal(perso[0].sf, "perso");
+});
+
 test("cartes personnelles : validation et ajout au jeu", () => {
   const perso = O.normaliserCartesPerso([{ jeu: "activites", texte: "Jouer du piano" }, { jeu: "inconnu", texte: "x" }, { jeu: "sensoriel", texte: "  " }]);
   assert.equal(perso.length, 1);
