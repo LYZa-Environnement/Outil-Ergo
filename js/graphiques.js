@@ -392,6 +392,43 @@
     return { svg: svg(L, H, c, "Graphique du DCDQ-FE"), l: L, h: H };
   }
 
+  // Exner et Benbow : cotation de 0 à 3 de chaque manipulation, une barre par main.
+  const COULEURS_MANIP = { 3: VERT, 2: "#7A9A2E", 1: AMBRE, 0: CORAIL };
+  function manipulations(d) {
+    const mains = [["md", "Main droite"], ["mg", "Main gauche"]].filter((m) => d.lignes.some((l) => l[m[0]] !== undefined && l[m[0]] !== null));
+    const lab = 330, larg = 300, L = lab + larg + 70, bh = 13, ecart = 4;
+    const h = mains.length * (bh + ecart) + 14, haut = 62;
+    const X = (v) => lab + (v / 3) * larg;
+    const bas = haut + d.lignes.length * h;
+    const textes = couperLegende("Cotation de 0 à 3 : 3 fonctionnel ; 2 avec lenteur ou compensation ; 1 en partie ; 0 non fonctionnel.", L - 60, 11.5);
+    const H = bas + 40 + textes.length * 16 + 14;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">Manipulations dans la main (Exner et Benbow)</text>`;
+    mains.forEach((m, i) => {
+      const lx = L / 2 - (mains.length * 130) / 2 + i * 130 + 10;
+      c += `<rect x="${lx}" y="38" width="12" height="12" rx="2" fill="#777" fill-opacity="${i ? 0.45 : 0.95}"/><text x="${lx + 18}" y="48" font-size="12" fill="#333">${m[1]}</text>`;
+    });
+    [0, 1, 2, 3].forEach((v) => {
+      c += `<line x1="${n(X(v))}" x2="${n(X(v))}" y1="${haut - 4}" y2="${bas}" stroke="#D5D9DE" stroke-width="1"/>`;
+      c += `<text x="${n(X(v))}" y="${bas + 16}" font-size="11.5" fill="#444" text-anchor="middle">${v}</text>`;
+    });
+    d.lignes.forEach((ln, i) => {
+      const y0 = haut + i * h;
+      if (i) c += `<line x1="20" x2="${lab + larg}" y1="${y0}" y2="${y0}" stroke="#EEF1F5" stroke-width="1"/>`;
+      c += `<text x="${lab - 10}" y="${n(y0 + h / 2 + 4)}" font-size="12" fill="#222" text-anchor="end">${x(coupe(ln.nom, 52))}</text>`;
+      mains.forEach((m, j) => {
+        const v = ln[m[0]], y = y0 + 7 + j * (bh + ecart);
+        c += `<rect x="${lab}" y="${y}" width="${larg}" height="${bh}" rx="3" fill="#F3F5F8"/>`;
+        if (v === undefined || v === null) return;
+        const col = COULEURS_MANIP[v] || "#777";
+        c += `<rect x="${lab}" y="${y}" width="${n(Math.max(4, X(v) - lab))}" height="${bh}" rx="3" fill="${col}" fill-opacity="${j ? 0.5 : 0.95}"/>`;
+        c += `<text x="${lab + larg + 8}" y="${y + bh - 2}" font-size="11.5" font-weight="700" fill="${col}">${m[0] === "md" ? "D" : "G"} ${v}</text>`;
+      });
+    });
+    let yl = bas + 26;
+    textes.forEach((t) => { yl += 16; c += `<text x="30" y="${yl}" font-size="11.5" fill="#333">${x(t)}</text>`; });
+    return { svg: svg(L, H, c, "Manipulations dans la main (Exner et Benbow)"), l: L, h: H };
+  }
+
   function evolution(d) {
     const lignes = d.lignes, s = d.seuils, vmin = -4, vmax = 3;
     const lab = 250, larg = 380, L = lab + larg + 40, h = 30, haut = 70;
@@ -469,6 +506,7 @@
       case "manos": return donnees.lignes && donnees.lignes.length ? manosOutils(donnees) : null;
       case "mcro": return mcro(donnees);
       case "dcdq": return dcdq(donnees);
+      case "manip": return donnees.lignes && donnees.lignes.length ? manipulations(donnees) : null;
       case "evolution": return donnees.lignes && donnees.lignes.length ? evolution(donnees) : null;
       case "eso-items": return itemsEso(donnees);
     }

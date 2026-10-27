@@ -122,7 +122,7 @@ test("PDF AVQ : 86 questions, question d'autonomie, remarques, aides et priorit�
   assert.ok(!s.includes("/T (avq_comportement_auto)"));
 });
 
-test("PDF AVQ rempli (pdf-lib) : lecture, synthèse du compte rendu", async (t) => {
+test("PDF AVQ rempli (pdf-lib) : lecture, consultation hors compte rendu", async (t) => {
   let PDFDocument;
   try { ({ PDFDocument } = require("/opt/npm-tools/node_modules/pdf-lib")); } catch (e) { return t.skip("pdf-lib absent"); }
   const doc = await PDFDocument.load(P.creerFormulaire(specAvq()));
@@ -158,17 +158,12 @@ test("PDF AVQ rempli (pdf-lib) : lecture, synthèse du compte rendu", async (t) 
   d.avqParents.commentaire = "Commentaire général de l'ergothérapeute.";
   const reg = B.reglagesParDefaut();
   reg.avqLibelles = libAvq;
-  const t2 = B.rediger(d, reg).avqParents;
-  assert.match(t2, /rempli par sa mère le 12\/11\/2026/);
-  assert.match(t2, /Léa est autonome pour les repas mais n'est pas autonome pour l'habillage/);
-  assert.match(t2, /AESH : 12 h/);
-  assert.match(t2, /– Habillage\. Jamais ou rarement : item fictif habillage 5 \(lacets élastiques\)\. Parfois : item fictif habillage 6\. Aides mises en place : Lacets élastiques, efficace\. Observé aussi en séance\./);
-  assert.match(t2, /Fréquemment ou toujours : item fictif comportement 1/);
-  assert.match(t2, /Activités fréquentes : item fictif loisirs 8/);
-  assert.match(t2, /Priorités des parents : 1\. la vie scolaire ; 2\. l'habillage\./);
-  assert.match(t2, /Commentaire général de l'ergothérapeute\.$/);
-  assert.ok(!/item fictif habillage 1\b/.test(t2)); // « toujours » sur une question « + » : rien à signaler
-  assert.match(B.rediger(d, reg).bilans, /Questionnaire sur l'autonomie dans les activités de la vie quotidienne, rempli par sa mère \(d'après un questionnaire fictif\)/);
+  // Consultation seule : rien dans le compte rendu.
+  const cr = B.rediger(d, reg);
+  assert.ok(!cr.avqParents);
+  assert.ok(!/autonomie dans les activités de la vie quotidienne/i.test(cr.bilans));
+  const an = O.analyseAvqParents(d.avqParents, libAvq);
+  assert.strictEqual(an.find((x) => x.id === "habillage").items.find((it) => it.n === 5).reponse, "Jamais");
 });
 
 test("AVQ : normalisation du dossier et des réglages", () => {

@@ -1518,3 +1518,18 @@ h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
 .lp-ponct { padding: 0 1px; }
 .lp-manuel { margin: 10px 0 16px; }
 .lp-manuel summary { cursor: pointer; color: var(--accent, var(--encre)); font-weight: 700; padding: 4px 0; }
+
+/* Questionnaire d'autonomie des parents : consultation seule */
+.consult-info { margin: .4rem 0 .6rem; font-size: .92rem; }
+.consult-liste { margin: .3rem 0 .6rem; padding-left: 0; list-style: none; }
+.consult-liste li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--seyes-fin); }
+.consult-q { display: flex; gap: 8px; align-items: baseline; flex: 1 1 260px; }
+.consult-rem { flex-basis: 100%; color: #555; font-style: italic; font-size: .9rem; }
+
+/* Photos rangées par emplacement */
+.photos-zone { margin: .6rem 0; padding: 10px 12px; border: 1px dashed var(--seyes-fin, #ccd); border-radius: 10px; }
+.photos-tete { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; }
+.photos-tete .barre-actions { margin: 0; }
+.vignettes-photos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.vignette-photo { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.vignette-photo img { width: 120px; height: 90px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; }

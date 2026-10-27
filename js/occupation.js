@@ -828,7 +828,7 @@
 
   // Le volet occupationnel est-il commencé ?
   function commence(o) {
-    return Object.keys(o.avq).length > 0 || (o.avqParents && o.avqParents.fait === "oui") || ["mcro", "othope", "dcdq"].some((k) => o[k].fait === "oui") || Object.keys(JEUX).some((j) => o.cartes[j].fait === "oui");
+    return Object.keys(o.avq).length > 0 || ["mcro", "othope", "dcdq"].some((k) => o[k].fait === "oui") || Object.keys(JEUX).some((j) => o.cartes[j].fait === "oui");
   }
 
   return {

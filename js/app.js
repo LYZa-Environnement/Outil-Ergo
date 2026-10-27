@@ -268,6 +268,7 @@
           <div class="choix" role="radiogroup" aria-labelledby="gl-${g.id}-${it.id}">
             ${radios("g-" + g.id + "-" + it.id, it.options.map((o) => [o[0], o[1]]), `data-grille="${g.id}.${it.id}"`)}
           </div></div>`).join("")}
+        ${["posture", "prise", "lettres"].indexOf(g.id) >= 0 ? htmlPhotos(g.id, g.titre) : ""}
         <label class="champ"><span>Remarques</span><textarea data-grille-note="${g.id}" rows="1"></textarea></label>
       </fieldset>`).join("");
   }
@@ -492,11 +493,8 @@
     if (!(await accordEnfant(r.donnees.enfant, r.naissance))) return;
     const q = O.normaliserAvqParents(dossier.avqParents);
     const avant = O.DOMAINES_AVQP.reduce((t, d) => t + Object.keys(q.domaines[d.id].reponses).length, 0);
-    if (avant && !(await demander(avant + (avant > 1 ? " réponses sont déjà saisies" : " réponse est déjà saisie") + " dans le questionnaire d'autonomie. Les remplacer par celles du PDF (" + r.nombre + ") ? Vos commentaires sont gardés.", "Remplacer"))) return;
+    if (avant && !(await demander("Un questionnaire d'autonomie est déjà importé (" + avant + " réponse" + (avant > 1 ? "s" : "") + "). Le remplacer par ce PDF (" + r.nombre + ") ?", "Remplacer"))) return;
     const n = r.donnees;
-    // Les commentaires de l'ergothérapeute restent ; le reste vient du PDF.
-    O.DOMAINES_AVQP.forEach((d) => { n.domaines[d.id].commentaire = q.domaines[d.id].commentaire; });
-    n.commentaire = q.commentaire;
     n.fait = "oui";
     n.repondant = net(q.repondant) || n.repondant.slice(0, 120);
     n.date = q.date || dateDepuisTexte(n.date) || B.aujourdhui();
@@ -504,7 +502,7 @@
     dossier.avqParents = n;
     apresImport("occupations", "#bloc-avq-parents", "details.avq-domaine");
     const total = O.DOMAINES_AVQP.reduce((t, d) => t + O.nbQuestionsAvqp(d.id, reglages.avqLibelles), 0);
-    annoncer(r.nombre + " réponses importées dans « Autonomie dans les activités quotidiennes »" + (total > r.nombre ? " (" + (total - r.nombre) + " sans réponse)" : ""));
+    annoncer(r.nombre + " réponses importées, à consulter dans « Autonomie dans les activités quotidiennes »" + (total > r.nombre ? " (" + (total - r.nombre) + " sans réponse)" : ""));
   }
   function apresImport(onglet, bloc, details) {
     nonEnregistre = true;
@@ -830,78 +828,49 @@
 
   /* ---------- Occupations : autonomie, MCRO, OT'Hope, tri de cartes ; DCDQ ---------- */
 
-  // Questionnaire d'autonomie rempli par les parents : PDF, réponses (importées ou saisies), commentaires, synthèse.
+  // Questionnaire d'autonomie rempli par les parents : PDF à envoyer avant le rendez-vous, puis import du PDF rempli.
+  // Les réponses sont seulement consultées par l'ergothérapeute : elles ne vont pas dans le compte rendu.
   function htmlAvqParents() {
-    const c = "avqParents", lib = O.libellesAvqp(reglages.avqLibelles);
-    const freq = O.FREQ_AVQP.map((f, k) => [String(k), f]);
-    const domaine = (d) => {
-      const libs = (lib.domaines && lib.domaines[d.id]) || [];
-      const ch = c + ".domaines." + d.id;
-      const items = Array.from({ length: O.nbQuestionsAvqp(d.id, lib) }, (_, i) => {
-        const n = i + 1, texteQ = libs[i] || "Question " + n;
-        return `<div class="item-avqp"><span class="item-label"><span class="eso-num">${n}</span>${esc(texteQ)}</span>
-          ${pastilles("avqp-" + d.id + "-" + n, ch + ".reponses." + n, freq)}
-          <input type="text" class="remarque" data-chemin="${ch}.remarques.${n}" placeholder="Remarque des parents" aria-label="Remarque des parents, ${esc(d.nom)}, question ${n}"></div>`;
-      }).join("");
-      return `<details class="avq-domaine" data-avqp="${d.id}"><summary>${esc(d.nom)} <span class="avq-compte" id="avqp-n-${d.id}"></span></summary>
-        ${d.question ? `<div class="champ"><span>Autonome dans ce domaine, selon les parents</span>${pastilles("avqp-auto-" + d.id, ch + ".autonome", [["oui", "Oui"], ["non", "Non"]])}</div>` : ""}
-        <div class="avqp-items">${items}</div>
-        ${d.question ? champZone("Aides mises en place, selon les parents", ch + ".aides") : champZone("Autres éléments rapportés par les parents", c + ".complement")}
-        ${champZone("💬 Votre commentaire sur ce domaine (repris dans le compte rendu)", ch + ".commentaire")}
-      </details>`;
-    };
+    const lib = O.libellesAvqp(reglages.avqLibelles);
     return `<div class="sous-bloc" id="bloc-avq-parents">
-      <h4 class="sous-groupe">📨 Questionnaire des parents</h4>
-      <p class="note">${esc(lib.titre)} (${esc(B.min(lib.source))}). Un PDF à remplir, le même pour tous les enfants : envoyez-le avant le rendez-vous, puis importez le PDF rempli. Sur papier, cochez ici les réponses à la main.</p>
+      <h4 class="sous-groupe">📨 Questionnaire des parents <small>(pour vous seulement)</small></h4>
+      <p class="note">${esc(lib.titre)} (${esc(B.min(lib.source))}). Envoyez le PDF aux parents avant le rendez-vous, puis importez le PDF rempli : vous pourrez relire leurs réponses ici. <strong>Elles n'apparaissent pas dans le compte rendu.</strong></p>
       <div class="barre-actions barre-eso-pdf">
         <button type="button" class="bouton bouton-second bouton-petit" data-action="avq-pdf">📄 PDF à remplir pour les parents</button>
         <label class="bouton bouton-second bouton-petit">📥 Importer le PDF rempli
           <input type="file" accept="application/pdf,.pdf" data-action="importer-pdf-parents" class="masque"></label>
+        <button type="button" class="bouton-lien" data-action="retirer-avq-parents" hidden>Retirer les réponses</button>
       </div>
       <p class="calcule etat-avq-parents" aria-live="polite"></p>
-      <label class="case case-titre case-avqp"><input type="checkbox" data-chemin="${c}.fait" data-bascule="#corps-avq-parents"><span>Réponses des parents</span></label>
-      <div id="corps-avq-parents" hidden>
-        <div class="grille2">${champTexte("Rempli par", c + ".repondant", 'placeholder="les parents"')}${champDate("Date", c + ".date")}</div>
-        <div class="grille3">${champTexte("Classe (selon les parents)", c + ".classe")}
-          <div class="champ"><span>AESH (AVS)</span>${pastilles("avqp-aesh", c + ".aesh", [["oui", "Oui"], ["non", "Non"]])}</div>
-          ${champTexte("Nombre d'heures", c + ".heures")}</div>
-        <p class="note">Nom écrit par les parents dans le PDF : <strong id="avqp-enfant">–</strong></p>
-        ${O.DOMAINES_AVQP.map(domaine).join("")}
-        <details class="avq-domaine"><summary>Priorités des parents <span class="avq-compte" id="avqp-n-priorites"></span></summary>
-          <p class="note">Ordre de 1 (le plus important) à ${O.DOMAINES_AVQP.length}.</p>
-          ${O.DOMAINES_AVQP.map((d) => `<div class="priorite-avqp"><span class="item-label">${esc(d.nom)}</span>
-            <input type="text" inputmode="numeric" maxlength="1" data-chemin="${c}.priorites.${d.id}.rang" aria-label="Ordre de priorité, ${esc(d.nom)}">
-            <input type="text" data-chemin="${c}.priorites.${d.id}.precision" placeholder="Précisions" aria-label="Précisions, ${esc(d.nom)}"></div>`).join("")}
-        </details>
-        ${champZone("💬 Commentaire de l'ergothérapeute (repris à la fin de la synthèse)", c + ".commentaire", 3)}
-        <h5 class="titre-apercu">Synthèse pour le compte rendu</h5>
-        <div class="apercu-synthese" id="apercu-avq-parents"></div>
-        <p class="note">Elle suit les réponses et vos commentaires. Pour la retoucher : onglet Compte rendu, section « Autonomie au quotidien : questionnaire des parents ».</p>
-      </div>
+      <div class="consult-avq" id="consult-avq-parents"></div>
     </div>`;
   }
   function majAvqParents() {
+    const zone = $("#consult-avq-parents");
+    if (!zone) return;
     const q = O.normaliserAvqParents(dossier.avqParents);
-    O.analyseAvqParents(q, reglages.avqLibelles).forEach((d) => {
-      const o = $("#avqp-n-" + d.id);
-      if (!o) return;
-      const m = [];
-      if (d.autonome) m.push(d.autonome === "oui" ? "autonome" : "non autonome");
-      if (d.repondues) m.push(d.repondues + "/" + d.nb + " réponses");
-      if (d.difficultes.length) m.push(d.difficultes.length + " difficulté" + (d.difficultes.length > 1 ? "s" : ""));
-      o.textContent = m.join(" · ");
-    });
-    const np = O.DOMAINES_AVQP.filter((d) => q.priorites[d.id].rang).length;
-    const op = $("#avqp-n-priorites");
-    if (op) op.textContent = np ? np + " domaine" + (np > 1 ? "s" : "") + " classé" + (np > 1 ? "s" : "") : "";
-    const oe = $("#avqp-enfant");
-    if (oe) oe.textContent = q.enfant || "–";
-    const ap = $("#apercu-avq-parents");
-    if (ap) {
-      const t = genere.avqParents || "";
-      ap.innerHTML = t ? t.split("\n").map((l) => `<p>${esc(l)}</p>`).join("") : `<p class="note">Saisissez ou importez les réponses.</p>`;
-      if (cr.avqParents && cr.avqParents.modifie) ap.insertAdjacentHTML("beforeend", `<p class="note">Vous avez retouché cette section dans l'onglet Compte rendu : c'est votre version qui est utilisée.</p>`);
-    }
+    const an = O.analyseAvqParents(q, reglages.avqLibelles);
+    const prio = O.DOMAINES_AVQP.filter((d) => q.priorites[d.id].rang || q.priorites[d.id].precision)
+      .sort((x, y) => (+q.priorites[x.id].rang || 9) - (+q.priorites[y.id].rang || 9));
+    const rempli = an.some((d) => d.repondues || d.autonome || d.aides) || prio.length || q.complement.trim();
+    const bRetirer = $("[data-action='retirer-avq-parents']");
+    if (bRetirer) bRetirer.hidden = !rempli;
+    if (!rempli) { zone.innerHTML = `<p class="note">Aucun questionnaire importé pour cet enfant.</p>`; return; }
+    const info = [["Enfant (écrit par les parents)", q.enfant], ["Rempli par", q.repondant], ["Date", q.date ? (B.dateCourte(q.date) || q.date) : ""],
+      ["Classe", q.classe], ["AESH", q.aesh === "oui" ? "oui" + (q.heures ? " (" + q.heures + ")" : "") : q.aesh === "non" ? "non" : ""]].filter((x) => String(x[1] || "").trim());
+    const domaine = (d) => {
+      const compte = [d.autonome ? (d.autonome === "oui" ? "autonome" : "non autonome") : "", d.repondues ? d.repondues + "/" + d.nb + " réponses" : ""].filter(Boolean).join(" · ");
+      const items = d.items.map((it) => `<li><span class="consult-q"><span class="eso-num">${it.n}</span>${esc(it.libelle)}</span> <strong>${esc(it.reponse)}</strong>${it.remarque ? `<span class="consult-rem">« ${esc(it.remarque)} »</span>` : ""}</li>`).join("");
+      return `<details class="avq-domaine"><summary>${esc(d.nom)} <span class="avq-compte">${esc(compte)}</span></summary>
+        ${items ? `<ul class="consult-liste">${items}</ul>` : `<p class="note">Pas de réponse.</p>`}
+        ${d.aides ? `<p><strong>Aides mises en place :</strong> ${esc(d.aides)}</p>` : ""}
+        ${d.id === "comportement" && q.complement.trim() ? `<p><strong>Autres éléments :</strong> ${esc(q.complement.trim())}</p>` : ""}
+      </details>`;
+    };
+    zone.innerHTML = (info.length ? `<p class="consult-info">${info.map((x) => esc(x[0]) + " : <strong>" + esc(x[1]) + "</strong>").join(" · ")}</p>` : "") +
+      an.map(domaine).join("") +
+      (prio.length ? `<details class="avq-domaine"><summary>Priorités des parents <span class="avq-compte">${prio.length} domaine${prio.length > 1 ? "s" : ""}</span></summary><ol class="consult-liste">${prio.map((d) =>
+        `<li>${q.priorites[d.id].rang ? "<strong>" + esc(q.priorites[d.id].rang) + ".</strong> " : ""}${esc(d.nom)}${q.priorites[d.id].precision ? ` <span class="consult-rem">${esc(q.priorites[d.id].precision)}</span>` : ""}</li>`).join("")}</ol></details>` : "");
   }
 
   function htmlAvq() {
@@ -1176,16 +1145,22 @@
   /* ---------- Caméra : photo de la copie prise dans l'outil (tablette Windows, ordinateur, iPad) ---------- */
 
   let camera = null; // { flux, appareils, index, cliche }
+  let cibleCamera = null; // emplacement des photos (null : copie du BHK)
   const OPTIONS_CAMERA = { width: { ideal: 2560 }, height: { ideal: 1920 } };
 
   function cameraPermise() {
     const pp = document.permissionsPolicy || document.featurePolicy;
     try { return !(pp && pp.allowsFeature && !pp.allowsFeature("camera")); } catch (e) { return true; }
   }
-  async function ouvrirCamera() {
+  async function ouvrirCamera(cle, titre) {
     const md = navigator.mediaDevices;
+    cibleCamera = cle || null;
+    $("#titre-camera").textContent = cle ? "Photo : " + (titre || "") : "Photo de la copie";
     // Sans caméra accessible ici (navigateur ancien, page intégrée) : l'appareil photo du système, sinon les fichiers.
-    if (!md || !md.getUserMedia || !cameraPermise()) { $("#photo-camera-secours").click(); return; }
+    if (!md || !md.getUserMedia || !cameraPermise()) {
+      if (cle) { const s2 = $("#photo-secours-cible"); s2.dataset.cle = cle; s2.click(); } else $("#photo-camera-secours").click();
+      return;
+    }
     camera = { flux: null, appareils: [], index: -1, cliche: null };
     afficherCliche(false);
     $("#ecran-camera").hidden = false;
@@ -1203,7 +1178,7 @@
         if (arriere >= 0 && arriere !== camera.index) { await demarrerFlux(camera.appareils[arriere].deviceId); camera.index = arriere; }
       }
       $("#ecran-camera [data-action='changer-camera']").hidden = camera.appareils.length < 2;
-      $("#camera-message").textContent = "Cadrez la feuille entière, bien à plat, de face, avec une bonne lumière.";
+      $("#camera-message").textContent = cibleCamera ? "Cadrez ce que vous voulez garder, avec une bonne lumière." : "Cadrez la feuille entière, bien à plat, de face, avec une bonne lumière.";
     } catch (err) {
       fermerCamera();
       annoncer(err && err.name === "NotAllowedError"
@@ -1257,13 +1232,53 @@
     camera.cliche = { donnees: c.toDataURL("image/jpeg", 0.82), l: l, h: h };
     $("#camera-cliche").src = camera.cliche.donnees;
     afficherCliche(true);
-    $("#camera-message").textContent = "La feuille est-elle entière et nette ?";
+    $("#camera-message").textContent = cibleCamera ? "La photo est-elle nette ?" : "La feuille est-elle entière et nette ?";
   }
   function garderCliche() {
     if (!camera || !camera.cliche) return;
-    const p = camera.cliche;
+    const p = camera.cliche, cible = cibleCamera;
     fermerCamera();
-    garderPhotoCopie(p);
+    cibleCamera = null;
+    if (cible) ajouterPhotos(cible, [p]); else garderPhotoCopie(p);
+  }
+
+  /* ---------- Photos rangées par emplacement : productions en classe, observation de l'écriture, Lespargot ---------- */
+  function photosDe(cle) { return (dossier.photos && Array.isArray(dossier.photos[cle])) ? dossier.photos[cle] : []; }
+  function interieurPhotos(cle, titre) {
+    const l = photosDe(cle), plein = l.length >= B.PHOTOS_MAX;
+    return `<div class="photos-tete"><span>📷 Photos <small>(ajoutées au compte rendu${l.length ? ", " + l.length + " sur " + B.PHOTOS_MAX : ""})</small></span>
+      ${plein ? `<span class="note">${B.PHOTOS_MAX} photos au plus.</span>` : `<div class="barre-actions">
+        <button type="button" class="bouton bouton-second bouton-petit" data-action="photo-cam" data-cle="${esc(cle)}" data-titre="${esc(titre)}">📷 Prendre en photo</button>
+        <label class="bouton bouton-second bouton-petit">🖼️ Choisir un fichier
+          <input type="file" accept="image/*" multiple data-action="photo-ajout" data-cle="${esc(cle)}" class="masque" aria-label="Choisir des photos : ${esc(titre)}"></label>
+      </div>`}</div>
+      ${l.length ? `<div class="vignettes-photos">${l.map((p, i) => `<figure class="vignette-photo"><img src="${esc(p.donnees)}" alt="${esc(titre)}, photo ${i + 1}">
+        <button type="button" class="bouton-lien" data-action="photo-retirer" data-cle="${esc(cle)}" data-i="${i}">Retirer</button></figure>`).join("")}</div>` : ""}`;
+  }
+  function htmlPhotos(cle, titre) {
+    return `<div class="photos-zone" data-photos="${esc(cle)}" data-titre="${esc(titre)}">${interieurPhotos(cle, titre)}</div>`;
+  }
+  function majPhotos() {
+    $$("[data-photos]").forEach((z) => { z.innerHTML = interieurPhotos(z.dataset.photos, z.dataset.titre || ""); });
+  }
+  function ajouterPhotos(cle, liste) {
+    if (!dossier.photos || typeof dossier.photos !== "object") dossier.photos = {};
+    const avant = photosDe(cle);
+    const place = B.PHOTOS_MAX - avant.length;
+    const gardees = liste.slice(0, Math.max(0, place));
+    if (!gardees.length) { annoncer(B.PHOTOS_MAX + " photos au plus à cet endroit."); return; }
+    dossier.photos[cle] = avant.concat(gardees.map((p) => ({ donnees: p.donnees, l: p.l, h: p.h })));
+    nonEnregistre = true; majPhotos(); majTout(); sauverBrouillon();
+    annoncer(gardees.length > 1 ? gardees.length + " photos ajoutées" : "Photo ajoutée" + (liste.length > gardees.length ? " (" + B.PHOTOS_MAX + " au plus)" : ""));
+  }
+  function retirerPhoto(cle, i) {
+    return demander("Retirer cette photo ?", "Retirer").then((ok) => {
+      if (!ok) return;
+      const l = photosDe(cle).slice();
+      l.splice(i, 1);
+      if (l.length) dossier.photos[cle] = l; else delete dossier.photos[cle];
+      nonEnregistre = true; majPhotos(); majTout(); sauverBrouillon(); annoncer("Photo retirée");
+    });
   }
   function garderPhotoCopie(p) {
     dossier.photoCopie = p.donnees; dossier.photoL = String(p.l); dossier.photoH = String(p.h);
@@ -2688,7 +2703,7 @@
     const c = B.calculLespargot(B.normaliserDossier(dossier));
     const val = (k) => esc(a[k] || "");
     const iCopie = s.lignes.findIndex((l) => l.id === "copie");
-    const autres = s.lignes.map((l, i) => i === iCopie ? "" : htmlLigneTest(t, l, i)).join("");
+    const autres = s.lignes.map((l, i) => i === iCopie ? "" : htmlLigneTest(t, l, i) + (l.id ? htmlPhotos("lespargot-" + l.id, "Lespargot, " + B.min(l.epreuve || l.id)) : "")).join("");
     const tx = c.texte ? LP.TEXTES[c.texte] : null;
     const motsHtml = (chaine) => LP.morceaux(chaine).map((m) => m.espace ? (/\n/.test(m.t) ? "<br>" : " ")
       : m.n ? `<button type="button" class="lp-mot" data-lp-mot="${m.n}" title="Mot ${m.n}">${esc(m.t)}</button>` : `<span class="lp-ponct">${esc(m.t)}</span>`).join("");
@@ -2718,6 +2733,7 @@
         </div>
         <output class="ds-ligne" id="lp-res"></output>
         <label class="champ"><span>Observation</span><input type="text" data-chemin="lespargot.obs" value="${val("obs")}" placeholder="mots oubliés, retours au modèle, fatigue…"></label>
+        ${htmlPhotos("lespargot-copie", "Lespargot, copie")}
         ${ligneCopie ? `<details class="lp-manuel"${!c.fait && ligneCopie.valeur ? " open" : ""}><summary>Saisir directement le score de la copie (sans le calcul)</summary>${htmlLigneTest(t, ligneCopie, iCopie)}</details>` : ""}
         <h4 class="sous-groupe">Autres épreuves</h4>
         ${autres}
@@ -3233,6 +3249,7 @@
   /* ================= Formulaire ⇄ dossier ================= */
 
   function remplirFormulaire() {
+    majPhotos();
     $$("[data-champ]").forEach((el) => {
       const v = dossier[el.dataset.champ] || "";
       if (el.type === "radio") el.checked = el.value === v;
@@ -5373,6 +5390,8 @@
       case "preparer-evic": return preparerEvic();
       case "compter-copie": return compterCopieMain();
       case "ouvrir-camera": return ouvrirCamera();
+      case "photo-cam": return ouvrirCamera(el.dataset.cle, el.dataset.titre);
+      case "photo-retirer": return retirerPhoto(el.dataset.cle, +el.dataset.i);
       case "fermer-camera": return fermerCamera();
       case "changer-camera": return changerCamera();
       case "declencher-camera": return declencherCamera();
@@ -5449,6 +5468,12 @@
         return;
       case "eso-pdf": return exporterPdfParents("eso");
       case "avq-pdf": return exporterPdfParents("avq");
+      case "retirer-avq-parents":
+        return demander("Retirer les réponses du questionnaire d'autonomie importé pour cet enfant ?", "Retirer").then((ok) => {
+          if (!ok) return;
+          dossier.avqParents = O.avqParentsVide();
+          nonEnregistre = true; majTout(); sauverBrouillon(); annoncer("Réponses du questionnaire retirées");
+        });
       case "exporter-reglages":
         return telecharger("reglages-outil-ergo.json", JSON.stringify(reglages, null, 2), "application/json", "Réglages exportés");
     }
@@ -5467,6 +5492,10 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return true;
       chargerPhoto(f).then(garderPhotoCopie).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "photo-ajout") {
+      const fs = Array.from(e.target.files || []), cle = e.target.dataset.cle;
+      if (!fs.length || !cle) return true;
+      Promise.all(fs.map((f) => chargerPhoto(f, 1400))).then((l) => ajouterPhotos(cle, l)).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "importer-pdf-parents") {
       const f = e.target.files && e.target.files[0];
       if (!f) return true;

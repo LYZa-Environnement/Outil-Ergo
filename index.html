@@ -195,7 +195,7 @@
             <p class="calcule etat-eso-parents" aria-live="polite"></p>
           </div>
           <div class="questionnaire-parents">
-            <p><strong>Autonomie au quotidien</strong> (AVQ) : réponses dans 🌱 Autonomie et priorités.</p>
+            <p><strong>Autonomie au quotidien</strong> (AVQ) : réponses à consulter dans 🌱 Autonomie et priorités (pas dans le compte rendu).</p>
             <button type="button" class="bouton bouton-second bouton-petit" data-action="avq-pdf">📄 PDF autonomie à envoyer</button>
             <p class="calcule etat-avq-parents" aria-live="polite"></p>
           </div>
@@ -403,6 +403,21 @@
         <label class="champ"><span>Environnement humain</span><input type="text" data-champ="ecoleHumain" placeholder="AESH 6 h par semaine, aide en classe… (vide : RAS)"></label>
         <label class="champ"><span>Environnement de la classe</span><input type="text" data-champ="ecoleClasse" placeholder="Assis au 1er rang, près de la fenêtre… (vide : RAS)"></label>
         <label class="champ"><span>Productions réalisées en classe</span><textarea data-champ="ecoleProductions" rows="2" placeholder="Cahiers peu soignés, leçons souvent incomplètes"></textarea></label>
+        <div class="photos-zone" data-photos="productions" data-titre="productions réalisées en classe"></div>
+        <h4 class="sous-groupe">En classe, au quotidien</h4>
+        <p class="note">Une case laissée vide n'apparaît pas dans le compte rendu.</p>
+        <div class="grille2">
+          <label class="champ"><span>Prise de notes et copie au tableau</span><input type="text" data-champ="ecoleNotes" placeholder="Copie au tableau lente, ne finit pas ses leçons"></label>
+          <label class="champ"><span>Dictée</span><input type="text" data-champ="ecoleDictee" placeholder="Ne suit pas le rythme, nombreux mots oubliés"></label>
+          <label class="champ"><span>Lecture</span><input type="text" data-champ="ecoleLecture" placeholder="Lecture hachée, se perd dans les lignes"></label>
+          <label class="champ"><span>Organisation</span><input type="text" data-champ="ecoleOrganisation" placeholder="Bureau encombré, perd ses affaires, oublie des consignes"></label>
+          <label class="champ"><span>Agenda et cahier de textes</span><input type="text" data-champ="ecoleAgenda" placeholder="Devoirs souvent mal notés ou incomplets"></label>
+          <label class="champ"><span>Outils scolaires (règle, ciseaux, compas, équerre…)</span><input type="text" data-champ="ecoleOutils" placeholder="Tracés à la règle imprécis, découpage difficile"></label>
+          <label class="champ"><span>Devoirs à la maison</span><input type="text" data-champ="ecoleDevoirs" placeholder="Longs, beaucoup d'aide des parents"></label>
+          <label class="champ"><span>Ordinateur ou tablette</span><input type="text" data-champ="ecoleNumerique" placeholder="N'en utilise pas en classe"></label>
+          <label class="champ"><span>Attention et fatigue en classe</span><input type="text" data-champ="ecoleAttention" placeholder="Décroche en fin de journée, se fatigue vite à l'écrit"></label>
+          <label class="champ"><span>Récréation, EPS et relations</span><input type="text" data-champ="ecoleRecreation" placeholder="Bien intégré ; évite les jeux de ballon"></label>
+        </div>
       </fieldset>
       <div class="suite"><button type="button" class="bouton" data-aller="occupations">Suivant : occupations →</button></div>
     </section>
@@ -541,6 +556,7 @@
           <label class="bouton bouton-second"><span aria-hidden="true">🖼️</span> Choisir un fichier
             <input type="file" accept="image/*" data-action="photo" class="masque"></label>
           <input type="file" accept="image/*" capture="environment" data-action="photo" id="photo-camera-secours" class="masque" tabindex="-1" aria-hidden="true">
+          <input type="file" accept="image/*" capture="environment" data-action="photo-ajout" id="photo-secours-cible" class="masque" tabindex="-1" aria-hidden="true">
           <button type="button" class="bouton-lien" data-action="retirer-photo" hidden>Retirer la photo</button>
         </div>
         <img id="apercu-photo" class="apercu-photo" alt="Photo de la copie du BHK" hidden>

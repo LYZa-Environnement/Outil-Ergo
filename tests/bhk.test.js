@@ -1083,7 +1083,7 @@ test("graphiques du BHK : légende détaillée (barres, DS, niveaux)", () => {
   assert.match(ds.svg, /Fond coloré : zones/);
 });
 
-test("diagnostic ergothérapique pré-rempli : propositions expliquées, occupations écartées", () => {
+test("diagnostic ergothérapique pré-rempli : propositions expliquées, AVQ des parents hors compte rendu", () => {
   const reg = reglagesTest();
   const d = dossierTest();
   d.envSuivis = "orthophonie depuis 2024";
@@ -1091,32 +1091,26 @@ test("diagnostic ergothérapique pré-rempli : propositions expliquées, occupat
   d.avqParents = { fait: "oui", aesh: "oui", heures: "12", domaines: {
     habillage: { autonome: "non", reponses: { 1: 0, 2: 1, 3: 4 }, aides: "lacets élastiques, efficace" },
     repas: { autonome: "oui", reponses: { 1: 4 } },
-    ecole: { reponses: { 10: 0, 2: 1 } },
-    comportement: { reponses: { 1: 4, 3: 3, 10: 4 } },
-  }, priorites: { ecole: { rang: "1" }, habillage: { rang: "2" } } };
+  }, priorites: { habillage: { rang: "1" } } };
   d.senso.eso = { fait: "oui", roues: { sp: { OR: "0,5", SS: "2", DS: "2" }, p: { OR: "1", SS: "3" }, l: { OR: "0,8", SS: "3" } }, systemes: {} };
   const p = B.propositionsDiagnostic(d, reg);
-  const occ = (id) => p.occupations.find((x) => x.id === id);
-  assert.ok(occ("habillage").sources.some((s) => /questionnaire d'autonomie.*habillage \(pas autonome, priorité des parents/.test(s)));
-  assert.ok(!occ("repas"), "autonome pour les repas : pas proposé");
-  assert.ok(occ("outils") && occ("ecrit-classe") && occ("toilette"));
-  assert.match(p.champs.diagImpact.texte, /^N'est pas autonome pour l'habillage selon ses parents/);
-  assert.match(p.champs.diagImpact.texte, /priorités des parents : la vie scolaire, l'habillage/);
-  assert.match(p.champs.envFacilitateurs.texte, /^Aides en place à la maison pour l'habillage : lacets élastiques, efficace ; accompagnement par une AESH \(12 h\)/);
+  // Le questionnaire d'autonomie des parents est seulement consulté par l'ergothérapeute.
+  const sources = JSON.stringify(p);
+  assert.ok(!/questionnaire d'autonomie/.test(sources));
+  assert.ok(!/selon ses parents/.test(p.champs.diagImpact.texte || ""));
   assert.match(p.champs.envObstacles.texte, /environnements bruyants ou très stimulants/);
   assert.match(p.champs.envObstacles.texte, /pas d'aménagement en place à l'école/);
   assert.match(p.champs.conclusionContexte.texte, /^Suivis en cours : orthophonie depuis 2024\./);
-  assert.match(p.champs.conclusionPoints.texte, /selon ses parents, léa : « se bloque face à une difficulté », « se dévalorise »/i);
-  assert.match(p.champs.conclusionForces.texte, /« est sensible aux encouragements » selon ses parents/);
-  assert.match(p.champs.conclusionForces.texte, /autonome pour les repas selon ses parents/);
-  assert.ok(p.champs.diagImpact.sources.indexOf("questionnaire d'autonomie (parents)") >= 0);
+  const cr = B.rediger(d, reg);
+  assert.ok(!/questionnaire d'autonomie/i.test(cr.conclusion + cr.bilans));
+  assert.ok(!cr.avqParents);
   // Occupation proposée mais écartée par l'ergothérapeute
-  d.occRefusees = ["toilette"];
-  const ret = B.occupationsRetenues(B.normaliserDossier(d), p).map((o) => o.id);
-  assert.ok(ret.indexOf("toilette") < 0 && ret.indexOf("habillage") >= 0);
-  const t = B.rediger(d, reg).conclusion;
-  assert.ok(!/la toilette et les soins personnels/.test(t.split("Diagnostic ergothérapique :")[1]));
-  assert.match(t, /Ce diagnostic s'appuie sur .*l'ESO.*le questionnaire d'autonomie rempli par les parents/);
+  const ids = p.occupations.map((o) => o.id);
+  if (ids.length) {
+    d.occRefusees = [ids[0]];
+    const ret = B.occupationsRetenues(B.normaliserDossier(d), p).map((o) => o.id);
+    assert.ok(ret.indexOf(ids[0]) < 0);
+  }
 });
 
 test("SensOT-dir : jeu de cartes (74 cartes, plateaux, gabarit, sensations, réglette)", () => {
@@ -1160,4 +1154,51 @@ test("SensOT-dir : catégories retirées par l'ergothérapeute", () => {
   t.cartes = { "a-cantine": { p1: "gene", freq: "souvent" } };
   assert.deepEqual(S.normaliser(JSON.parse(JSON.stringify(d.senso))).sensot.exclus, ["gout", "oromoteur"]);
   assert.match(B.rediger(d, B.reglagesParDefaut()).sensot, /Catégories non proposées : goût, oro-moteur\./);
+});
+
+test("anamnèse « À l'école » : questions complémentaires reprises si renseignées", () => {
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.ecoleDictee = "ne suit pas le rythme";
+  d.ecoleOutils = "découpage difficile";
+  const t = B.rediger(d, reg).ecole;
+  assert.match(t, /Dictée : Ne suit pas le rythme\./i);
+  assert.match(t, /Outils scolaires : découpage difficile\./i);
+  assert.ok(!/Agenda/.test(t));
+  assert.strictEqual(B.normaliserDossier({ ecoleAgenda: "cahier de textes oublié" }).ecoleAgenda, "cahier de textes oublié");
+});
+
+test("photos : normalisation, place dans le compte rendu (école, observation, Lespargot)", () => {
+  const img = "data:image/jpeg;base64,AAAA";
+  const n = B.normaliserPhotos({ productions: [{ donnees: img, l: 10, h: 8 }, { donnees: "javascript:x" }], "MAUVAIS CLE": [{ donnees: img }],
+    posture: [1, 2, 3, 4, 5, 6].map(() => ({ donnees: img })) });
+  assert.deepStrictEqual(Object.keys(n), ["productions", "posture"]);
+  assert.strictEqual(n.productions.length, 1);
+  assert.strictEqual(n.posture.length, B.PHOTOS_MAX);
+  const d = B.normaliserDossier({ photos: { productions: [{ donnees: img }], lettres: [{ donnees: img }], "lespargot-dictee": [{ donnees: img }, { donnees: img }] },
+    tests: { lespargot: { fait: "oui" } } });
+  assert.strictEqual(B.blocsPhotos(d, "ecole")[0].alt, "Production réalisée en classe");
+  assert.strictEqual(B.blocsPhotos(d, "observation")[0].alt, "Lettres et chiffres");
+  assert.deepStrictEqual(B.blocsPhotos(d, "vitesse").map((b) => b.alt), ["Lespargot : dictée (1/2)", "Lespargot : dictée (2/2)"]);
+  const reg = reglagesTest();
+  const d2 = dossierTest();
+  d2.ecoleProductions = "cahiers peu soignés";
+  d2.photos = { productions: [{ donnees: img, l: 10, h: 8 }] };
+  assert.ok(B.modeleDocument(d2, reg).blocs.some((b) => b.type === "photo" && b.alt === "Production réalisée en classe"));
+});
+
+test("Exner et Benbow : graphique 0 à 3 par main dans le compte rendu", () => {
+  const G = require("../js/graphiques.js");
+  const reg = reglagesTest();
+  const d = dossierTest();
+  d.manip = { fait: "oui", md: { shift: 2, "rotation-simple": 3 }, mg: { shift: 1 }, notes: "" };
+  const g = B.donneesGraphiques(d, reg).manip;
+  assert.strictEqual(g.lignes.length, 2);
+  assert.ok(B.modeleDocument(d, reg).blocs.some((b) => b.type === "graphique" && b.id === "manip"));
+  const svg = G.dessiner("manip", g).svg;
+  assert.match(svg, /Exner et Benbow/);
+  assert.match(svg, /D 2/);
+  assert.match(svg, /G 1/);
+  d.manip.fait = "";
+  assert.strictEqual(B.donneesGraphiques(d, reg).manip, null);
 });

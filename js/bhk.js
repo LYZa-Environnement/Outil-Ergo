@@ -266,6 +266,9 @@
       lignes: [["copie", "Copie de texte", "ds"], ["repetition", "Répétition", "ds"], ["dictee", "Dictée", "ds"]] },
   ];
 
+  // Le questionnaire d'autonomie des parents (AVQ) sert à préparer l'entretien : ses réponses ne vont pas dans le compte rendu.
+  const AVQ_PARENTS_DANS_CR = false;
+
   // Manipulations dans la main (Exner, Benbow) : cotation de 0 à 3 par main.
   const MANIPULATIONS = [
     ["translation-dp", "Translation des doigts vers la paume"], ["translation-pd", "Translation de la paume vers les doigts"],
@@ -688,12 +691,26 @@
 
   /* ================= Dossier ================= */
 
+  // Questions complémentaires de l'anamnèse « À l'école » : [champ, intitulé dans le compte rendu]. Seules les réponses saisies sont reprises.
+  const ECOLE_QUESTIONS = [
+    ["ecoleNotes", "Prise de notes et copie au tableau"],
+    ["ecoleDictee", "Dictée"],
+    ["ecoleLecture", "Lecture"],
+    ["ecoleOrganisation", "Organisation"],
+    ["ecoleAgenda", "Agenda et cahier de textes"],
+    ["ecoleOutils", "Outils scolaires (règle, ciseaux, compas, équerre…)"],
+    ["ecoleDevoirs", "Devoirs à la maison"],
+    ["ecoleNumerique", "Ordinateur ou tablette"],
+    ["ecoleAttention", "Attention et fatigue en classe"],
+    ["ecoleRecreation", "Récréation, EPS et relations"],
+  ];
   const CHAMPS_TEXTE = [
     "prenom", "nom", "sexe", "naissance", "parents", "adresse", "passation", "prescripteur", "etablissement", "groupe", "enseignant",
     "motif", "orientation", "bilansLibre",
     "devTrajectoire", "devMoteur", "devLangage", "envFamilial", "envSuivis", "envParcours",
     "occSommeil", "occHabillage", "occAlimentation", "occHygiene", "occLoisirs", "occDeplacements", "occIndependant", "occSynthese",
     "ecoleAmenagements", "ecoleHumain", "ecoleClasse", "ecoleProductions",
+    "ecoleNotes", "ecoleDictee", "ecoleLecture", "ecoleOrganisation", "ecoleAgenda", "ecoleOutils", "ecoleDevoirs", "ecoleNumerique", "ecoleAttention", "ecoleRecreation",
     "lateralite", "prise", "priseDetail", "motivation", "envFeuille", "envOutil", "envLieu",
     "reference", "normesSexe", "tailleMm", "c1", "c2", "vitesse", "modeCopie", "reperage", "fautes", "douleurEva", "douleurDetail", "bhkNotes",
     "conclusionContexte", "conclusionPoints", "conclusionForces", "diagImpact", "envObstacles", "envFacilitateurs", "objectifsLibre",
@@ -736,7 +753,42 @@
     d.lespargot = Lespargot.vide();
     d.dtvp3 = Dtvp3.vide();
     d.nepsy = Nepsy.vide();
+    d.photos = {};
     return d;
+  }
+
+  // Photos du dossier, rangées par emplacement (productions en classe, observation de l'écriture, épreuves du Lespargot).
+  const PHOTOS_MAX = 4;
+  const PHOTOS_SECTIONS = {
+    ecole: [["productions", "Production réalisée en classe"]],
+    personne: [["posture", "Posture et installation"], ["prise", "Prise et tonus"]],
+    observation: [["lettres", "Lettres et chiffres"]],
+  };
+  function normaliserPhotos(src) {
+    const o = {};
+    if (!src || typeof src !== "object") return o;
+    Object.keys(src).forEach((k) => {
+      if (!/^[a-z0-9-]{1,40}$/.test(k) || !Array.isArray(src[k])) return;
+      const l = src[k].filter((p) => p && typeof p.donnees === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(p.donnees))
+        .slice(0, PHOTOS_MAX).map((p) => ({ donnees: p.donnees, l: Math.max(0, Math.round(Number(p.l) || 0)), h: Math.max(0, Math.round(Number(p.h) || 0)) }));
+      if (l.length) o[k] = l;
+    });
+    return o;
+  }
+  // Blocs photo d'une section du compte rendu.
+  function blocsPhotos(d, sid) {
+    const ph = d.photos || {}, blocs = [];
+    const ajouter = (cle, alt) => (ph[cle] || []).forEach((p, i, l) => blocs.push({ type: "photo", donnees: p.donnees, l: p.l, h: p.h, alt: alt + (l.length > 1 ? " (" + (i + 1) + "/" + l.length + ")" : ""), largeurCm: 12 }));
+    (PHOTOS_SECTIONS[sid] || []).forEach((x) => ajouter(x[0], x[1]));
+    if (sid === "vitesse" && d.tests.lespargot && d.tests.lespargot.fait === "oui") {
+      const lignes = d.tests.lespargot.lignes || [];
+      const ordre = ["copie"].concat(lignes.map((l) => l.id).filter((id) => id && id !== "copie"));
+      ordre.forEach((id) => {
+        const l = lignes.find((x) => x.id === id);
+        ajouter("lespargot-" + id, "Lespargot : " + min((l && l.epreuve) || (id === "copie" ? "copie" : id)));
+      });
+    }
+    return blocs;
   }
 
   // Mesures du bilan précédent, gardées pour la réévaluation.
@@ -770,6 +822,7 @@
     d.lespargot = Lespargot.normaliser(src.lespargot);
     d.dtvp3 = Dtvp3.normaliser(src.dtvp3);
     d.nepsy = Nepsy.normaliser(src.nepsy);
+    d.photos = normaliserPhotos(src.photos);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -1113,7 +1166,6 @@
     { id: "environnement", titre: "Environnement de {enfant}", niveau: 2 },
     { id: "maison", titre: "À la maison", niveau: 3, groupes: ["occupations"] },
     { id: "ecole", titre: "À l'école", niveau: 3, groupes: ["occupations"] },
-    { id: "avqParents", titre: "Autonomie au quotidien : questionnaire des parents", niveau: 3, groupes: ["occupations"] },
     { id: "mcro", titre: "Priorités de {enfant} et de sa famille (MCRO)", niveau: 3, groupes: ["occupations"] },
     { id: "othope", titre: "Auto-évaluation des occupations par {enfant} (OT'Hope)", niveau: 3, groupes: ["occupations"] },
     { id: "cartesActivites", titre: "Tri de cartes : activités du quotidien", niveau: 3, groupes: ["occupations"] },
@@ -1150,6 +1202,7 @@
     "eso-systemes": "Systèmes sensoriels (ESO)",
     "eso-items": "ESO : réponses détaillées",
     "profil-ds": "Profil des résultats en déviations standard",
+    manip: "Manipulations dans la main (Exner et Benbow)",
     "bhk-criteres": "Score de chaque critère du BHK",
     manos: "Man.O.S : écart à la moyenne, outil par outil",
     mcro: "MCRO : rendement et satisfaction",
@@ -1158,7 +1211,7 @@
   };
   const LARGEURS_GRAPHIQUES = {
     otipis: 14, "dunn-enfant": 14, "dunn-scolaire": 14, "eso-roues": 16.5, "eso-systemes": 14, "eso-items": 16,
-    "profil-ds": 16, "bhk-criteres": 15, manos: 16, mcro: 15, dcdq: 14, evolution: 15,
+    "profil-ds": 16, "bhk-criteres": 15, manos: 16, manip: 15, mcro: 15, dcdq: 14, evolution: 15,
   };
 
   // Le volet écriture est-il commencé ? (sinon ses sections restent vides dans un bilan seulement sensoriel)
@@ -1370,8 +1423,8 @@
       g.forEach((x) => { if (x.id === "lisibilite") ajoutOcc("ecrit-classe", "auto-appréciation : lisibilité"); if (x.id === "vitesse") ajoutOcc("copie", "auto-appréciation : vitesse"); });
     }
 
-    // Questionnaire d'autonomie rempli par les parents
-    if (d.avqParents.fait === "oui") {
+    // Questionnaire d'autonomie rempli par les parents : consulté par l'ergothérapeute, hors compte rendu.
+    if (AVQ_PARENTS_DANS_CR && d.avqParents.fait === "oui") {
       const q = d.avqParents, SRC = "questionnaire d'autonomie (parents)";
       const an = Occup.analyseAvqParents(q, reg.avqLibelles);
       const libDefaut = JSON.stringify(Occup.libellesAvqp(reg.avqLibelles).domaines.ecole) === JSON.stringify(Occup.LIBELLES_AVQP.domaines.ecole);
@@ -1477,7 +1530,7 @@
     if (s.dunnEnfant.fait === "oui" || s.dunnScolaire.fait === "oui") l.push("le profil sensoriel 2 de Dunn");
     if (s.eso.fait === "oui") l.push("l'ESO");
     if (s.sensot.fait === "oui") l.push("le SensOT-dir");
-    if (d.avqParents.fait === "oui") l.push("le questionnaire d'autonomie rempli par les parents");
+    if (AVQ_PARENTS_DANS_CR && d.avqParents.fait === "oui") l.push("le questionnaire d'autonomie rempli par les parents");
     if (Object.keys(d.avq).length) l.push("la grille d'autonomie");
     if (d.mcro.fait === "oui") l.push("la MCRO");
     if (d.othope.fait === "oui") l.push("l'OT'Hope");
@@ -1677,7 +1730,7 @@
       if (s.sensot.fait === "oui") l.push("SensOT-dir (version enfant)");
       if (d.manip.fait === "oui") l.push("Exner et Benbow : évaluation des manipulations fines dans la main");
       if (d.auto.fait === "oui") l.push(reg.autoNom);
-      if (d.avqParents.fait === "oui") l.push("Questionnaire sur l'autonomie dans les activités de la vie quotidienne, rempli par " + (d.avqParents.repondant.trim() || "les parents") + (reg.avqLibelles.source.trim() ? " (" + min(reg.avqLibelles.source.trim().replace(/[.]+$/, "")) + ")" : ""));
+      if (AVQ_PARENTS_DANS_CR && d.avqParents.fait === "oui") l.push("Questionnaire sur l'autonomie dans les activités de la vie quotidienne, rempli par " + (d.avqParents.repondant.trim() || "les parents") + (reg.avqLibelles.source.trim() ? " (" + min(reg.avqLibelles.source.trim().replace(/[.]+$/, "")) + ")" : ""));
       if (Object.keys(d.avq).length) l.push("Grille d'autonomie dans les activités quotidiennes");
       if (d.mcro.fait === "oui") l.push("Mesure canadienne du rendement occupationnel (MCRO)");
       if (d.othope.fait === "oui") l.push("OT'Hope : auto-évaluation des occupations par " + a.sujetMin);
@@ -1729,13 +1782,12 @@
         "Environnement de la classe : " + ou(d.ecoleClasse, "RAS"),
       ];
       if (d.ecoleProductions.trim()) l.push("Productions réalisées en classe : " + point(d.ecoleProductions.trim()));
+      ECOLE_QUESTIONS.forEach((q) => { if (String(d[q[0]] || "").trim()) l.push(q[1].replace(/ \(.*\)$/, "") + " : " + point(String(d[q[0]]).trim())); });
       const autonomie = Occup.phraseAvq(d.avq, "scolaire", a);
       if (autonomie) l.push("Autonomie en classe : " + autonomie);
       out.ecole = l.join("\n");
     }
 
-    // Questionnaire d'autonomie rempli par les parents
-    out.avqParents = Occup.redigerAvqParents(d.avqParents, reg.avqLibelles, a);
 
     // Bilans centrés sur l'occupation
     out.mcro = Occup.redigerMcro(d.mcro, a);
@@ -2076,6 +2128,11 @@
     calculerTests(d, reg).filter((t) => t.fait).forEach((t) => t.lignes.filter((l) => l.ds !== null).forEach((l) => lignes.push({ bilan: t.court, epreuve: l.epreuve, ds: l.ds, niveau: l.niveau })));
     g["profil-ds"] = lignes.length >= 2 ? { lignes: lignes, seuils: seuils } : null;
     g.manos = d.tests.manos.fait === "oui" ? Manos.donneesGraphique(calculManos(d, reg), seuils) : null;
+    {
+      const lignesManip = d.manip.fait === "oui" ? MANIPULATIONS.map((it) => ({ nom: it.nom, md: d.manip.md[it.id], mg: d.manip.mg[it.id] }))
+        .filter((l) => l.md !== undefined || l.mg !== undefined) : [];
+      g.manip = lignesManip.length ? { lignes: lignesManip } : null;
+    }
     g["bhk-criteres"] = r.complet ? {
       titre: "Score de chaque critère (" + r.nomTest + ")",
       seuils: seuils, inverse: reg.inverserQualite, normes: r.criteres.some((c) => c.niveau),
@@ -2203,7 +2260,8 @@
         }
       }
       if (s.id === "bhk") blocs.push.apply(blocs, blocGraphique(g, "bhk-criteres"));
-      if (s.id === "complementaires") blocs.push.apply(blocs, blocGraphique(g, "manos").concat(blocGraphique(g, "dcdq")));
+      if (s.id === "complementaires") blocs.push.apply(blocs, blocGraphique(g, "manos").concat(blocGraphique(g, "manip"), blocGraphique(g, "dcdq")));
+      blocs.push.apply(blocs, blocsPhotos(d, s.id));
       if (s.id === "bhk" && d.photoCopie) blocs.push({ type: "photo", donnees: d.photoCopie, l: nombre(d.photoL), h: nombre(d.photoH), alt: "Copie du BHK", largeurCm: 15 });
       if (s.id === "mcro") blocs.push.apply(blocs, blocsMcro(d).concat(blocGraphique(g, "mcro")));
       if (s.id === "evolution") blocs.push.apply(blocs, blocsEvolution(d, reg).concat(blocGraphique(g, "evolution")));
@@ -2381,6 +2439,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
+    PHOTOS_MAX, normaliserPhotos, blocsPhotos,
     classeManos, calculManos, calculAjuri, calculLespargot, Lespargot, Dtvp3, Nepsy,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
