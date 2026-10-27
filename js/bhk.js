@@ -1128,7 +1128,6 @@
     { id: "dunn", titre: "Profil sensoriel 2 de Dunn", niveau: 3, groupes: ["sensoriel"], graphiques: ["dunn-enfant", "dunn-scolaire"] },
     { id: "eso", titre: "Engagement sensori-occupationnel (ESO)", niveau: 3, groupes: ["sensoriel"], graphiques: ["eso-roues", "eso-systemes", "eso-items"] },
     { id: "sensot", titre: "SensOT-dir", niveau: 3, groupes: ["sensoriel"] },
-    { id: "cartesSensoriel", titre: "Tri de cartes : situations sensorielles", niveau: 3, groupes: ["sensoriel"] },
     { id: "complementaires", titre: "Bilans complémentaires", niveau: 2 },
     { id: "evolution", titre: "Évolution depuis le bilan précédent", niveau: 2 },
     { id: "conclusion", titre: "Diagnostic ergothérapique", niveau: 2, recap: true },
@@ -1483,7 +1482,7 @@
     if (d.mcro.fait === "oui") l.push("la MCRO");
     if (d.othope.fait === "oui") l.push("l'OT'Hope");
     if (d.dcdq.fait === "oui") l.push("le DCDQ-FE");
-    if (d.cartes.activites.fait === "oui" || d.cartes.sensoriel.fait === "oui") l.push("les tris de cartes");
+    if (d.cartes.activites.fait === "oui") l.push("le tri de cartes");
     return l;
   }
 
@@ -1683,7 +1682,6 @@
       if (d.mcro.fait === "oui") l.push("Mesure canadienne du rendement occupationnel (MCRO)");
       if (d.othope.fait === "oui") l.push("OT'Hope : auto-évaluation des occupations par " + a.sujetMin);
       if (d.cartes.activites.fait === "oui") l.push("Tri de cartes sur écran : activités du quotidien");
-      if (d.cartes.sensoriel.fait === "oui") l.push("Tri de cartes sur écran : situations sensorielles");
       if (d.clavier.fait === "oui") l.push("EViC : évaluation de la vitesse de frappe au clavier (" + Clavier.SOURCE.court + ")");
       if (d.dcdq.fait === "oui") l.push("DCDQ-FE : questionnaire sur le développement de la coordination (version en français pour l'Europe), rempli par " + (d.dcdq.repondant.trim() || "les parents"));
       if (d.tdc.fait === "oui") l.push("Repères des recommandations internationales sur le TDC (" + SOURCE_TDC.court + ")");
@@ -1743,7 +1741,6 @@
     out.mcro = Occup.redigerMcro(d.mcro, a);
     out.othope = Occup.redigerOthope(d.othope, a);
     out.cartesActivites = Occup.redigerCartes("activites", d.cartes.activites, a);
-    out.cartesSensoriel = Occup.redigerCartes("sensoriel", d.cartes.sensoriel, a);
 
     // Composante liée à la personne
     {

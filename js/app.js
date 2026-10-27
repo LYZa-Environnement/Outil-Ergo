@@ -514,6 +514,7 @@
     afficherOnglet(onglet);
     const b = $(bloc);
     if (b) {
+      deplierVers(b);
       const premier = $(details, b);
       if (premier) premier.open = true;
       b.scrollIntoView({ block: "start" });
@@ -916,7 +917,6 @@
       blocRealise("mcro", "MCRO : mesure canadienne du rendement occupationnel", "mcro", htmlMcro()) +
       blocRealise("othope", "OT'Hope : autodétermination des objectifs par l'enfant", "othope", htmlOthope()) +
       blocRealise("cartes-activites", "Tri de cartes sur écran : mes activités", "cartes.activites", htmlCartes("activites"));
-    $("#cartes-sensoriel").innerHTML = blocRealise("cartes-sensoriel", "Tri de cartes sur écran : ce que je ressens", "cartes.sensoriel", htmlCartes("sensoriel"));
   }
 
   function construireDcdq() {
@@ -1437,6 +1437,7 @@
       ? "✅ Passation terminée. Notez d'abord les <strong>mots écrits à la main</strong>, puis complétez votre observation."
       : "✅ Passation terminée. Complétez votre observation ci-dessous.";
     const cible = papier ? $("#titre-main-clavier") : $("#titre-obs-clavier");
+    if (cible) deplierVers(cible);
     setTimeout(() => { if (cible) cible.scrollIntoView({ block: "center" }); }, 60);
     annoncer("Passation enregistrée");
     if (verrouActif()) verrouiller();
@@ -4312,7 +4313,9 @@
   /* ---------- Parties repliables : cartes et sous-parties ---------- */
   // Chaque carte (fieldset.groupe) se replie en touchant son titre ; les sous-parties (h4.sous-groupe) aussi.
   // Les blocs de bilans gardent leur case à cocher (faire / ne pas faire) et se replient avec la flèche une fois cochés.
-  // L'état replié est gardé sur l'appareil (commodité, sans conséquence si le stockage est indisponible).
+  // Les cartes sont repliées par défaut : l'onglet se lit comme un sommaire, on déplie la carte voulue.
+  // Les sous-parties restent dépliées par défaut.
+  // L'état choisi est gardé sur l'appareil (1 replié, 0 déplié ; commodité, sans conséquence si le stockage est indisponible).
   const CLE_REPLIS = "outil-ergo:replis";
   let replis = lireStockage(CLE_REPLIS) || {};
   function titreDe(el) {
@@ -4345,7 +4348,7 @@
       resume.className = "resume-repli";
       lg.appendChild(resume);
       lg.appendChild(boutonRepli(titre));
-      if (replis[f.dataset.cleRepli]) replier(f, true, false);
+      if (replis[f.dataset.cleRepli] !== 0) replier(f, true, false);
       else majBoutonRepli(f);
     });
     $$("[role=tabpanel] h4.sous-groupe").forEach((h) => {
@@ -4398,8 +4401,16 @@
     el.classList.toggle("replie", oui);
     majBoutonRepli(el);
     if (garder === false) return;
-    if (oui) replis[el.dataset.cleRepli] = 1; else delete replis[el.dataset.cleRepli];
+    replis[el.dataset.cleRepli] = oui ? 1 : 0;
     ecrireStockage(CLE_REPLIS, replis);
+  }
+  // Déplie les cartes et sous-parties qui contiennent l'élément (avant de le montrer ou d'y placer le curseur).
+  function deplierVers(el) {
+    for (let n = el; n && n.closest; n = n.parentElement) {
+      if (n.matches("fieldset.groupe.replie")) replier(n, false);
+      if (n.matches(".sous-corps")) { const h = n.previousElementSibling; if (h && h.matches("h4.sous-groupe.replie")) replier(h, false); }
+    }
+    return el;
   }
   function surClicRepli(e) {
     const tout = e.target.closest("[data-replis]");
@@ -4443,7 +4454,7 @@
       ecriture: Object.keys(d.grille).length > 0 || d.auto.fait === "oui" || !!t("prise"),
       bhk: !!t("vitesse") || Object.keys(d.lignes).length > 0,
       clavier: d.clavier.fait === "oui",
-      sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui") || d.cartes.sensoriel.fait === "oui",
+      sensoriel: ["otipis", "dunnEnfant", "dunnScolaire", "eso", "sensot"].some((k) => d.senso[k].fait === "oui"),
       bilans: B.TESTS.some((x) => d.tests[x.id].fait === "oui") || d.manip.fait === "oui" || d.dcdq.fait === "oui" || d.tdc.fait === "oui",
       "compte-rendu": d.amenagements.length > 0,
       accueil: A.accueilCommence(d),
@@ -4527,7 +4538,7 @@
     afficherMesDossiers();
     annoncer(reglages.brouillon && ancien ? "Nouveau dossier. Celui de " + ancien + " reste dans « Mes dossiers »." : "Nouveau dossier");
     const champ = $("[data-champ='prenom']");
-    if (champ) champ.focus();
+    if (champ) deplierVers(champ).focus();
   }
 
 
@@ -5170,7 +5181,7 @@
         const premier = dossier.othope.items.length - n;
         remplirFormulaire();
         const champ = $(`[data-chemin="othope.items.${premier}.activite"]`);
-        if (champ) champ.focus();
+        if (champ) deplierVers(champ).focus();
         return;
       }
       case "retirer-precedent": {
@@ -5248,7 +5259,7 @@
         Object.assign(filtres, { enfant: "", periode: "passees", decalage: 0, statut: "prevue", auteur: "", axe: "", lieu: "" });
         sauverFiltres();
         return afficherOnglet("seances");
-      case "regler-verrou": afficherOnglet("reglages"); { const f = $("#reglages-verrou"); if (f) f.scrollIntoView({ block: "start" }); } return;
+      case "regler-verrou": afficherOnglet("reglages"); { const f = $("#reglages-verrou"); if (f) deplierVers(f).scrollIntoView({ block: "start" }); } return;
       case "verrouiller": return verrouiller();
       case "activer-verrou": return activerVerrou();
       case "retirer-verrou": return retirerVerrou();

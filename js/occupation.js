@@ -518,30 +518,6 @@
         ["dormir", "M'endormir le soir", "s'endormir le soir", "🌙", "soins"],
       ],
     },
-    sensoriel: {
-      titre: "Ce que je ressens", sousTitre: "situations sensorielles", deSousTitre: "de situations sensorielles",
-      consigne: "Comment tu trouves ça ?",
-      piles: [
-        { id: "aime", label: "J'aime", emoji: "😊" },
-        { id: "egal", label: "Ça m'est égal", emoji: "😶" },
-        { id: "naime", label: "Je n'aime pas", emoji: "😖" },
-      ],
-      passer: { id: "non", label: "Je ne sais pas", emoji: "🤷" },
-      choix: { consigne: "Choisis 3 choses qui te gênent le plus", piles: ["naime"], max: 3 },
-      cartes: [
-        ["cantine", "Le bruit à la cantine", "le bruit à la cantine", "🍽️", "auditif"], ["sechemains", "Le sèche-mains", "le sèche-mains", "💨", "auditif"],
-        ["bruits", "Les bruits forts (sirène, aspirateur)", "les bruits forts", "🚨", "auditif"], ["classe", "Le bruit en classe", "le bruit en classe", "🗣️", "auditif"],
-        ["etiquettes", "Les étiquettes des vêtements", "les étiquettes des vêtements", "🏷️", "tactile"], ["chaussettes", "Les chaussettes", "les chaussettes", "🧦", "tactile"],
-        ["coiffeur", "Me faire couper les cheveux", "se faire couper les cheveux", "💇", "tactile"], ["cheveux", "Me laver les cheveux", "se laver les cheveux", "🚿", "tactile"],
-        ["mains", "Avoir les mains sales (peinture, colle)", "avoir les mains sales", "🖐️", "tactile"], ["sable", "Marcher pieds nus dans le sable", "marcher pieds nus dans le sable", "🏖️", "tactile"],
-        ["calins", "Les câlins", "les câlins", "🤗", "tactile"], ["surprise", "Être touché par surprise", "être touché par surprise", "👋", "tactile"],
-        ["brosse", "Me brosser les dents", "se brosser les dents", "🪥", "tactile"],
-        ["aliments", "Goûter un nouvel aliment", "goûter un nouvel aliment", "🥦", "gout"], ["odeurs", "Les odeurs fortes", "les odeurs fortes", "👃", "odorat"],
-        ["lumiere", "La lumière forte", "la lumière forte", "☀️", "visuel"], ["foule", "Les endroits avec beaucoup de monde", "les endroits avec beaucoup de monde", "👥", "visuel"],
-        ["manege", "Tourner, faire du manège", "tourner, faire du manège", "🎠", "vestibulaire"], ["grimper", "Sauter et grimper", "sauter et grimper", "🧗", "proprio"],
-        ["voiture", "Les trajets en voiture", "les trajets en voiture", "🚗", "vestibulaire"], ["assis", "Rester assis longtemps", "rester assis longtemps", "🪑", "proprio"],
-      ],
-    },
   };
   Object.keys(JEUX).forEach((k) => {
     JEUX[k].id = k;
@@ -599,7 +575,7 @@
       mcro: { fait: "", date: "", date2: "", repondant: "", problemes: Array.from({ length: NB_MCRO }, problemeVide), notes: "" },
       othope: { fait: "", date: "", selection: [], resultats: [], choix: [], items: Array.from({ length: NB_OTHOPE }, () => ({ activite: "", niveau: "", objectif: "" })), notes: "" },
       dcdq: { fait: "", repondant: "", reponses: {}, notes: "" },
-      cartes: { activites: triVide(), sensoriel: triVide() },
+      cartes: { activites: triVide() },
     };
   }
 
@@ -804,7 +780,6 @@
 
   /* ================= Constats pour le diagnostic ================= */
 
-  const THEMES_RAISONS = { auditif: "aux bruits", tactile: "au toucher", visuel: "aux stimulations visuelles" };
 
   function constats(o, a, ageMois) {
     const c = { personne: [], occupations: [], facteurs: [], objectifs: [], raisons: {}, occ: occupationsAvq(o.avq) };
@@ -847,17 +822,6 @@
       if (diff.length) c.occupations.push("activités que " + a.sujetMin + " trouve difficiles (tri de cartes) : " + joindre(diff));
       ta.choix.map((id) => ta.resultats.find((x) => x.id === id)).filter(Boolean)
         .forEach((x) => c.objectifs.push(maj(x.rapport) + " (activité choisie par " + a.sujetMin + ")"));
-    }
-    const ts = o.cartes.sensoriel;
-    if (ts.fait === "oui" && ts.resultats.length) {
-      const gene = ts.resultats.filter((x) => x.pile === "naime");
-      if (gene.length) c.personne.push("une gêne exprimée par " + a.sujetMin + " pour " + joindre(gene.map((x) => x.rapport)) + " (tri de cartes)");
-      Object.keys(THEMES_RAISONS).forEach((th) => {
-        const xs = gene.filter((x) => x.theme === th);
-        if (xs.length) ajoutRaison(th, "la gêne exprimée face " + THEMES_RAISONS[th] + " (tri de cartes : " + joindre(xs.slice(0, 2).map((x) => x.rapport)) + ")");
-      });
-      const ch = ts.choix.map((id) => ts.resultats.find((x) => x.id === id)).filter(Boolean);
-      if (ch.length) c.objectifs.push("Mieux vivre les situations qui gênent " + a.sujetMin + " : " + joindre(ch.map((x) => x.rapport)));
     }
     return c;
   }

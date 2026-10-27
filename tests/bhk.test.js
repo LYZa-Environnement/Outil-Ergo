@@ -319,9 +319,6 @@ test("OT'Hope et tri de cartes : résultats, objectifs et raisons", () => {
       activites: { fait: "oui", date: "2026-10-20", choix: ["a-lacets"], exclues: [], notes: "", resultats: [
         { id: "a-lacets", enfant: "Faire mes lacets", rapport: "faire ses lacets", emoji: "👟", theme: "soins", pile: "difficile" },
         { id: "a-velo", enfant: "Faire du vélo", rapport: "faire du vélo", emoji: "🚲", theme: "loisirs", pile: "facile" }] },
-      sensoriel: { fait: "oui", date: "", choix: ["s-cantine"], exclues: [], notes: "", resultats: [
-        { id: "s-cantine", enfant: "Le bruit à la cantine", rapport: "le bruit à la cantine", emoji: "", theme: "auditif", pile: "naime" },
-        { id: "s-calins", enfant: "Les câlins", rapport: "les câlins", emoji: "", theme: "tactile", pile: "aime" }] },
     },
   });
   const t = B.rediger(d, reglagesTest());
@@ -330,15 +327,12 @@ test("OT'Hope et tri de cartes : résultats, objectifs et raisons", () => {
   assert.match(t.cartesActivites, /a classé 2 cartes/);
   assert.match(t.cartesActivites, /– Difficile : faire ses lacets\./);
   assert.match(t.cartesActivites, /voudrait mieux réussir : faire ses lacets/);
-  assert.match(t.cartesSensoriel, /Ce que Léa n'aime pas : le bruit à la cantine/);
   assert.match(t.preconisations, /Faire du vélo \(objectif choisi par Léa\)/);
-  assert.match(t.preconisations, /Mieux vivre les situations qui gênent Léa : le bruit à la cantine/);
-  const casque = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "casque");
-  assert.match(casque.raison, /bruits \(tri de cartes/);
   // Les résultats restent lisibles même sans les définitions des cartes.
   const n = B.normaliserDossier(JSON.parse(JSON.stringify(d)));
   assert.equal(n.cartes.activites.resultats[0].rapport, "faire ses lacets");
-  assert.deepEqual(n.cartes.sensoriel.choix, ["s-cantine"]);
+  // Le tri « Ce que je ressens » a été retiré : ses anciennes données sont ignorées.
+  assert.equal(n.cartes.sensoriel, undefined);
 });
 
 test("OT'Hope à l'écran : jeu de cartes, passation, grille et rédaction", () => {
