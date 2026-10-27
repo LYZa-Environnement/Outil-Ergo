@@ -629,6 +629,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--encre); outline:
 @media (min-width: 720px) { .ligne-othope { grid-template-columns: minmax(160px, 1fr) auto auto; } }
 .case-objectif { margin: 0; align-items: center; font-weight: 700; color: var(--encre); }
 .etiquette { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--papier-2); color: var(--gris); font-size: .78rem; }
+.sous-titre-dcdq { margin: .9rem 0 .3rem; font-size: 1rem; }
 .resultat-dcdq { margin: .8rem 0; padding: 8px 12px; border-left: 4px solid var(--seyes); background: var(--papier-2); border-radius: 0 var(--rayon) var(--rayon) 0; }
 .resultat-dcdq:empty { display: none; }
 .resultat-dcdq p { margin: .2rem 0; }

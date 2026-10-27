@@ -463,18 +463,28 @@
 
   function sousFamilleOthope(id) { return SOUS_FAMILLES_OTHOPE.find((s) => s.id === id) || (id === "perso" ? SF_PERSO_OTHOPE : null); }
 
+  // DCDQ-FE : version en français pour l'Europe (Ray-Kaeser, Thommen, Martini, Jover, Gurtner et Bertrand, 2019,
+  // feuille de scores et guide d'administration du 16.09.2019). Les questions ne sont pas reproduites : seuls les
+  // intitulés courts de la feuille de scores servent de repère pour la saisie.
   const NB_DCDQ = 15;
+  const ITEMS_DCDQ = ["", "Lance un ballon", "Attrape une balle", "Frappe une balle, un volant", "Saute par-dessus", "Court vite",
+    "Planifie une activité motrice", "Écrit rapidement", "Écrit lisiblement", "Fournit une pression adaptée", "Découpe",
+    "Aime les activités sportives", "Apprend de nouvelles habiletés", "Rapide et efficace", "Semble adroit", "Reste assis en se tenant droit"];
   const FACTEURS_DCDQ = [
-    { id: "controle", nom: "contrôle pendant le mouvement", items: [1, 2, 3, 4, 5, 12] },
+    { id: "controle", nom: "contrôle durant le mouvement", items: [1, 2, 3, 4, 5, 6] },
     { id: "fine", nom: "motricité fine et écriture", items: [7, 8, 9, 10] },
-    { id: "generale", nom: "coordination générale", items: [6, 11, 13, 14, 15] },
+    { id: "generale", nom: "coordination globale", items: [11, 12, 13, 14, 15] },
   ];
-  // Un total inférieur ou égal au seuil est en faveur d'un trouble développemental de la coordination.
+  // Un total inférieur ou égal à 56 indique un risque de TDC (5 ans 0 mois à 14 ans 11 mois), quel que soit l'âge.
+  // Sensibilité et spécificité par groupe d'âge, avec ce seuil (guide d'administration du DCDQ-FE).
+  const SEUIL_DCDQ = 56;
+  const AGE_DCDQ = { de: 60, a: 179, libelle: "5 ans 0 mois à 14 ans 11 mois" };
   const SEUILS_DCDQ = [
-    { de: 60, a: 95, seuil: 46, libelle: "5 ans à 7 ans 11 mois" },
-    { de: 96, a: 119, seuil: 55, libelle: "8 ans à 9 ans 11 mois" },
-    { de: 120, a: 191, seuil: 57, libelle: "10 à 15 ans" },
+    { de: 60, a: 95, seuil: SEUIL_DCDQ, libelle: "5 ans 0 mois à 7 ans 11 mois", sensibilite: 0.75, specificite: 0.91 },
+    { de: 96, a: 119, seuil: SEUIL_DCDQ, libelle: "8 ans 0 mois à 9 ans 11 mois", sensibilite: 1, specificite: 0.74 },
+    { de: 120, a: 179, seuil: SEUIL_DCDQ, libelle: "10 ans 0 mois à 14 ans 11 mois", sensibilite: 0.83, specificite: 0.81 },
   ];
+  const REF_DCDQ = "Ray-Kaeser S., Thommen E., Martini R., Jover M., Gurtner B., Bertrand A. M. (2019). Psychometric assessment of the French European Developmental Coordination Disorder Questionnaire (DCDQ-FE). PLoS ONE, 14(5), e0217280";
 
   /* ================= Tri de cartes (cartes propres à l'outil) ================= */
 
@@ -682,16 +692,27 @@
     return { problemes: ps, r1: r1, s1: s1, r2: r2, s2: s2, reeval: r2 !== null || s2 !== null };
   }
 
+  // hors : "jeune" ou "age" (au-delà de 14 ans 11 mois) quand l'âge est connu mais hors du champ du DCDQ-FE.
   function calculDcdq(q, ageMois) {
     const rep = q.reponses;
-    const n = Object.keys(rep).length;
+    const n = Object.keys(rep).filter((k) => rep[k] >= 1 && rep[k] <= 5).length;
     const facteurs = FACTEURS_DCDQ.map((f) => ({
       id: f.id, nom: f.nom, total: f.items.reduce((a, i) => a + (rep[i] || 0), 0), max: f.items.length * 5, complet: f.items.every((i) => rep[i]),
+      manquantes: f.items.filter((i) => !rep[i]),
     }));
     const total = facteurs.reduce((a, f) => a + f.total, 0);
     const complet = n === NB_DCDQ;
-    const bande = ageMois === null || ageMois === undefined ? null : SEUILS_DCDQ.find((b) => ageMois >= b.de && ageMois <= b.a) || null;
-    return { n: n, complet: complet, facteurs: facteurs, total: total, bande: bande, indication: complet && bande ? total <= bande.seuil : null };
+    const manquantes = facteurs.reduce((a, f) => a.concat(f.manquantes), []);
+    const connu = ageMois !== null && ageMois !== undefined && !isNaN(ageMois);
+    const bande = connu ? SEUILS_DCDQ.find((b) => ageMois >= b.de && ageMois <= b.a) || null : null;
+    const hors = connu && !bande ? (ageMois < AGE_DCDQ.de ? "jeune" : "age") : null;
+    return { n: n, complet: complet, manquantes: manquantes, facteurs: facteurs, total: total, bande: bande, hors: hors,
+      indication: complet && bande ? total <= bande.seuil : null };
+  }
+
+  // Termes recommandés par le guide du DCDQ-FE pour parler du résultat.
+  function libelleDcdq(c) {
+    return c.indication === true ? "indication d'un risque de TDC" : c.indication === false ? "probablement pas de TDC" : "";
   }
 
   /* ================= Rédaction ================= */
@@ -742,13 +763,22 @@
   function redigerDcdq(q, ageMois) {
     if (q.fait !== "oui") return "";
     const c = calculDcdq(q, ageMois);
-    const l = ["Questionnaire sur le trouble développemental de la coordination (DCDQ), rempli par " + (q.repondant.trim() || "les parents") + " :"];
+    const l = ["Questionnaire sur le développement de la coordination, version en français pour l'Europe (DCDQ-FE), rempli par " + (q.repondant.trim() || "les parents") + ". Les parents comparent la coordination de leur enfant à celle des enfants du même âge (15 questions cotées de 1 à 5 ; un score plus bas signale plus de difficultés)."];
     if (!c.n) { l.push("[Réponses à saisir.]"); return l.join("\n"); }
     c.facteurs.forEach((f) => l.push("– " + maj(f.nom) + " : " + f.total + "/" + f.max + (f.complet ? "" : " (incomplet)") + " ;"));
-    l.push("– Score total : " + c.total + "/75" + (c.complet ? "" : " (" + c.n + " réponses sur 15)") + ".");
-    if (c.indication === true) l.push("Pour un enfant de " + c.bande.libelle + ", ce score est en faveur d'un trouble développemental de la coordination (seuil : " + c.bande.seuil + "). Le DCDQ est un questionnaire de repérage : il oriente sans poser le diagnostic.");
-    else if (c.indication === false) l.push("Pour un enfant de " + c.bande.libelle + ", ce score n'est probablement pas en faveur d'un trouble développemental de la coordination (seuil : " + c.bande.seuil + ").");
-    else if (c.complet) l.push("[Âge à renseigner (5 à 15 ans) pour interpréter le score.]");
+    if (!c.complet) {
+      l.push("– Score total : non calculable (" + c.n + " réponses sur 15).");
+      l.push("[Réponses manquantes : question" + (c.manquantes.length > 1 ? "s " : " ") + joindre(c.manquantes.map(String)) + ". Une donnée manquante empêche de conclure : faire compléter par les parents, ou par une personne qui a vu l'enfant faire l'activité.]");
+    } else {
+      l.push("– Score total : " + c.total + "/75.");
+      const b = c.bande;
+      if (c.indication === true) l.push("Avec un score égal ou inférieur au seuil de " + b.seuil + ", le résultat donne une indication d'un risque de trouble développemental de la coordination (TDC).");
+      else if (c.indication === false) l.push("Avec un score supérieur au seuil de " + b.seuil + ", il n'y a probablement pas de trouble développemental de la coordination (TDC).");
+      else if (c.hors) l.push("[Le DCDQ-FE s'interprète de " + AGE_DCDQ.libelle + " : à cet âge, le score total n'est pas interprétable avec le seuil de " + SEUIL_DCDQ + ".]");
+      else l.push("[Âge à renseigner (" + AGE_DCDQ.libelle + ") pour interpréter le score.]");
+      if (b) l.push("Pour les enfants de " + b.libelle + ", ce seuil a une sensibilité de " + fmt(b.sensibilite, 2) + " et une spécificité de " + fmt(b.specificite, 2) + ".");
+      if (c.indication !== null) l.push("Le DCDQ-FE est un outil de repérage : il ne permet pas, seul, de poser le diagnostic, qui s'appuie sur un test moteur standardisé et d'autres observations. Les scores par catégorie ne disent pas à eux seuls s'il y a un TDC ; comparés entre eux et aux autres évaluations, ils aident à situer les forces et les difficultés motrices.");
+    }
     if (q.notes.trim()) l.push(point(maj(q.notes.trim())));
     return l.join("\n");
   }
@@ -806,7 +836,7 @@
     if (o.dcdq.fait === "oui") {
       const q = calculDcdq(o.dcdq, ageMois);
       if (q.indication === true) {
-        c.personne.push("un questionnaire DCDQ en faveur d'un trouble développemental de la coordination (" + q.total + "/75, seuil " + q.bande.seuil + ")");
+        c.personne.push("une indication d'un risque de trouble développemental de la coordination au DCDQ-FE (" + q.total + "/75, seuil " + q.bande.seuil + ")");
         c.facteurs.push("des difficultés de coordination motrice");
         ajoutRaison("praxies", "les difficultés de coordination rapportées par les parents (DCDQ " + q.total + "/75)");
       }
@@ -840,9 +870,9 @@
   return {
     NIVEAUX_AVQ, DOMAINES_AVQ, ITEMS_AVQ, AIDE_AVQ,
     FREQ_AVQP, DOMAINES_AVQP, LIBELLES_AVQP, MAX_AVQP, SENS_AVQP, sensAvqp, libellesAvqp, nbQuestionsAvqp, avqParentsVide, normaliserAvqParents, depuisChampsAvqParents,
-    specAvqParents, classeAvqp, analyseAvqParents, redigerAvqParents, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, FACTEURS_DCDQ, SEUILS_DCDQ,
+    specAvqParents, classeAvqp, analyseAvqParents, redigerAvqParents, NB_MCRO, SEUIL_MCRO, NIVEAUX_OTHOPE, NB_OTHOPE, MAX_OTHOPE, NB_DCDQ, ITEMS_DCDQ, FACTEURS_DCDQ, SEUIL_DCDQ, SEUILS_DCDQ, AGE_DCDQ, REF_DCDQ,
     JEUX, MAX_CARTES_PERSO, FAMILLES_OTHOPE, SOUS_FAMILLES_OTHOPE, CARTES_OTHOPE, PILES_OTHOPE, RETIREE_OTHOPE, JEU_OTHOPE,
     MAX_OBJECTIFS_OTHOPE, CONSEIL_OTHOPE, cartesOthope, sousFamilleOthope, itemsOthope, pilesDe, cartesDuJeu, normaliserCartesPerso, problemeVide,
-    vide, normaliser, calculMcro, calculDcdq, phraseAvq, occupationsAvq, redigerMcro, redigerOthope, redigerDcdq, redigerCartes, constats, commence,
+    vide, normaliser, calculMcro, calculDcdq, libelleDcdq, phraseAvq, occupationsAvq, redigerMcro, redigerOthope, redigerDcdq, redigerCartes, constats, commence,
   };
 });

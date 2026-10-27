@@ -1105,7 +1105,7 @@
     "bhk-criteres": "Score de chaque critère du BHK",
     manos: "Man.O.S : écart à la moyenne, outil par outil",
     mcro: "MCRO : rendement et satisfaction",
-    dcdq: "DCDQ : scores par facteur",
+    dcdq: "DCDQ-FE : scores par catégorie",
     evolution: "Évolution des résultats depuis le bilan précédent",
   };
   const LARGEURS_GRAPHIQUES = {
@@ -1432,7 +1432,7 @@
     if (Object.keys(d.avq).length) l.push("la grille d'autonomie");
     if (d.mcro.fait === "oui") l.push("la MCRO");
     if (d.othope.fait === "oui") l.push("l'OT'Hope");
-    if (d.dcdq.fait === "oui") l.push("le DCDQ");
+    if (d.dcdq.fait === "oui") l.push("le DCDQ-FE");
     if (d.cartes.activites.fait === "oui" || d.cartes.sensoriel.fait === "oui") l.push("les tris de cartes");
     return l;
   }
@@ -1478,7 +1478,7 @@
     // Critère II : retentissement sur les activités quotidiennes, scolaires et de loisirs.
     const preuves = [];
     const q = Occup.calculDcdq(d.dcdq, am);
-    if (d.dcdq.fait === "oui" && q.indication === true) preuves.push("DCDQ en faveur (" + q.total + "/75)");
+    if (d.dcdq.fait === "oui" && q.indication === true) preuves.push("indication d'un risque de TDC au DCDQ-FE (" + q.total + "/75)");
     const aide = Occup.ITEMS_AVQ.filter((it) => Occup.AIDE_AVQ.indexOf(d.avq[it.id]) >= 0).length;
     if (aide) preuves.push("besoin d'aide pour " + aide + " activité" + (aide > 1 ? "s" : "") + " de la grille d'autonomie");
     const occ = occupationsRetenues(d, propositionsDiagnostic(d, reg)).map((o) => o.texte);
@@ -1487,8 +1487,8 @@
     if (d.mcro.fait === "oui" && mc.problemes.length) preuves.push("activités prioritaires à la MCRO");
     let II;
     if (preuves.length) II = { etat: "oui", texte: joindre(preuves) };
-    else if (d.dcdq.fait === "oui" && q.indication === false) II = { etat: "non", texte: "DCDQ non en faveur, sans retentissement relevé par ailleurs" };
-    else II = { etat: "?", texte: "retentissement à documenter (DCDQ, grille d'autonomie, entretien)" };
+    else if (d.dcdq.fait === "oui" && q.indication === false) II = { etat: "non", texte: "DCDQ-FE : probablement pas de TDC, sans retentissement relevé par ailleurs" };
+    else II = { etat: "?", texte: "retentissement à documenter (DCDQ-FE, grille d'autonomie, entretien)" };
     // Critères III et IV : renseignés par l'ergothérapeute.
     const III = d.tdc.debut === "oui" ? { etat: "oui", texte: "difficultés motrices présentes depuis la petite enfance" }
       : d.tdc.debut === "non" ? { etat: "non", texte: "début des difficultés plus tardif" } : { etat: "?", texte: "à préciser à l'anamnèse" };
@@ -1635,7 +1635,7 @@
       if (d.cartes.activites.fait === "oui") l.push("Tri de cartes sur écran : activités du quotidien");
       if (d.cartes.sensoriel.fait === "oui") l.push("Tri de cartes sur écran : situations sensorielles");
       if (d.clavier.fait === "oui") l.push("EViC : évaluation de la vitesse de frappe au clavier (" + Clavier.SOURCE.court + ")");
-      if (d.dcdq.fait === "oui") l.push("DCDQ : questionnaire sur le trouble développemental de la coordination, rempli par " + (d.dcdq.repondant.trim() || "les parents"));
+      if (d.dcdq.fait === "oui") l.push("DCDQ-FE : questionnaire sur le développement de la coordination (version en français pour l'Europe), rempli par " + (d.dcdq.repondant.trim() || "les parents"));
       if (d.tdc.fait === "oui") l.push("Repères des recommandations internationales sur le TDC (" + SOURCE_TDC.court + ")");
       lignesDe(d.bilansLibre).forEach((x) => l.push(maj(x)));
       out.bilans = l.length ? l.map((x) => "– " + x).join("\n") : "[Bilans utilisés à compléter.]";
@@ -2285,8 +2285,8 @@
     if (d && d.dcdq.fait === "oui") {
       const q = Occup.calculDcdq(d.dcdq, ageMois(d));
       if (q.complet) {
-        const app = q.indication === true ? "En faveur d'un TDC" : q.indication === false ? "Probablement pas de TDC" : "Âge à renseigner";
-        lignes.push({ cellules: [cellule("DCDQ", { gras: true }), cellule("Score total"), cellule(q.total + "/75", { align: "center" }), cellule("–", { align: "center" }),
+        const app = q.indication === true ? "Risque de TDC" : q.indication === false ? "Probablement pas de TDC" : q.hors ? "Hors âge (5-14 ans 11 mois)" : "Âge à renseigner";
+        lignes.push({ cellules: [cellule("DCDQ-FE", { gras: true }), cellule("Score total"), cellule(q.total + "/75", { align: "center" }), cellule("–", { align: "center" }),
           cellule([{ t: app }].concat(q.bande ? [{ t: " – seuil " + q.bande.seuil, i: true }] : []), { fond: q.indication === true ? "niveau-patho" : q.indication === false ? "niveau-moyenne" : null })] });
       }
     }

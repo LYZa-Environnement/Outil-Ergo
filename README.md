@@ -81,7 +81,7 @@ Le compte rendu reprend les colonnes, le nombre de cartes retirées, les souhait
 
 ### Réévaluation
 
-« Charger le bilan précédent » garde les mesures comparables du dossier précédent (BHK, épreuves des autres bilans, moyennes de la MCRO, DCDQ). Le compte rendu ajoute une section « Évolution » avec un tableau ; une évolution est retenue à partir de 0,5 DS (2 points pour la MCRO). Si le dossier en cours est vide, l'identité, l'anamnèse et les activités de la MCRO sont reprises.
+« Charger le bilan précédent » garde les mesures comparables du dossier précédent (BHK, épreuves des autres bilans, moyennes de la MCRO, DCDQ-FE). Le compte rendu ajoute une section « Évolution » avec un tableau ; une évolution est retenue à partir de 0,5 DS (2 points pour la MCRO). Si le dossier en cours est vide, l'identité, l'anamnèse et les activités de la MCRO sont reprises.
 
 ### Synthèse pour l'école
 
@@ -165,11 +165,23 @@ Sous la photo de la copie du BHK, « Analyser la photo » mesure la copie **sur 
 
 Conditions : feuille A4 entière, à plat, photographiée de face, bien éclairée, sur un fond plus sombre que la feuille. Pour le critère 2, les points ne sont proposés que si le fichier de normes contient les pentes des lignes du calque B (clé `calques.margeB`, cinq nombres croissants, voir Normes).
 
+### DCDQ-FE (questionnaire sur le développement de la coordination)
+
+Dans Bilans › Moteur et autres. L'outil suit la **version en français pour l'Europe** (Ray-Kaeser, Thommen, Martini, Jover, Gurtner et Bertrand, 2019, guide d'administration et feuille de scores du 16.09.2019 ; *PLoS ONE* 14(5), e0217280) :
+
+- 15 réponses de 1 (« pas du tout ») à 5 (« tout à fait »), saisies question par question sous l'intitulé court de la feuille de scores (les questions ne sont pas reproduites) ;
+- trois catégories : contrôle durant le mouvement (questions 1 à 6, /30), motricité fine et écriture (7 à 10, /20), coordination globale (11 à 15, /25) ; total /75 ;
+- de 5 ans 0 mois à 14 ans 11 mois, un seul seuil : **total ≤ 56 = indication d'un risque de TDC**, total ≥ 57 = probablement pas de TDC. Hors de cet âge, le score est affiché mais pas interprété ;
+- le score total n'est calculé que si les 15 réponses sont saisies : l'outil indique les questions manquantes ;
+- le compte rendu reprend les termes recommandés par le guide (« indication d'un risque de TDC », « probablement pas de TDC »), la sensibilité et la spécificité du seuil pour le groupe d'âge de l'enfant (5-7 ans : 0,75 / 0,91 ; 8-9 ans : 1,00 / 0,74 ; 10-14 ans : 0,83 / 0,81), et rappelle qu'il s'agit d'un repérage à confirmer par un test moteur standardisé.
+
+Les dossiers saisis avant cette mise à jour gardent leurs réponses (même numérotation) ; seuls les regroupements et le seuil sont recalculés.
+
 ### Repères TDC (ajout)
 
 Dans Bilans › Moteur et autres, un encadré clairement signalé comme **ajout à titre indicatif** reprend les critères des recommandations internationales sur le trouble développemental de la coordination : Blank R., Barnett A. L., Cairney J. et al., *International clinical practice recommendations on the definition, diagnosis, assessment, intervention, and psychosocial aspects of developmental coordination disorder*, Developmental Medicine & Child Neurology, 2019, 61(3), 242-285, https://doi.org/10.1111/dmcn.14132.
 
-Les critères I (MABC-3 au 16e percentile ou moins, 5e avant 5 ans) et II (DCDQ, grille d'autonomie, MCRO) sont renseignés d'après les résultats saisis ; l'ergothérapeute renseigne les critères III (début dans la petite enfance) et IV (autres causes écartées par le médecin). Le compte rendu ajoute un paragraphe marqué « Ajout, à titre indicatif », avec la source, et rappelle que le diagnostic est médical. Le plan de suivi rappelle les interventions recommandées (approches centrées sur l'activité, comme CO-OP ou l'entraînement aux tâches).
+Les critères I (MABC-3 au 16e percentile ou moins, 5e avant 5 ans) et II (DCDQ-FE, grille d'autonomie, MCRO) sont renseignés d'après les résultats saisis ; l'ergothérapeute renseigne les critères III (début dans la petite enfance) et IV (autres causes écartées par le médecin). Le compte rendu ajoute un paragraphe marqué « Ajout, à titre indicatif », avec la source, et rappelle que le diagnostic est médical. Le plan de suivi rappelle les interventions recommandées (approches centrées sur l'activité, comme CO-OP ou l'entraînement aux tâches).
 
 ### Man.O.S (manipulation des outils scolaires)
 

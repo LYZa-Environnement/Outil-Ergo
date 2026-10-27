@@ -228,19 +228,35 @@ test("le fichier Word est une archive ZIP valide", () => {
 
 const O = require("../js/occupation.js");
 
-test("DCDQ : facteurs, total et seuil selon l'âge", () => {
+test("DCDQ-FE : catégories de la feuille de scores, seuil 56 et âges", () => {
   const rep = {};
   for (let i = 1; i <= 15; i++) rep[i] = 3;
   const q = O.calculDcdq({ reponses: rep }, 8 * 12 + 7);
+  assert.deepEqual(O.FACTEURS_DCDQ.map((f) => f.items), [[1, 2, 3, 4, 5, 6], [7, 8, 9, 10], [11, 12, 13, 14, 15]]);
   assert.deepEqual(q.facteurs.map((f) => [f.total, f.max]), [[18, 30], [12, 20], [15, 25]]);
   assert.equal(q.total, 45);
-  assert.equal(q.bande.seuil, 55);
+  assert.equal(q.bande.seuil, 56);
+  assert.equal(q.bande.sensibilite, 1);
   assert.equal(q.indication, true);
-  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, true); // 45 ≤ 46
-  rep[1] = 5; rep[2] = 5;
-  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, false); // 49 > 46
+  // 56 : risque ; 57 : probablement pas de TDC, quel que soit le groupe d'âge
+  for (let i = 1; i <= 11; i++) rep[i] = 4;
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).total, 56);
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, true);
+  rep[12] = 4;
+  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, false);
+  assert.equal(O.calculDcdq({ reponses: rep }, 12 * 12).indication, false);
+  assert.equal(O.libelleDcdq(O.calculDcdq({ reponses: rep }, 12 * 12)), "probablement pas de TDC");
+  // hors âge : avant 5 ans, à partir de 15 ans
+  assert.equal(O.calculDcdq({ reponses: rep }, 4 * 12 + 11).hors, "jeune");
+  assert.equal(O.calculDcdq({ reponses: rep }, 14 * 12 + 11).hors, null);
+  assert.equal(O.calculDcdq({ reponses: rep }, 15 * 12).hors, "age");
+  assert.equal(O.calculDcdq({ reponses: rep }, 15 * 12).indication, null);
+  // réponse manquante : pas de conclusion
   delete rep[3];
-  assert.equal(O.calculDcdq({ reponses: rep }, 6 * 12).indication, null); // incomplet
+  const inc = O.calculDcdq({ reponses: rep }, 6 * 12);
+  assert.equal(inc.indication, null);
+  assert.deepEqual(inc.manquantes, [3]);
+  assert.match(O.redigerDcdq({ fait: "oui", repondant: "", notes: "", reponses: rep }, 6 * 12), /non calculable \(14 réponses sur 15\)[\s\S]*question 3/);
   assert.equal(O.calculDcdq({ reponses: rep }, null).bande, null);
 });
 
@@ -250,13 +266,15 @@ test("DCDQ : constat, raison praxies et ligne du tableau récapitulatif", () => 
   const d = dossierTest({ dcdq: { fait: "oui", repondant: "la maman", reponses: rep, notes: "" } });
   const t = B.rediger(d, reglagesTest());
   assert.match(t.complementaires, /Score total : 30\/75/);
-  assert.match(t.complementaires, /en faveur d'un trouble développemental de la coordination \(seuil : 55\)/);
-  assert.match(t.conclusion, /DCDQ en faveur/);
+  assert.match(t.complementaires, /indication d'un risque de trouble développemental de la coordination/);
+  assert.match(t.complementaires, /seuil de 56/);
+  assert.match(t.complementaires, /sensibilité de 1,00 et une spécificité de 0,74/);
+  assert.match(t.conclusion, /risque de trouble développemental de la coordination au DCDQ-FE/);
   const p = B.proposerPreconisations(d, reglagesTest()).find((x) => x.id === "reed-praxies");
   assert.match(p.raison, /DCDQ 30\/75/);
   const m = B.modeleDocument(d, reglagesTest());
   const recap = m.blocs.filter((b) => b.type === "tableau").map((b) => JSON.stringify(b)).join("");
-  assert.match(recap, /En faveur d'un TDC/);
+  assert.match(recap, /Risque de TDC/);
 });
 
 test("MCRO : moyennes, réévaluation et tableau", () => {

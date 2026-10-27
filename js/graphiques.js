@@ -375,7 +375,7 @@
     const lab = 260, larg = 340, L = lab + larg + 90, h = 34, haut = 46;
     const lignes = d.facteurs.concat([{ nom: "Score total", total: d.total, max: 75, min: 15, seuil: d.seuil }]);
     const H = haut + lignes.length * h + 34;
-    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">DCDQ : scores par facteur</text>`;
+    let c = `<text x="${L / 2}" y="26" font-size="16" font-weight="700" fill="#111" text-anchor="middle">DCDQ-FE : scores par catégorie</text>`;
     lignes.forEach((f, i) => {
       const y = haut + i * h, mn = f.min || 0, X = (v) => lab + ((v - mn) / (f.max - mn)) * larg;
       const total = i === lignes.length - 1;
@@ -388,8 +388,8 @@
       }
       c += `<text x="${lab + larg + 8}" y="${y + 21}" font-size="12.5" font-weight="700" fill="#222">${f.total}/${f.max}</text>`;
     });
-    c += `<text x="${L / 2}" y="${H - 6}" font-size="10.5" fill="#555" text-anchor="middle">Un score plus bas signale plus de difficultés de coordination rapportées.</text>`;
-    return { svg: svg(L, H, c, "Graphique du DCDQ"), l: L, h: H };
+    c += `<text x="${L / 2}" y="${H - 6}" font-size="10.5" fill="#555" text-anchor="middle">Un score plus bas signale plus de difficultés rapportées. Total ≤ 56 : indication d'un risque de TDC (repérage, pas un diagnostic).</text>`;
+    return { svg: svg(L, H, c, "Graphique du DCDQ-FE"), l: L, h: H };
   }
 
   function evolution(d) {

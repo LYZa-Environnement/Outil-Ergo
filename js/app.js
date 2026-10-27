@@ -895,15 +895,17 @@
   }
 
   function construireDcdq() {
-    const facteur = (n) => O.FACTEURS_DCDQ.find((f) => f.items.indexOf(n) >= 0);
     let h = `${champTexte("Rempli par", "dcdq.repondant", 'placeholder="les parents"')}
-      <p class="note">Reportez la réponse (1 à 5) de chaque question, dans l'ordre de la feuille de réponses. Les questions ne sont pas reproduites.</p>`;
-    for (let n = 1; n <= O.NB_DCDQ; n++) {
-      h += `<div class="item-grille item-dcdq"><span class="item-label">Question ${n} <span class="etiquette">${esc(facteur(n).nom)}</span></span>
+      <p class="note">Version en français pour l'Europe (DCDQ-FE, 2019). Reportez la réponse cochée par les parents, de 1 (« pas du tout ») à 5 (« tout à fait »), dans l'ordre du questionnaire. Les questions ne sont pas reproduites : l'intitulé court de la feuille de scores sert de repère. Les 15 réponses sont nécessaires pour calculer le score total. La feuille de scores ne se remet pas aux parents.</p>`;
+    O.FACTEURS_DCDQ.forEach((f) => {
+      h += `<h4 class="sous-titre-dcdq">${esc(B.maj(f.nom))} <span class="etiquette">/${f.items.length * 5}</span></h4>`;
+      f.items.forEach((n) => {
+        h += `<div class="item-grille item-dcdq"><span class="item-label">${n}. ${esc(O.ITEMS_DCDQ[n])}</span>
         ${pastilles("dcdq-" + n, "dcdq.reponses." + n, [1, 2, 3, 4, 5].map((v) => [String(v), String(v)]))}</div>`;
-    }
+      });
+    });
     h += `<div class="resultat-dcdq" id="dcdq-resultat" aria-live="polite"></div>${champZone("Observations", "dcdq.notes")}`;
-    $("#dcdq").innerHTML = blocRealise("dcdq", "DCDQ : questionnaire sur le trouble développemental de la coordination", "dcdq", h) +
+    $("#dcdq").innerHTML = blocRealise("dcdq", "DCDQ-FE : questionnaire sur le développement de la coordination (5-15 ans)", "dcdq", h) +
       blocRealise("tdc", "Repères TDC : recommandations internationales (ajout)", "tdc", `
         <p class="ajout"><strong>Ajout fondé sur une recommandation, à titre indicatif.</strong> Les recommandations internationales sur le trouble développemental de la coordination (${esc(B.SOURCE_TDC.court)}) décrivent quatre critères. L'outil les renseigne avec les résultats saisis (MABC-3, DCDQ, grille d'autonomie, MCRO) ; vous complétez les critères III et IV. Le diagnostic reste médical.
           <a href="${B.SOURCE_TDC.lien}" target="_blank" rel="noopener">Lire la source</a></p>
@@ -2042,12 +2044,15 @@
     const zone = $("#dcdq-resultat");
     if (!q.n) zone.innerHTML = "";
     else {
-      const interp = q.indication === true ? `<span class="niveau">En faveur d'un trouble développemental de la coordination (seuil ${q.bande.seuil}, ${esc(q.bande.libelle)})</span>`
-        : q.indication === false ? `<span class="niveau">Probablement pas de trouble développemental de la coordination (seuil ${q.bande.seuil})</span>`
-        : !q.complet ? `${q.n} réponses sur 15` : "Renseignez les dates de naissance et du bilan (5 à 15 ans).";
+      const interp = q.indication === true ? `<span class="niveau">Indication d'un risque de TDC (score ≤ ${q.bande.seuil})</span>`
+        : q.indication === false ? `<span class="niveau">Probablement pas de TDC (score > ${q.bande.seuil})</span>`
+        : !q.complet ? `non calculable : ${q.n} réponses sur 15 (manque${q.manquantes.length > 1 ? "nt les questions" : " la question"} ${q.manquantes.join(", ")})`
+        : q.hors ? `non interprétable : le DCDQ-FE s'utilise de ${esc(O.AGE_DCDQ.libelle)}`
+        : `Renseignez les dates de naissance et du bilan (${esc(O.AGE_DCDQ.libelle)}).`;
+      const valid = q.complet && q.bande ? `<p class="note">${esc(q.bande.libelle)} : sensibilité ${B.formaterNombre(q.bande.sensibilite, 2)}, spécificité ${B.formaterNombre(q.bande.specificite, 2)}. Repérage seulement : un test moteur standardisé reste nécessaire.</p>` : "";
       zone.className = "resultat-dcdq" + (q.indication === true ? " niveau-patho" : q.indication === false ? " niveau-moyenne" : "");
       zone.innerHTML = `<p>${q.facteurs.map((x) => esc(B.maj(x.nom)) + " : <strong>" + x.total + "/" + x.max + "</strong>").join(" · ")}</p>
-        <p>Score total : <strong>${q.total}/75</strong> · ${interp}</p>`;
+        <p>Score total : <strong>${q.complet ? q.total + "/75" : "–"}</strong> · ${interp}</p>${valid}`;
     }
     majCartes(d);
     majOthope();
