@@ -1067,3 +1067,34 @@ test("diagnostic ergothérapique pré-rempli : propositions expliquées, occupat
   assert.ok(!/la toilette et les soins personnels/.test(t.split("Diagnostic ergothérapique :")[1]));
   assert.match(t, /Ce diagnostic s'appuie sur .*l'ESO.*le questionnaire d'autonomie rempli par les parents/);
 });
+
+test("SensOT-dir : jeu de cartes (74 cartes, plateaux, gabarit, sensations, réglette)", () => {
+  const S = require("../js/sensoriel.js");
+  assert.equal(S.CARTES_SENSOT.length, 74);
+  assert.equal(S.SENSATIONS_SENSOT.length, 12);
+  assert.equal(new Set(S.CARTES_SENSOT.map((c) => c.id)).size, 74);
+  const d = B.dossierVide();
+  Object.assign(d, { prenom: "Léa", sexe: "F" });
+  const t = d.senso.sensot;
+  t.fait = "oui"; t.date = "2026-10-27";
+  t.cartes = {
+    "a-cantine": { p1: "gene", freq: "toujours", precisions: "surtout quand les plateaux tombent" },
+    "t-details": { p1: "gene", freq: "parfois" }, "m-joue": { p1: "aime" }, "v-ecrans": { p1: "pasgene" }, "o-ville": { p1: "nc" },
+  };
+  t.genes = [{ carte: "a-cantine", sensation: "fatigue", intensite: "8", preco: "casque antibruit à la cantine" }];
+  t.plaisirs = [{ carte: "m-joue", effet: "dynamise", preco: "" }];
+  // Un dossier enregistré puis rechargé garde le jeu
+  const n = S.normaliser(JSON.parse(JSON.stringify(d.senso)));
+  assert.equal(n.sensot.cartes["a-cantine"].freq, "toujours");
+  assert.equal(n.sensot.genes[0].intensite, "8");
+  const txt = B.rediger(d, B.reglagesParDefaut()).sensot;
+  assert.match(txt, /Léa a classé 5 situations sensorielles/);
+  assert.match(txt, /Situations gênantes \(2\) : auditif : bruits dans la cantine \(presque toujours\) ; tactile : les détails de mes vêtements \(parfois\)\./);
+  assert.match(txt, /« Bruits dans la cantine » \(auditif, à l'école\) : gêne presque toujours, « ça fatigue », intensité 8\/10\. Surtout quand les plateaux tombent\. Préconisation : casque antibruit à la cantine\./);
+  assert.match(txt, /« Mouvements quand je joue » \(vestibulaire et proprioceptif, à l'école\) : « ça dynamise »\./);
+  assert.match(txt, /non concernée : 1/);
+  const th = S.themesSensot(t);
+  assert.equal(th.find((x) => x.id === "auditif").gene, 1);
+  const c = S.constats(d.senso);
+  assert.ok(c.objectifs.indexOf("Casque antibruit à la cantine") >= 0);
+});

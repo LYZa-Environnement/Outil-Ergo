@@ -516,27 +516,113 @@
     }
   }
 
+  function optionsCartesSensot(chemin, vide) {
+    return `<select data-chemin="${chemin}"><option value="">${esc(vide || "–")}</option>${S.THEMES_SENSOT.map((t) =>
+      `<optgroup label="${esc(t.nom)}">${S.CARTES_SENSOT.filter((c) => c.theme === t.id).map((c) => `<option value="${c.id}">${esc(c.nom)}</option>`).join("")}</optgroup>`).join("")}</select>`;
+  }
+
   function htmlSensot() {
     const c = "senso.sensot";
-    let h = `${champDate("Date", c + ".date")}
-      <h4 class="sous-groupe">Classement des cartes par thème</h4>
+    const p1 = S.PLATEAU1_SENSOT.map((x) => [x.id, x.court]);
+    const fr = S.FREQUENCES_SENSOT.map((x) => [x.id, x.id === "nsp" ? "Ne sait pas" : x.label]);
+    const sens = S.SENSATIONS_SENSOT.map((x) => [x.id, x.label]);
+    const grille = S.THEMES_SENSOT.map((t) => {
+      const cartes = S.CARTES_SENSOT.filter((x) => x.theme === t.id);
+      const contextes = S.CONTEXTES_SENSOT.filter((k) => cartes.some((x) => x.contexte === k));
+      return `<details class="sensot-theme" data-theme-sensot="${t.id}"><summary>${esc(t.nom)} <small class="sensot-compte" id="sensot-compte-${t.id}"></small></summary>
+        <div class="defile"><table class="table-saisie table-sensot"><thead><tr><th scope="col">Situation</th><th scope="col">Plateau 1</th><th scope="col">Fréquence (plateau 2)</th><th scope="col">Précisions apportées dans les échanges</th><th scope="col">Gabarit</th></tr></thead><tbody>
+        ${contextes.map((k) => (contextes.length > 1 || k !== "Divers" ? `<tr class="sensot-contexte"><th colspan="5" scope="colgroup">${esc(k)}</th></tr>` : "") +
+          cartes.filter((x) => x.contexte === k).map((x) => `<tr><th scope="row"><span aria-hidden="true">${esc(x.emoji)}</span> ${esc(x.nom)}</th>
+            <td>${liste(c + ".cartes." + x.id + ".p1", p1)}</td><td>${liste(c + ".cartes." + x.id + ".freq", fr)}</td>
+            <td><input type="text" data-chemin="${c}.cartes.${x.id}.precisions" aria-label="Précisions, ${esc(x.nom)}"></td>
+            <td><output class="sensot-objectif" data-carte-objectif="${x.id}"></output></td></tr>`).join("")).join("")}
+        </tbody></table></div></details>`;
+    }).join("");
+    let genes = "", plaisirs = "";
+    for (let i = 0; i < S.NB_PRIORITES; i++) {
+      const g = c + ".genes." + i, q = c + ".plaisirs." + i;
+      genes += `<tr><th scope="row">${i + 1}</th><td>${optionsCartesSensot(g + ".carte")}</td><td>${liste(g + ".sensation", sens)}</td>
+        <td>${liste(g + ".intensite", Array.from({ length: S.INTENSITE_MAX_SENSOT }, (_, k) => [String(k + 1), String(k + 1)]))}</td>
+        <td><input type="text" data-chemin="${g}.preco" aria-label="Préconisations, situation ${i + 1}"></td></tr>`;
+      plaisirs += `<tr><th scope="row">${i + 1}</th><td>${optionsCartesSensot(q + ".carte")}</td><td>${liste(q + ".effet", sens)}</td>
+        <td><input type="text" data-chemin="${q}.preco" aria-label="Préconisations, stimulation ${i + 1}"></td></tr>`;
+    }
+    return `${champDate("Date", c + ".date")}
+      <p class="note">L'enfant passe le jeu de cartes sur la tablette en suivant le protocole du livret : plateau 1, plateau 2 (fréquence), choix de 5 situations au gabarit, cartes « sensations », réglette de 1 à 10, puis stimulations plaisantes et leur effet. Les intitulés des cartes sont ceux du jeu ; les illustrations restent celles de votre coffret. Vous pouvez aussi reporter ici le tri fait avec les cartes papier.</p>
+      <div class="barre-actions">
+        <button type="button" class="bouton" data-action="lancer-sensot">Lancer le jeu de cartes avec l'enfant</button>
+        <button type="button" class="bouton-lien" data-action="effacer-sensot" hidden>Effacer le jeu</button>
+      </div>
+      <p class="calcule" id="sensot-resume"></p>
+      <h4 class="sous-groupe">Grilles de cotation</h4>
+      <div class="sensot-grilles">${grille}</div>
+      <h4 class="sous-groupe">Tableau de cotation : intervention, gêne</h4>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">N°</th><th scope="col">Carte choisie</th><th scope="col">Type de gêne</th><th scope="col">Intensité (1 à 10)</th><th scope="col">Préconisations</th></tr></thead><tbody>${genes}</tbody></table></div>
+      <h4 class="sous-groupe">Tableau de cotation : intervention, auto-régulation</h4>
+      <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">N°</th><th scope="col">Stimulation plaisante</th><th scope="col">Effet d'auto-régulation</th><th scope="col">Préconisations</th></tr></thead><tbody>${plaisirs}</tbody></table></div>
+      <details class="sensot-ancien" id="sensot-ancien" hidden><summary>Saisie de l'ancienne version (avant le jeu de cartes)</summary>${htmlSensotAncien()}</details>
+      ${champZone("Observations", c + ".notes")}`;
+  }
+
+  function htmlSensotAncien() {
+    const c = "senso.sensot";
+    let h = `<p class="note">Ce dossier a été rempli avec l'ancienne saisie. Elle reste utilisée pour le compte rendu tant que le jeu de cartes n'est pas rempli.</p>
       <div class="defile"><table class="table-saisie"><thead><tr><th scope="col">Thème</th><th scope="col">Gêne</th><th scope="col">Sans gêne</th><th scope="col">Plaisir</th></tr></thead><tbody>
       ${S.THEMES_SENSOT.map((t) => `<tr><th scope="row">${esc(t.nom)}</th>${["gene", "neutre", "plaisir"].map((k) => `<td><input type="text" inputmode="numeric" data-chemin="${c}.themes.${t.id}.${k}" aria-label="${esc(t.nom)}, ${k}"></td>`).join("")}</tr>`).join("")}
-      </tbody></table></div>
-      <h4 class="sous-groupe">Situations prioritaires (5 au plus)</h4>`;
+      </tbody></table></div>`;
     for (let i = 0; i < S.NB_PRIORITES; i++) {
       const p = c + ".priorites." + i;
       h += `<div class="priorite">
-        ${champTexte("Situation " + (i + 1), p + ".situation", 'placeholder="telle qu\'écrite sur la carte"')}
+        ${champTexte("Situation " + (i + 1), p + ".situation")}
         <div class="grille3">
-          <label class="champ"><span>Thème</span>${liste(p + ".theme", S.THEMES_SENSOT.map((t) => [t.id, t.nom]))}</label>
-          <label class="champ"><span>Contexte</span>${liste(p + ".contexte", S.CONTEXTES_SENSOT.map((x) => [x, x]))}</label>
-          <label class="champ"><span>Fréquence de la gêne</span>${liste(p + ".frequence", S.FREQUENCES_SENSOT.map((x) => [x, B.maj(x)]))}</label>
-          <label class="champ"><span>Intensité (1 à 5)</span>${liste(p + ".intensite", [1, 2, 3, 4, 5].map((x) => [String(x), String(x)]))}</label>
+          ${champTexte("Fréquence", p + ".frequence")}${champTexte("Intensité (1 à 5)", p + ".intensite")}
           ${champTexte("Ressenti", p + ".ressenti")}${champTexte("Objectif", p + ".objectif")}
         </div></div>`;
     }
-    return h + champZone("Observations", c + ".notes");
+    return h;
+  }
+
+  function majSensot(d) {
+    const t = d.senso.sensot;
+    const jeu = S.sensotJeu(t);
+    $("[data-action='effacer-sensot']").hidden = !jeu;
+    $("[data-action='lancer-sensot']").textContent = jeu ? "Refaire le jeu de cartes avec l'enfant" : "Lancer le jeu de cartes avec l'enfant";
+    $("#sensot-ancien").hidden = !S.sensotAncien(t);
+    const cartes = S.cartesSensot(t);
+    const n = (k) => cartes.filter((x) => x.p1 === k).length;
+    const classees = cartes.filter((x) => x.p1).length;
+    $("#sensot-resume").textContent = classees ? classees + " cartes sur " + cartes.length + " classées : " + S.PLATEAU1_SENSOT.map((p) => p.court.toLowerCase() + " " + n(p.id)).join(", ") + "." : "";
+    S.THEMES_SENSOT.forEach((th) => {
+      const xs = cartes.filter((x) => x.theme === th.id);
+      const g = xs.filter((x) => x.p1 === "gene").length, a = xs.filter((x) => x.p1 === "aime").length, k = xs.filter((x) => x.p1).length;
+      $("#sensot-compte-" + th.id).textContent = k ? "(" + k + "/" + xs.length + " · gêne " + g + ", j'aime " + a + ")" : "(" + xs.length + " cartes)";
+    });
+    $$("[data-carte-objectif]").forEach((o) => {
+      const x = cartes.find((y) => y.id === o.dataset.carteObjectif);
+      o.textContent = x.objectif >= 0 ? "★ n° " + (x.objectif + 1) : t.plaisirs.some((p) => p.carte === x.id) ? "♥ plaisante" : "";
+    });
+  }
+
+  async function lancerSensot() {
+    const t = dossier.senso.sensot;
+    if (!window.SensotJeu) return;
+    if (S.sensotJeu(t) && !(await demander("Refaire le jeu de cartes ? Le classement et les choix actuels seront remplacés (les précisions et préconisations déjà écrites sont gardées).", "Refaire le jeu"))) return;
+    const res = await window.SensotJeu.lancer({ prenom: dossier.prenom });
+    if (!res) { annoncer("Jeu arrêté, aucune carte rangée."); return; }
+    const avant = t.cartes;
+    t.cartes = {};
+    Object.keys(res.cartes).forEach((id) => { t.cartes[id] = { p1: res.cartes[id].p1, freq: res.cartes[id].freq, precisions: (avant[id] && avant[id].precisions) || "" }; });
+    Object.keys(avant).forEach((id) => { if (!t.cartes[id] && avant[id].precisions) t.cartes[id] = { p1: "", freq: "", precisions: avant[id].precisions }; });
+    const preco = (l, id) => { const x = l.find((p) => p.carte === id); return x ? x.preco : ""; };
+    t.genes = res.genes.map((p) => ({ carte: p.carte, sensation: p.sensation, intensite: p.intensite, preco: preco(t.genes, p.carte) }));
+    t.plaisirs = res.plaisirs.map((p) => ({ carte: p.carte, effet: p.effet, preco: preco(t.plaisirs, p.carte) }));
+    t.fait = "oui";
+    if (!t.date) t.date = B.aujourdhui();
+    nonEnregistre = true;
+    remplirFormulaire();
+    majTout();
+    sauverBrouillon();
+    annoncer("Jeu de cartes enregistré : " + Object.keys(res.cartes).length + " cartes rangées");
   }
 
   function construireSenso() {
@@ -1924,6 +2010,7 @@
         <p>Score total : <strong>${q.total}/75</strong> · ${interp}</p>`;
     }
     majCartes(d);
+    majSensot(d);
   }
 
   function majCartes(d) {
@@ -4299,6 +4386,14 @@
       case "theme": return basculerTheme();
       case "analyser-photo": return analyserPhoto();
       case "lancer-tri": return lancerTri(el.dataset.jeu);
+      case "lancer-sensot": return lancerSensot();
+      case "effacer-sensot": {
+        const avant = instantane();
+        Object.assign(dossier.senso.sensot, { cartes: {}, genes: [], plaisirs: [] });
+        nonEnregistre = true; remplirFormulaire(); majTout();
+        proposerAnnulation("Jeu de cartes effacé.", restaurerInstantane(avant));
+        return;
+      }
       case "effacer-tri": {
         const avant = instantane();
         Object.assign(dossier.cartes[el.dataset.jeu], { resultats: [], choix: [], date: "" });

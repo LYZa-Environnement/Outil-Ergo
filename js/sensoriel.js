@@ -1,9 +1,9 @@
 /*
  * Outil Ergo : bilan sensoriel.
  * Observations cliniques OTIPIS et profil OC, Profil sensoriel 2 de Dunn (enfant, compagnon scolaire),
- * synthèse du profil d'engagement sensori-occupationnel (ESO), résultats du SensOT-dir.
- * Les questionnaires protégés (Dunn 2, ESO, SensOT-dir) ne sont pas reproduits :
- * l'outil reçoit leurs scores et leurs résultats, pas leurs questions.
+ * synthèse du profil d'engagement sensori-occupationnel (ESO), jeu de cartes du SensOT-dir.
+ * Les questionnaires protégés (Dunn 2, ESO) ne sont pas reproduits : l'outil reçoit leurs scores, pas leurs questions.
+ * Pour le SensOT-dir, seuls les intitulés des cartes sont repris, sans leurs illustrations.
  */
 (function (racine, fabrique) {
   const api = fabrique();
@@ -192,12 +192,79 @@
   }
 
   /* ================= SensOT-dir ================= */
+  // Jeu de cartes rejoué à l'écran : intitulés des 74 cartes « situations » et des 12 cartes « sensations »,
+  // rangés comme dans les grilles de cotation. Les illustrations du jeu ne sont pas reproduites (pictogrammes de l'outil).
 
-  const THEMES_SENSOT = [["auditif", "Auditif"], ["visuel", "Visuel"], ["tactile", "Tactile"], ["olfactif", "Olfactif"], ["mouvement", "Mouvement"],
-    ["gout", "Goût"], ["oromoteur", "Oro-moteur"], ["douleur", "Douleur"], ["temperature", "Température"]].map((x) => ({ id: x[0], nom: x[1] }));
-  const CONTEXTES_SENSOT = ["Maison", "École", "Extérieur", "Sensations internes"];
-  const FREQUENCES_SENSOT = ["rarement", "parfois", "souvent", "très souvent"];
+  const THEMES_SENSOT = [["auditif", "Auditif"], ["tactile", "Tactile"], ["douleur", "Douleur"], ["temperature", "Température"],
+    ["olfactif", "Odorat"], ["mouvement", "Vestibulaire et proprioceptif"], ["gout", "Goût"], ["oromoteur", "Oro-moteur"], ["visuel", "Visuel"]].map((x) => ({ id: x[0], nom: x[1] }));
+  const CONTEXTES_SENSOT = ["À l'école", "À la maison", "Dehors", "Sur moi", "Socialement", "Divers"];
+
+  // [id, intitulé de la carte, contexte, pictogramme]
+  const CARTES_SENSOT_BRUTES = {
+    auditif: [
+      ["a-classe", "Bruits dans la classe", 0, "🏫"], ["a-cantine", "Bruits dans la cantine", 0, "🍽️"], ["a-recre", "Bruits de la cour de récré", 0, "🔔"], ["a-voix", "Voix dans la classe", 0, "🗣️"],
+      ["a-menage", "Bruits des objets de ménage", 1, "🧹"], ["a-sdb", "Bruits dans la salle de bain", 1, "💨"], ["a-cuisine", "Bruits dans la cuisine", 1, "🍳"], ["a-sonneries", "Bruits des sonneries", 1, "⏰"], ["a-fond", "Bruits de fond", 1, "🕰️"],
+      ["a-vehicules", "Bruits des véhicules", 2, "🚒"], ["a-exterieurs", "Bruits extérieurs", 2, "🚧"], ["a-bricolage", "Bruits de bricolage", 2, "🔨"], ["a-voisinage", "Bruits du voisinage", 2, "🎶"],
+      ["a-corps", "Bruits à l'intérieur de mon corps", 3, "🫀"], ["a-bouche", "Bruits dans ma bouche", 3, "👄"], ["a-oreilles", "Bruits dans mes oreilles", 3, "👂"],
+    ],
+    tactile: [
+      ["t-materiel", "Toucher mon matériel", 0, "✏️"], ["t-textures", "Les textures quand je travaille", 0, "🎨"], ["t-sport", "Toucher le matériel de sport", 0, "⚽"], ["t-camarades", "Le toucher avec les camarades", 0, "🤝"],
+      ["t-vetements", "Le contact avec mes vêtements", 1, "👕"], ["t-details", "Les détails de mes vêtements", 1, "🏷️"],
+      ["t-esthetique", "Toucher esthétique", 3, "🧴"], ["t-social", "Le toucher social", 3, "🤗"], ["t-lave", "Le toucher quand je me lave", 3, "🚿"], ["t-tete", "Toucher ma tête", 3, "💇"], ["t-corps", "Toucher mon corps", 3, "✂️"],
+      ["t-elements", "Toucher les éléments", 2, "🌧️"], ["t-faune", "Toucher la faune et la flore", 2, "🐕"],
+    ],
+    douleur: [["d-blesse", "Quand je me blesse", 5, "🩹"], ["d-visage", "Douleurs internes du visage", 5, "🦷"], ["d-corps", "Douleurs dans mon corps", 5, "🤕"]],
+    temperature: [["c-quotidien", "Température au quotidien", 5, "🌡️"], ["c-objet", "Quand je touche un objet", 5, "☕"]],
+    olfactif: [
+      ["o-classe", "Odeurs dans la classe", 0, "🖍️"], ["o-ecole", "Odeurs dans l'école", 0, "🏫"],
+      ["o-cuisine", "Odeurs dans la cuisine", 1, "🍲"], ["o-chambre", "Odeurs dans ma chambre", 1, "🛏️"], ["o-sdb", "Odeurs dans la salle de bain", 1, "🧼"], ["o-diverses", "Diverses odeurs", 1, "👟"],
+      ["o-transports", "Odeurs dans les transports", 2, "🚗"], ["o-campagne", "Odeurs à la campagne", 2, "🐖"], ["o-ville", "Odeurs dans la ville", 2, "🏙️"], ["o-magasins", "Odeurs dans les magasins", 2, "🧀"],
+      ["o-autres", "Odeurs chez les autres", 4, "👥"], ["o-perso", "Mes odeurs personnelles", 4, "🧍"],
+    ],
+    mouvement: [
+      ["m-deplace", "Mouvements quand je me déplace", 0, "🚶"], ["m-autres", "Autres mouvements", 0, "🏃"], ["m-sport", "Mouvements quand je fais du sport", 0, "🧗"],
+      ["m-statique", "Position statique", 0, "🧍"], ["m-voyage", "Sensations quand je voyage", 0, "🚌"], ["m-joue", "Mouvements quand je joue", 0, "🎠"],
+      ["m-quotidien", "Positions dans la vie quotidienne", 0, "🛋️"], ["m-ecole", "Positions à l'école", 0, "🎒"], ["m-corps", "Sentir dans mon corps", 0, "🫁"],
+    ],
+    gout: [
+      ["g-nourriture", "Goût de la nourriture", 5, "🍰"], ["g-assaisonnements", "Goût des assaisonnements", 5, "🧂"], ["g-condiments", "Goût des condiments", 5, "🍅"], ["g-boissons", "Goût des boissons", 5, "🧃"],
+      ["g-bouche", "Goûts dans ma bouche", 3, "👅"], ["g-objets", "Goût des objets dans ma bouche", 3, "🥄"],
+    ],
+    oromoteur: [["b-autour", "Autour de ma bouche", 5, "👄"], ["b-contacts", "Les contacts dans ma bouche", 5, "🍴"], ["b-actions", "Les actions dans ma bouche", 5, "🍬"], ["b-temperature", "Température des aliments", 5, "🍦"]],
+    visuel: [
+      ["v-materiel", "Voir mon matériel", 0, "📓"], ["v-recre", "Voir dans la cour de récré", 0, "🏃"], ["v-classe", "Voir dans la classe", 0, "🧑‍🏫"], ["v-ecole", "L'éclairage dans l'école", 0, "💡"],
+      ["v-interieur", "L'éclairage intérieur", 1, "🛋️"], ["v-exterieur", "L'éclairage extérieur", 1, "🌃"], ["v-ecrans", "Regarder les écrans", 1, "📱"], ["v-maison", "Les lumières à la maison", 1, "🪟"],
+      ["v-luminosite", "La luminosité selon où je suis", 2, "🏖️"],
+    ],
+  };
+  const CARTES_SENSOT = [];
+  THEMES_SENSOT.forEach((th) => CARTES_SENSOT_BRUTES[th.id].forEach((c) => CARTES_SENSOT.push({ id: c[0], nom: c[1], theme: th.id, contexte: CONTEXTES_SENSOT[c[2]], emoji: c[3] })));
+  const CARTE_SENSOT = {};
+  CARTES_SENSOT.forEach((c) => { CARTE_SENSOT[c.id] = c; });
+
+  // Plateau 1 : classement ; plateau 2 : fréquence de la gêne.
+  const PLATEAU1_SENSOT = [
+    { id: "aime", label: "J'aime", court: "J'aime", emoji: "😊", couleur: "bleu" },
+    { id: "gene", label: "Ça me gêne", court: "Gêne", emoji: "😖", couleur: "corail" },
+    { id: "pasgene", label: "Ça ne me gêne pas", court: "Pas de gêne", emoji: "🙂", couleur: "vert" },
+    { id: "nsp", label: "Je ne sais pas", court: "Ne sait pas", emoji: "🤷", couleur: "violet" },
+    { id: "nc", label: "Ça ne me concerne pas", court: "Non concerné", emoji: "🚫", couleur: "ambre" },
+  ];
+  const FREQUENCES_SENSOT = [
+    { id: "rarement", label: "Rarement", emoji: "◔", couleur: "bleu" },
+    { id: "parfois", label: "Parfois", emoji: "◑", couleur: "vert" },
+    { id: "souvent", label: "Souvent", emoji: "◕", couleur: "ambre" },
+    { id: "toujours", label: "Presque toujours", emoji: "●", couleur: "corail" },
+    { id: "nsp", label: "Je ne sais pas", emoji: "🤷", couleur: "violet" },
+  ];
+  // Cartes « sensations » (type de gêne, ou effet d'une stimulation plaisante).
+  const SENSATIONS_SENSOT = [
+    ["distrait", "Ça me distrait", "👀"], ["concentrer", "Ça m'aide à me concentrer", "🎯"], ["dynamise", "Ça dynamise", "🙌"], ["frissonner", "Ça fait frissonner", "🥶"],
+    ["oppresse", "Ça oppresse", "😣"], ["nausee", "Ça donne la nausée", "🤢"], ["fatigue", "Ça fatigue", "😴"], ["gratte", "Ça gratte", "🫳"],
+    ["brule", "Ça brûle", "🔥"], ["pique", "Ça pique", "🌵"], ["chatouille", "Ça chatouille", "🪶"], ["autre", "Autre sensation", "❓"],
+  ].map((x) => ({ id: x[0], label: x[1], emoji: x[2] }));
   const NB_PRIORITES = 5;
+  const INTENSITE_MAX_SENSOT = 10;
 
   /* ================= Données ================= */
 
@@ -207,7 +274,7 @@
       dunnEnfant: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       dunnScolaire: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfImporte: "", calcul: "", points: { sp: "", p: "", l: "" } },
-      sensot: { fait: "", date: "", themes: {}, priorites: [], notes: "" },
+      sensot: { fait: "", date: "", cartes: {}, genes: [], plaisirs: [], notes: "", themes: {}, priorites: [] },
     };
     return s;
   }
@@ -255,8 +322,27 @@
     });
     const t = src.sensot || {};
     copierTexte(s.sensot, t, ["fait", "date", "notes"]);
+    const ids1 = PLATEAU1_SENSOT.map((x) => x.id), idsF = FREQUENCES_SENSOT.map((x) => x.id), idsS = SENSATIONS_SENSOT.map((x) => x.id);
+    if (t.cartes && typeof t.cartes === "object") {
+      CARTES_SENSOT.forEach((c) => {
+        const v = t.cartes[c.id];
+        if (!v || typeof v !== "object") return;
+        const r = { p1: ids1.indexOf(v.p1) >= 0 ? v.p1 : "", freq: idsF.indexOf(v.freq) >= 0 ? v.freq : "", precisions: texte(v.precisions).slice(0, 300) };
+        if (r.p1 || r.freq || r.precisions) s.sensot.cartes[c.id] = r;
+      });
+    }
+    const ligne = (p, cleS) => {
+      const r = { carte: CARTE_SENSOT[texte(p && p.carte)] ? texte(p.carte) : "", preco: texte(p && p.preco).slice(0, 400) };
+      r[cleS] = idsS.indexOf(texte(p && p[cleS])) >= 0 ? texte(p[cleS]) : "";
+      if (cleS === "sensation") { const n = nombre(p && p.intensite); r.intensite = n !== null && n >= 1 && n <= INTENSITE_MAX_SENSOT ? String(Math.round(n)) : ""; }
+      return r;
+    };
+    if (Array.isArray(t.genes)) s.sensot.genes = t.genes.slice(0, NB_PRIORITES).map((p) => ligne(p, "sensation"));
+    if (Array.isArray(t.plaisirs)) s.sensot.plaisirs = t.plaisirs.slice(0, NB_PRIORITES).map((p) => ligne(p, "effet"));
+    // Ancienne saisie (comptes par thème et situations écrites à la main), gardée pour les dossiers existants.
+    const themesAnciens = { mouvement: "mouvement", olfactif: "olfactif" };
     THEMES_SENSOT.forEach((th) => {
-      const v = t.themes && t.themes[th.id];
+      const v = t.themes && t.themes[themesAnciens[th.id] || th.id];
       if (v) s.sensot.themes[th.id] = { gene: texte(v.gene), neutre: texte(v.neutre), plaisir: texte(v.plaisir) };
     });
     if (Array.isArray(t.priorites)) {
@@ -359,12 +445,37 @@
     return out;
   }
 
+  // Le jeu de cartes a-t-il été passé (à l'écran ou reporté depuis la grille) ?
+  function sensotJeu(t) {
+    return Object.keys(t.cartes || {}).some((id) => t.cartes[id].p1 || t.cartes[id].freq) || (t.genes || []).concat(t.plaisirs || []).some((p) => p.carte);
+  }
+  function sensotAncien(t) {
+    return Object.keys(t.themes || {}).some((k) => ["gene", "neutre", "plaisir"].some((x) => texte(t.themes[k][x]).trim())) || (t.priorites || []).some((p) => texte(p.situation).trim());
+  }
+  // Une ligne par carte, dans l'ordre des grilles ; objectif = rang dans les situations à travailler (ou -1).
+  function cartesSensot(t) {
+    const objectifs = (t.genes || []).map((p) => p.carte);
+    return CARTES_SENSOT.map((c) => {
+      const v = (t.cartes || {})[c.id] || {};
+      return Object.assign({}, c, { p1: v.p1 || "", freq: v.freq || "", precisions: v.precisions || "", objectif: objectifs.indexOf(c.id) });
+    });
+  }
   function themesSensot(t) {
+    if (sensotJeu(t)) {
+      const l = cartesSensot(t);
+      return THEMES_SENSOT.map((th) => {
+        const xs = l.filter((c) => c.theme === th.id);
+        const n = (k) => xs.filter((c) => c.p1 === k).length;
+        return { id: th.id, nom: th.nom, gene: n("gene"), neutre: n("pasgene"), plaisir: n("aime") };
+      });
+    }
     return THEMES_SENSOT.map((th) => {
       const v = t.themes[th.id] || {};
       return { id: th.id, nom: th.nom, gene: nombre(v.gene) || 0, neutre: nombre(v.neutre) || 0, plaisir: nombre(v.plaisir) || 0 };
     });
   }
+  function sensation(id) { return SENSATIONS_SENSOT.find((x) => x.id === id); }
+  function frequence(id) { return FREQUENCES_SENSOT.find((x) => x.id === id); }
 
   function aDesDonnees(s, quoi) {
     switch (quoi) {
@@ -610,6 +721,59 @@
 
   function redigerSensot(t, a) {
     if (t.fait !== "oui") return "";
+    if (!sensotJeu(t) && sensotAncien(t)) return redigerSensotAncien(t, a);
+    const l = [];
+    const cartes = cartesSensot(t);
+    const classees = cartes.filter((c) => c.p1);
+    const nomTheme = (id) => min(THEMES_SENSOT.find((x) => x.id === id).nom);
+    l.push("SensOT-dir (version enfant)" + (t.date ? ", le " + dateCourte(t.date) : "") + " : " + a.sujetMin + " a classé " + (classees.length ? classees.length + " situations sensorielles de la vie quotidienne" : "les situations sensorielles proposées") + " selon la gêne ou le plaisir ressentis.");
+    const parTheme = (xs, avecFreq) => THEMES_SENSOT.map((th) => {
+      const ys = xs.filter((c) => c.theme === th.id);
+      if (!ys.length) return "";
+      return min(th.nom) + " : " + ys.map((c) => min(c.nom) + (avecFreq && c.freq && c.freq !== "nsp" ? " (" + frequence(c.freq).label.toLowerCase() + ")" : "")).join(", ");
+    }).filter(Boolean).join(" ; ");
+    const rang = { toujours: 0, souvent: 1, parfois: 2, rarement: 3, nsp: 4, "": 5 };
+    const genes = classees.filter((c) => c.p1 === "gene").sort((x, y) => rang[x.freq] - rang[y.freq]);
+    const aimes = classees.filter((c) => c.p1 === "aime");
+    if (genes.length) l.push("– Situations gênantes (" + genes.length + ") : " + parTheme(genes, true) + ".");
+    if (aimes.length) l.push("– Situations appréciées (" + aimes.length + ") : " + parTheme(aimes, false) + ".");
+    const reste = [["pasgene", "sans gêne"], ["nsp", "ne sait pas"], ["nc", "non concerné" + (a.e === "e" ? "e" : "")]].map(([k, lib]) => {
+      const n = classees.filter((c) => c.p1 === k).length;
+      return n ? lib + " : " + n : "";
+    }).filter(Boolean);
+    if (reste.length) l.push("– Autres cartes : " + reste.join(", ") + ".");
+    const detail = (c) => "« " + c.nom + " » (" + nomTheme(c.theme) + (c.contexte && c.contexte !== "Divers" ? ", " + min(c.contexte) : "") + ")";
+    const choisies = (t.genes || []).filter((p) => p.carte);
+    if (choisies.length) {
+      l.push("", "Situations à travailler choisies par " + a.sujetMin + " :");
+      choisies.forEach((p) => {
+        const c = cartes.find((x) => x.id === p.carte);
+        const g = [];
+        if (c.freq && c.freq !== "nsp") g.push("gêne " + frequence(c.freq).label.toLowerCase());
+        if (p.sensation) g.push("« " + min(sensation(p.sensation).label) + " »");
+        if (nombre(p.intensite) !== null) g.push("intensité " + p.intensite + "/" + INTENSITE_MAX_SENSOT);
+        let s = "– " + detail(c) + (g.length ? " : " + g.join(", ") : "") + ".";
+        if (c.precisions.trim()) s += " " + point(maj(c.precisions.trim()));
+        if (p.preco.trim()) s += " Préconisation : " + point(min(p.preco.trim()));
+        l.push(s);
+      });
+    }
+    const plaisirs = (t.plaisirs || []).filter((p) => p.carte);
+    if (plaisirs.length) {
+      l.push("", "Stimulations plaisantes, pistes pour l'auto-régulation :");
+      plaisirs.forEach((p) => {
+        const c = cartes.find((x) => x.id === p.carte);
+        let s = "– " + detail(c) + (p.effet ? " : « " + min(sensation(p.effet).label) + " »" : "") + ".";
+        if (p.preco.trim()) s += " Préconisation : " + point(min(p.preco.trim()));
+        l.push(s);
+      });
+    }
+    if (!classees.length && !choisies.length && !plaisirs.length) l.push("[Résultats du jeu de cartes à saisir.]");
+    if (t.notes.trim()) l.push("", point(maj(t.notes.trim())));
+    return l.join("\n");
+  }
+
+  function redigerSensotAncien(t, a) {
     const l = [];
     l.push("SensOT-dir (version enfant)" + (t.date ? ", le " + dateCourte(t.date) : "") + " : " + a.sujetMin + " a classé les situations proposées selon la gêne ou le plaisir ressentis.");
     const th = themesSensot(t);
@@ -714,9 +878,15 @@
           if (map[x.id]) premier(map[x.id], "les situations gênantes du thème " + min(x.nom) + " (SensOT-dir)");
         });
       }
-      s.sensot.priorites.filter((p) => p.situation.trim()).forEach((p) => {
-        c.objectifs.push(p.objectif.trim() ? maj(p.objectif.trim()).replace(/\.$/, "") : "Diminuer la gêne ressentie dans la situation : " + min(p.situation.trim()).replace(/\.$/, ""));
-      });
+      if (sensotJeu(s.sensot)) {
+        s.sensot.genes.filter((p) => p.carte).forEach((p) => {
+          c.objectifs.push(p.preco.trim() ? maj(p.preco.trim()).replace(/\.$/, "") : "Diminuer la gêne ressentie dans la situation « " + CARTE_SENSOT[p.carte].nom + " »");
+        });
+      } else {
+        s.sensot.priorites.filter((p) => p.situation.trim()).forEach((p) => {
+          c.objectifs.push(p.objectif.trim() ? maj(p.objectif.trim()).replace(/\.$/, "") : "Diminuer la gêne ressentie dans la situation : " + min(p.situation.trim()).replace(/\.$/, ""));
+        });
+      }
     }
     return c;
   }
@@ -725,6 +895,7 @@
     DOMAINES_OC, OTIPIS, ORDRE_PROFIL, CLASSIFICATIONS, QUADRANTS, FORMES_DUNN,
     DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso,
     SECTEURS_NOMS_ESO, NIVEAUX_ROUE_ESO, niveauRoueEso, POINTS_ESO, pointsEso, normaliserCotationEso, cotationEso, analyseEso, detailEso, redigerEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
+    CARTES_SENSOT, CARTE_SENSOT, PLATEAU1_SENSOT, SENSATIONS_SENSOT, INTENSITE_MAX_SENSOT, sensotJeu, sensotAncien, cartesSensot,
     vide, normaliser, syntheseOtipis, lignesDunn, systemesEso, valeursRoues, themesSensot, aDesDonnees, rediger, constats,
   };
 });
