@@ -77,6 +77,8 @@ Outil d'autodétermination des objectifs (A. Perrault et C. Giraux, cabinet La R
 2. **Passation** : l'enfant range chaque carte dans « Oui », « Oui, avec aide », « Pas très bien » ou « Non », ou la retire (« Pas pour moi ») si l'activité n'a pas d'importance pour lui. Les cartes passent dans l'ordre des familles, avec le bandeau de leur sous-famille. Il voit ensuite tout ce qu'il sait déjà faire, touche ce qu'il aimerait réussir (♥), puis choisit 1 à 5 objectifs (★) ; s'il en a désigné 5 ou moins, ce sont ses objectifs.
 3. **Grille de réponses** : les réponses sont rangées par sous-famille. Toucher une case corrige un classement ou reporte celui fait sur le plateau du kit.
 
+Familles et sous-familles se replient en touchant leur titre (les boutons « Tout » et « Aucune » restent utilisables replié, avec le nombre de cartes choisies), dans le choix des cartes comme dans la grille ; « Tout replier » et « Tout déplier » agissent sur toute la liste. Par défaut, les sous-familles du choix des cartes sont repliées ; l'état est gardé sur l'appareil.
+
 Le compte rendu reprend les colonnes, le nombre de cartes retirées, les souhaits et les objectifs ; les activités « pas très bien » et « non » alimentent les occupations du diagnostic, les objectifs les préconisations.
 
 ### Réévaluation
