@@ -1149,3 +1149,15 @@ test("SensOT-dir : jeu de cartes (74 cartes, plateaux, gabarit, sensations, rég
   const c = S.constats(d.senso);
   assert.ok(c.objectifs.indexOf("Casque antibruit à la cantine") >= 0);
 });
+
+test("SensOT-dir : catégories retirées par l'ergothérapeute", () => {
+  const S = require("../js/sensoriel.js");
+  const d = B.dossierVide();
+  const t = d.senso.sensot;
+  t.fait = "oui";
+  t.exclus = ["gout", "oromoteur"];
+  assert.equal(S.cartesProposees(t).length, 64);
+  t.cartes = { "a-cantine": { p1: "gene", freq: "souvent" } };
+  assert.deepEqual(S.normaliser(JSON.parse(JSON.stringify(d.senso))).sensot.exclus, ["gout", "oromoteur"]);
+  assert.match(B.rediger(d, B.reglagesParDefaut()).sensot, /Catégories non proposées : goût, oro-moteur\./);
+});

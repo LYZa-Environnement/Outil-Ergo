@@ -274,7 +274,7 @@
       dunnEnfant: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       dunnScolaire: { fait: "", repondant: "", date: "", lignes: {}, notes: "" },
       eso: { fait: "", repondant: "", date: "", roues: { sp: {}, p: {}, l: {} }, systemes: {}, items: { sp: {}, p: {}, l: {} }, notes: "", pdfImporte: "", calcul: "", points: { sp: "", p: "", l: "" } },
-      sensot: { fait: "", date: "", cartes: {}, genes: [], plaisirs: [], notes: "", themes: {}, priorites: [] },
+      sensot: { fait: "", date: "", exclus: [], cartes: {}, genes: [], plaisirs: [], notes: "", themes: {}, priorites: [] },
     };
     return s;
   }
@@ -322,6 +322,7 @@
     });
     const t = src.sensot || {};
     copierTexte(s.sensot, t, ["fait", "date", "notes"]);
+    if (Array.isArray(t.exclus)) s.sensot.exclus = THEMES_SENSOT.map((th) => th.id).filter((id) => t.exclus.indexOf(id) >= 0);
     const ids1 = PLATEAU1_SENSOT.map((x) => x.id), idsF = FREQUENCES_SENSOT.map((x) => x.id), idsS = SENSATIONS_SENSOT.map((x) => x.id);
     if (t.cartes && typeof t.cartes === "object") {
       CARTES_SENSOT.forEach((c) => {
@@ -474,6 +475,9 @@
       return { id: th.id, nom: th.nom, gene: nombre(v.gene) || 0, neutre: nombre(v.neutre) || 0, plaisir: nombre(v.plaisir) || 0 };
     });
   }
+  // Catégories (sens) proposées à l'enfant : l'ergothérapeute peut en retirer.
+  function themesProposes(t) { return THEMES_SENSOT.filter((th) => (t.exclus || []).indexOf(th.id) < 0); }
+  function cartesProposees(t) { const ids = themesProposes(t).map((th) => th.id); return CARTES_SENSOT.filter((c) => ids.indexOf(c.theme) >= 0); }
   function sensation(id) { return SENSATIONS_SENSOT.find((x) => x.id === id); }
   function frequence(id) { return FREQUENCES_SENSOT.find((x) => x.id === id); }
 
@@ -742,6 +746,8 @@
       return n ? lib + " : " + n : "";
     }).filter(Boolean);
     if (reste.length) l.push("– Autres cartes : " + reste.join(", ") + ".");
+    const exclus = THEMES_SENSOT.filter((th) => (t.exclus || []).indexOf(th.id) >= 0 && !classees.some((c) => c.theme === th.id));
+    if (exclus.length) l.push("– Catégorie" + (exclus.length > 1 ? "s" : "") + " non proposée" + (exclus.length > 1 ? "s" : "") + " : " + exclus.map((th) => min(th.nom)).join(", ") + ".");
     const detail = (c) => "« " + c.nom + " » (" + nomTheme(c.theme) + (c.contexte && c.contexte !== "Divers" ? ", " + min(c.contexte) : "") + ")";
     const choisies = (t.genes || []).filter((p) => p.carte);
     if (choisies.length) {
@@ -895,7 +901,7 @@
     DOMAINES_OC, OTIPIS, ORDRE_PROFIL, CLASSIFICATIONS, QUADRANTS, FORMES_DUNN,
     DOMAINES_ESO, SECTEURS_ESO, SYSTEMES_ESO, REPERE_ESO, NB_ITEMS_ESO, DOMAINES_ITEMS_ESO, itemsEso, lireLibellesEso,
     SECTEURS_NOMS_ESO, NIVEAUX_ROUE_ESO, niveauRoueEso, POINTS_ESO, pointsEso, normaliserCotationEso, cotationEso, analyseEso, detailEso, redigerEso, THEMES_SENSOT, CONTEXTES_SENSOT, FREQUENCES_SENSOT, NB_PRIORITES,
-    CARTES_SENSOT, CARTE_SENSOT, PLATEAU1_SENSOT, SENSATIONS_SENSOT, INTENSITE_MAX_SENSOT, sensotJeu, sensotAncien, cartesSensot,
+    CARTES_SENSOT, CARTE_SENSOT, PLATEAU1_SENSOT, SENSATIONS_SENSOT, INTENSITE_MAX_SENSOT, sensotJeu, sensotAncien, cartesSensot, themesProposes, cartesProposees,
     vide, normaliser, syntheseOtipis, lignesDunn, systemesEso, valeursRoues, themesSensot, aDesDonnees, rediger, constats,
   };
 });

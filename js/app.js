@@ -554,6 +554,11 @@
     }
     return `${champDate("Date", c + ".date")}
       <p class="note">L'enfant passe le jeu de cartes sur la tablette en suivant le protocole du livret : plateau 1, plateau 2 (fréquence), choix de 5 situations au gabarit, cartes « sensations », réglette de 1 à 10, puis stimulations plaisantes et leur effet. Les intitulés des cartes sont ceux du jeu ; les illustrations restent celles de votre coffret. Vous pouvez aussi reporter ici le tri fait avec les cartes papier.</p>
+      <fieldset class="sensot-categories"><legend>Catégories proposées à l'enfant</legend>
+        <p class="note">Décochez les sens que vous ne voulez pas faire passer : leurs cartes ne seront pas montrées.</p>
+        <div class="cartes-liste">${S.THEMES_SENSOT.map((t) => `<label class="carte-case"><input type="checkbox" data-sensot-categorie="${t.id}"><span>${esc(t.nom)} <small>(${S.CARTES_SENSOT.filter((x) => x.theme === t.id).length})</small></span></label>`).join("")}</div>
+        <p class="calcule" id="sensot-nb-cartes"></p>
+      </fieldset>
       <div class="barre-actions">
         <button type="button" class="bouton" data-action="lancer-sensot">Lancer le jeu de cartes avec l'enfant</button>
         <button type="button" class="bouton-lien" data-action="effacer-sensot" hidden>Effacer le jeu</button>
@@ -593,6 +598,11 @@
     $("[data-action='effacer-sensot']").hidden = !jeu;
     $("[data-action='lancer-sensot']").textContent = jeu ? "Refaire le jeu de cartes avec l'enfant" : "Lancer le jeu de cartes avec l'enfant";
     $("#sensot-ancien").hidden = !S.sensotAncien(t);
+    const exclus = t.exclus || [];
+    $$("[data-sensot-categorie]").forEach((el) => { el.checked = exclus.indexOf(el.dataset.sensotCategorie) < 0; });
+    const nbProp = S.cartesProposees(t).length;
+    $("#sensot-nb-cartes").textContent = nbProp ? nbProp + " cartes sur " + S.CARTES_SENSOT.length + " seront proposées." : "Aucune catégorie cochée : cochez au moins un sens.";
+    $("[data-action='lancer-sensot']").disabled = !nbProp;
     const cartes = S.cartesSensot(t);
     const n = (k) => cartes.filter((x) => x.p1 === k).length;
     const classees = cartes.filter((x) => x.p1).length;
@@ -600,6 +610,8 @@
     S.THEMES_SENSOT.forEach((th) => {
       const xs = cartes.filter((x) => x.theme === th.id);
       const g = xs.filter((x) => x.p1 === "gene").length, a = xs.filter((x) => x.p1 === "aime").length, k = xs.filter((x) => x.p1).length;
+      const det = $("#sensot-compte-" + th.id).closest("details");
+      det.hidden = exclus.indexOf(th.id) >= 0 && !k;
       $("#sensot-compte-" + th.id).textContent = k ? "(" + k + "/" + xs.length + " · gêne " + g + ", j'aime " + a + ")" : "(" + xs.length + " cartes)";
     });
     $$("[data-carte-objectif]").forEach((o) => {
@@ -612,10 +624,14 @@
     const t = dossier.senso.sensot;
     if (!window.SensotJeu) return;
     if (S.sensotJeu(t) && !(await demander("Refaire le jeu de cartes ? Le classement et les choix actuels seront remplacés (les précisions et préconisations déjà écrites sont gardées).", "Refaire le jeu"))) return;
-    const res = await window.SensotJeu.lancer({ prenom: dossier.prenom });
+    const proposees = S.cartesProposees(t);
+    if (!proposees.length) { annoncer("Cochez au moins une catégorie."); return; }
+    const res = await window.SensotJeu.lancer({ prenom: dossier.prenom, cartes: proposees });
     if (!res) { annoncer("Jeu arrêté, aucune carte rangée."); return; }
     const avant = t.cartes;
     t.cartes = {};
+    // Les cartes des catégories non proposées cette fois gardent leur classement.
+    Object.keys(avant).forEach((id) => { if (!proposees.some((c) => c.id === id)) t.cartes[id] = avant[id]; });
     Object.keys(res.cartes).forEach((id) => { t.cartes[id] = { p1: res.cartes[id].p1, freq: res.cartes[id].freq, precisions: (avant[id] && avant[id].precisions) || "" }; });
     Object.keys(avant).forEach((id) => { if (!t.cartes[id] && avant[id].precisions) t.cartes[id] = { p1: "", freq: "", precisions: avant[id].precisions }; });
     const preco = (l, id) => { const x = l.find((p) => p.carte === id); return x ? x.preco : ""; };
@@ -3253,6 +3269,11 @@
       const s = new Set(dossier.othope.selection);
       if (el.checked) s.add(el.dataset.othopeCarte); else s.delete(el.dataset.othopeCarte);
       dossier.othope.selection = Array.from(s);
+    } else if (el.dataset.sensotCategorie) {
+      if (e.type !== "change") return;
+      const ex = new Set(dossier.senso.sensot.exclus || []);
+      if (el.checked) ex.delete(el.dataset.sensotCategorie); else ex.add(el.dataset.sensotCategorie);
+      dossier.senso.sensot.exclus = S.THEMES_SENSOT.map((x) => x.id).filter((id) => ex.has(id));
     } else if (el.dataset.carteIncluse) {
       if (e.type !== "change") return;
       const [jeu, id] = el.dataset.carteIncluse.split(":");
