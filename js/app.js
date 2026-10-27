@@ -2430,8 +2430,102 @@
     majTout();
   }
 
+  /* ---------- Ajuriaguerra : copie en 1 minute, vitesse habituelle puis accélération, avec l'étalonnage ---------- */
+  const AJ = window.Ajuri;
+  function groupeAjuri() { return dossier.groupe === "CP" || dossier.groupe === "CE1" ? "petits" : "grands"; }
+  function htmlAjuri(t) {
+    const s = dossier.tests[t.id], a = dossier.ajuri, fait = s.fait === "oui";
+    const phrases = AJ.phrasesPour(dossier.groupe);
+    const c = B.calculAjuri(B.normaliserDossier(dossier));
+    const val = (k) => esc(a[k] || "");
+    const consigne1 = `Montrez la phrase « ${c.phraseTexte} » écrite lisiblement, lisez-la avec l'enfant, puis faites-la copier une fois en haut d'une feuille blanche, au crayon, en s'appliquant, sans limite de temps. Puis dites : « Maintenant, tu vas réécrire cette phrase sur ta feuille, tranquillement, à ton allure habituelle. Quand tu l'as écrite une fois, tu recommences, encore et encore, jusqu'à ce que je t'arrête. Tu es prêt ? Alors commence. » Déclenchez le chronomètre à la première lettre et arrêtez au bout d'une minute.`;
+    const consigne2 = `Tirez un trait sous ce qui a été écrit, puis dites : « Tu vas recommencer la même chose, mais cette fois, tu vas aller aussi vite que tu peux. Cela ne fait rien si tu n'écris pas très bien ; l'important, c'est que tu ailles le plus vite possible, que tu écrives la phrase le plus de fois possible, vite, vite. Tu es prêt ? Vas-y ! » Déclenchez le chronomètre quand l'enfant commence, arrêtez au bout d'une minute, et encouragez-le plusieurs fois à accélérer.`;
+    const epreuve = (e, consigne) => `<h4 class="sous-groupe">${e.id === "hab" ? "🚶" : "🏃"} ${esc(e.nom)}</h4>
+      <details class="consigne-manos"><summary>Consigne</summary><p class="consigne-texte">${esc(consigne)}</p></details>
+      <div class="chrono-manos"><button type="button" class="bouton bouton-second bouton-petit" data-ajuri-chrono="${e.id}">⏱️ Lancer 1 minute</button><output class="temps-chrono" id="ajuri-chrono-${e.id}"></output></div>
+      <div class="grille2">
+        <label class="champ"><span>Phrases entières écrites</span><input type="text" inputmode="numeric" data-chemin="ajuri.${e.id}Phrases" value="${val(e.id + "Phrases")}" placeholder="ex. 2"></label>
+        <label class="champ"><span>Lettres de la phrase commencée</span><input type="text" inputmode="numeric" data-chemin="ajuri.${e.id}Lettres" value="${val(e.id + "Lettres")}" placeholder="ex. 7"></label>
+      </div>
+      <p class="note">Une phrase entière compte ${c.lettresPhrase} lettres. Si vous avez déjà compté toutes les lettres, laissez les phrases vides et inscrivez le total.</p>
+      <output class="ds-ligne" id="ajuri-res-${e.id}"></output>
+      <div class="grille2">
+        <label class="champ"><span>Appréciation</span><select data-chemin="ajuri.app${e.id === "hab" ? "Hab" : "Max"}"><option value="">À choisir</option>${["patho", "inferieur", "moyenne", "superieur"].map((k) => `<option value="${k}"${a["app" + (e.id === "hab" ? "Hab" : "Max")] === k ? " selected" : ""}>${esc(B.APPRECIATIONS[k])}</option>`).join("")}</select></label>
+        <label class="champ"><span>Observation</span><input type="text" data-chemin="ajuri.obs${e.id === "hab" ? "Hab" : "Max"}" value="${val("obs" + (e.id === "hab" ? "Hab" : "Max"))}" placeholder="geste, lisibilité, crispation…"></label>
+      </div>`;
+    return `<fieldset class="groupe test" data-bloc-test="${t.id}" data-groupe="${groupeAjuri()}">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="${t.id}" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        <p class="note">Deux copies d'une minute : d'abord à l'allure habituelle, puis le plus vite possible. Comptez les lettres écrites : l'outil les compare à l'étalonnage d'Ajuriaguerra.</p>
+        <div class="grille2">
+          ${phrases.length > 1 ? `<label class="champ"><span>Phrase à recopier (${c.lettresPhrase} lettres)</span><select data-chemin="ajuri.phrase">${phrases.map((k) => `<option value="${k}"${c.phrase === k ? " selected" : ""}>${esc(AJ.PHRASES[k].texte)}</option>`).join("")}</select></label>`
+            : `<p class="champ"><span>Phrase à recopier (${c.lettresPhrase} lettres)</span><strong>${esc(c.phraseTexte)}</strong></p>`}
+          <label class="champ"><span>Comparer à</span><select data-chemin="ajuri.reference">
+            <option value=""${a.reference ? "" : " selected"}>La classe (sinon l'âge)</option><option value="classe"${a.reference === "classe" ? " selected" : ""}>La classe</option><option value="age"${a.reference === "age" ? " selected" : ""}>L'âge</option></select></label>
+        </div>
+        <p class="calcule" id="ajuri-ref" aria-live="polite"></p>
+        ${epreuve(AJ.EPREUVES[0], consigne1)}
+        ${epreuve(AJ.EPREUVES[1], consigne2)}
+        <p class="calcule" id="ajuri-gain" aria-live="polite"></p>
+        <p class="note">L'étalonnage donne une moyenne sans écart-type : il n'y a pas de DS. Choisissez l'appréciation en vous aidant du pourcentage de la norme ; elle sert au diagnostic et au compte rendu.</p>
+        <label class="champ"><span>Observations générales</span><textarea data-test="${t.id}" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation(t.id)}
+      </div>
+    </fieldset>`;
+  }
+
+  function majAjuri() {
+    const bloc = $('[data-bloc-test="ajuriaguerra"]');
+    if (!bloc) return;
+    if (bloc.dataset.groupe !== groupeAjuri() && !chronoAjuri) { reconstruireTest("ajuriaguerra"); return majAjuri(); }
+    const c = B.calculAjuri(B.normaliserDossier(dossier));
+    const ref = $("#ajuri-ref");
+    if (ref) ref.textContent = c.alerte && !c.epreuves.some((e) => e.norme) ? c.alerte : "Étalonnage : " + c.refTexte + ", " + c.sexeTexte + "." + (c.alerte ? " " + c.alerte : "");
+    c.epreuves.forEach((e) => {
+      const o = $("#ajuri-res-" + e.id);
+      if (!o) return;
+      o.className = "ds-ligne" + (e.niveau ? " niveau-" + e.niveau : "");
+      o.textContent = e.lettres === null ? "" : B.formaterNombre(e.lettres) + " lettres en 1 minute" +
+        (e.norme ? " · moyenne attendue " + B.formaterNombre(e.norme.moy) + " · " + e.pct + " % de la norme (" + (e.ecart >= 0 ? "+" : "−") + B.formaterNombre(Math.abs(e.ecart)) + " lettres)" : " · pas de norme pour ce groupe");
+    });
+    const g = $("#ajuri-gain");
+    if (g) g.textContent = !c.gain ? "" : "Accélération : " + (c.gain.v >= 0 ? "+" : "−") + B.formaterNombre(Math.abs(c.gain.v)) + " lettres par minute" +
+      (c.gain.pct !== null ? " (" + (c.gain.pct >= 0 ? "+" : "") + c.gain.pct + " %)" : "") + (c.gain.attendu !== null ? ", pour un gain moyen de " + B.formaterNombre(c.gain.attendu) + " d'après l'étalonnage." : ".");
+  }
+
+  // Minuteur d'une minute : bip et vibration à la fin ; un second appui arrête.
+  let chronoAjuri = null;
+  function basculerChronoAjuri(ep) {
+    const fin = (message) => {
+      clearInterval(chronoAjuri.minuteur);
+      const b = $(`[data-ajuri-chrono="${chronoAjuri.ep}"]`), o = $("#ajuri-chrono-" + chronoAjuri.ep);
+      if (b) b.textContent = "⏱️ Lancer 1 minute";
+      if (o) o.textContent = message;
+      chronoAjuri = null;
+    };
+    if (chronoAjuri) { const meme = chronoAjuri.ep === ep; fin(""); if (meme) return; }
+    preparerSon();
+    chronoAjuri = { ep: ep, debut: performance.now(), minuteur: null };
+    const b = $(`[data-ajuri-chrono="${ep}"]`);
+    if (b) b.textContent = "⏹️ Arrêter";
+    const tic = () => {
+      const reste = Math.max(0, 60 - (performance.now() - chronoAjuri.debut) / 1000);
+      const o = $("#ajuri-chrono-" + ep);
+      if (o) o.textContent = Math.ceil(reste) + " s";
+      if (reste <= 0) {
+        bip();
+        try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) { /* sans vibration */ }
+        fin("Stop ! 1 minute écoulée : comptez les lettres.");
+        annoncer("1 minute écoulée.");
+      }
+    };
+    chronoAjuri.minuteur = setInterval(tic, 200);
+    tic();
+  }
+
   function htmlTest(t) {
     if (t.id === "manos" && reglages.manosGrille) return htmlManos(t);
+    if (t.id === "ajuriaguerra") return htmlAjuri(t);
     const s = dossier.tests[t.id];
     const fait = s.fait === "oui";
     return `<fieldset class="groupe test" data-bloc-test="${t.id}">
@@ -3059,6 +3153,7 @@
       if (o) o.textContent = sy.pourcentage === null ? "" : Math.round(sy.pourcentage) + " %";
     });
     majManos();
+    majAjuri();
     majPreconisations();
     majOccupation();
     majTdc();
@@ -4460,6 +4555,7 @@
     if (el.dataset.appliquer) return appliquerAnalyse(el.dataset.appliquer);
     if (el.dataset.reproposerDiag) return reproposerDiagnostic(el.dataset.reproposerDiag);
     if (el.dataset.manosChrono) return basculerChronoManos(el.dataset.manosChrono);
+    if (el.dataset.ajuriChrono) return basculerChronoAjuri(el.dataset.ajuriChrono);
     if (el.dataset.manosChronoStop) return arreterChronoManos(true);
     if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
     if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });

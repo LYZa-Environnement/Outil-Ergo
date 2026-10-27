@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -727,6 +727,7 @@
     Object.assign(d, Accueil.vide());
     d.clavier = Clavier.vide();
     d.manos = Manos.vide();
+    d.ajuri = Ajuri.vide();
     return d;
   }
 
@@ -757,6 +758,7 @@
     d.seances = Seances.normaliserListe(src.seances);
     d.clavier = Clavier.normaliser(src.clavier);
     d.manos = Manos.normaliser(src.manos);
+    d.ajuri = Ajuri.normaliser(src.ajuri);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -833,6 +835,9 @@
     if (r >= reg.seuilSuperieur) return "superieur";
     return "moyenne";
   }
+
+  // Score d'une ligne de test pour les phrases : DS si calculée, sinon le résumé (Ajuriaguerra : % de la norme).
+  function scoreLigne(l) { return l.ds !== null && l.ds !== undefined ? "DS " + formaterDS(l.ds) : l.valeurCourte || l.valeurTexte || ""; }
 
   const APPRECIATIONS = {
     patho: "Très inférieur à la moyenne, pathologique",
@@ -1000,6 +1005,12 @@
     return cl.classe ? Manos.calcul(d.manos, reg.manosGrille, (v) => niveau(v, reg), cl.classe) : null;
   }
 
+  // Ajuriaguerra : lettres en 1 minute comparées à l'étalonnage (classe ou âge, garçons ou filles).
+  function calculAjuri(d) {
+    const ag = age(d.naissance, d.passation);
+    return Ajuri.calcul(d.ajuri, { classe: d.groupe, ageAns: ag ? ag.ans + ag.mois / 12 : null, sexe: d.normesSexe === "ensemble" ? "" : d.sexe });
+  }
+
   function calculerTests(dossier, reglages) {
     const d = normaliserDossier(dossier);
     const reg = normaliserReglages(reglages);
@@ -1012,7 +1023,11 @@
       // Man.O.S coté épreuve par épreuve (grille et normes du fichier du cabinet) : lignes calculées.
       const manos = t.id === "manos" ? calculManos(d, reg) : null;
       if (manos && manos.faites) lignes = Manos.lignesTest(manos).map((l) => Object.assign({ type: "manos", commentaire: "", remplie: true }, l));
-      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos };
+      // Ajuriaguerra saisi en lettres par minute : lignes calculées avec l'étalonnage.
+      const ajuri = t.id === "ajuriaguerra" ? calculAjuri(d) : null;
+      const ajuriSaisi = ajuri && (ajuri.faites || ajuri.epreuves.some((e) => e.obs));
+      if (ajuriSaisi) lignes = Ajuri.lignesTest(ajuri);
+      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos, ajuri: ajuriSaisi ? ajuri : null };
     });
   }
 
@@ -1184,7 +1199,7 @@
     tests.filter((t) => t.fait && t.section === "vitesse").forEach((t) => {
       const f = t.lignes.filter((l) => faible(l.niveau));
       if (!f.length) return;
-      constats.push("une vitesse d'écriture inférieure à la moyenne en " + joindre(f.map((l) => min(l.epreuve) + " (DS " + formaterDS(l.ds) + ")")) + " au " + t.court);
+      constats.push("une vitesse d'écriture inférieure à la moyenne en " + joindre(f.map((l) => min(l.epreuve) + " (" + scoreLigne(l) + ")")) + " au " + t.court);
       facteur("une lenteur d'écriture");
       ajout("vitesse", "la lenteur d'écriture (" + t.court + ")");
       if (f.some((l) => l.niveau === "patho")) ajout("vitesseForte", "la lenteur d'écriture marquée (" + t.court + ")");
@@ -1241,7 +1256,7 @@
       const outils = t.manos ? Manos.outilsEnDifficulte(t.manos) : [];
       if (!f.length && !outils.length) return;
       const lib = LIBELLES_TESTS[t.id] || ["des difficultés", null];
-      const detail = [f.length ? joindre(f.map((l) => min(l.epreuve) + " DS " + formaterDS(l.ds))) : "", outils.length ? (f.length ? "surtout pour " : "pour ") + joindre(outils) : ""].filter(Boolean).join(" ; ");
+      const detail = [f.length ? joindre(f.map((l) => min(l.epreuve) + " " + scoreLigne(l))) : "", outils.length ? (f.length ? "surtout pour " : "pour ") + joindre(outils) : ""].filter(Boolean).join(" ; ");
       constats.push(lib[0] + " (" + t.court + " : " + detail + ")");
       facteur(lib[0]);
       if (lib[1]) ajout(lib[1], lib[0].replace(/^des /, "les ") + " (" + t.court + ")");
@@ -1533,7 +1548,7 @@
   /* ================= Réévaluation ================= */
 
   function cleTexte(s) { return texte(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
-  function scoreCourt(l) { return l.type === "ds" ? "DS " + formaterDS(l.ds) : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "Indice ").replace(/^rang percentile /, "RP "); }
+  function scoreCourt(l) { if (l.valeurCourte) return l.valeurCourte; return l.type === "ds" ? "DS " + formaterDS(l.ds) : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "Indice ").replace(/^rang percentile /, "RP "); }
 
   // Mesures comparables d'un bilan à l'autre (gardées dans le dossier suivant).
   function mesures(dossier, reglages) {
@@ -1802,6 +1817,12 @@
       return point(t);
     };
     const paragrapheTest = (t) => {
+      if (t.ajuri) {
+        const l = [Ajuri.rediger(t.ajuri, a, { appreciations: APPRECIATIONS, notes: t.notes, titre: t.titre })];
+        const passation = Accueil.phrasePassation(d.passations[t.id]);
+        if (passation) l.push(passation);
+        return l.join("\n");
+      }
       if (t.manos && t.manos.faites) {
         const l = [Manos.rediger(t.manos, a, { appreciations: APPRECIATIONS, raison: classeManos(d).raison, notes: t.notes })];
         const passation = Accueil.phrasePassation(d.passations[t.id]);
@@ -2280,7 +2301,7 @@
     const types = new Set(["ds"]);
     tests.filter((t) => t.fait).forEach((t) => t.lignes.filter((l) => l.remplie).forEach((l) => {
       types.add(l.type);
-      ajout(t.court, l.epreuve, l.type === "ds" ? "–" : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "").replace(/^rang percentile /, "RP "), l.ds, l.niveau, l.commentaire);
+      ajout(t.court, l.epreuve, l.valeurCourte ? l.valeurCourte : l.type === "ds" ? "–" : l.valeurTexte.replace(/^note standard /, "NS ").replace(/^indice /, "").replace(/^rang percentile /, "RP "), l.ds, l.niveau, l.commentaire);
     }));
     if (d && d.dcdq.fait === "oui") {
       const q = Occup.calculDcdq(d.dcdq, ageMois(d));
@@ -2309,7 +2330,8 @@
       { type: "p", runs: [{ t: intro }] },
       { type: "tableau", largeurs: [0.2, 0.2, 0.2, 0.2, 0.2], petit: true, lignes: legende },
       { type: "tableau", largeurs: [0.13, 0.27, 0.17, 0.1, 0.33], entetes: true, lignes: [{ entete: true, cellules: ["Bilan", "Épreuve", "Score", "DS", "Appréciation"].map((x) => cellule(x, { gras: true, fond: "entete" })) }].concat(lignes) },
-    ].concat(ref ? [{ type: "p", runs: [{ t: ref, i: true }], petit: true }] : []);
+    ].concat(ref ? [{ type: "p", runs: [{ t: ref, i: true }], petit: true }] : [])
+      .concat(types.has("ajuri") ? [{ type: "p", runs: [{ t: "Ajuriaguerra : l'étalonnage donne la moyenne des lettres écrites en 1 minute, sans écart-type ; le résultat est exprimé en pourcentage de cette moyenne et l'appréciation est celle de l'ergothérapeute.", i: true }], petit: true }] : []);
   }
 
   /* ================= Export ================= */
@@ -2324,7 +2346,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
-    classeManos, calculManos,
+    classeManos, calculManos, calculAjuri,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });
