@@ -2571,6 +2571,111 @@
     tic();
   }
 
+  /* ---------- Lespargot : copie du texte de la classe, mots par minute, DS avec la feuille de cotation ---------- */
+  const LP = window.Lespargot;
+  function lespargotDonnees() { dossier.lespargot = LP.normaliser(dossier.lespargot); return dossier.lespargot; }
+  function htmlLespargot(t) {
+    const s = dossier.tests[t.id], fait = s.fait === "oui", a = lespargotDonnees();
+    const c = B.calculLespargot(B.normaliserDossier(dossier));
+    const val = (k) => esc(a[k] || "");
+    const iCopie = s.lignes.findIndex((l) => l.id === "copie");
+    const autres = s.lignes.map((l, i) => i === iCopie ? "" : htmlLigneTest(t, l, i)).join("");
+    const tx = c.texte ? LP.TEXTES[c.texte] : null;
+    const motsHtml = (chaine) => LP.morceaux(chaine).map((m) => m.espace ? (/\n/.test(m.t) ? "<br>" : " ")
+      : m.n ? `<button type="button" class="lp-mot" data-lp-mot="${m.n}" title="Mot ${m.n}">${esc(m.t)}</button>` : `<span class="lp-ponct">${esc(m.t)}</span>`).join("");
+    const texteHtml = !tx ? `<p class="note">Choisissez la classe pour afficher le texte à recopier.</p>`
+      : `<div class="lp-texte" lang="fr">${tx.titre ? `<p class="lp-titre">${motsHtml(tx.titre)}</p>` : ""}<p>${motsHtml(tx.texte)}</p>${tx.source ? `<p class="lp-source">${esc(tx.source)}</p>` : ""}</div>`;
+    const optClasse = LP.CLASSES.map((k) => `<option value="${k}"${a.classe === k ? " selected" : ""}>${k}${LP.INTERPOLEES.indexOf(k) >= 0 ? " (norme intermédiaire)" : ""}</option>`).join("");
+    const optTexte = Object.keys(LP.TEXTES).map((k) => `<option value="${k}"${a.texte === k ? " selected" : ""}>Texte de ${LP.NOMS_TEXTES[k]}${LP.TEXTES[k].titre ? " : " + esc(LP.TEXTES[k].titre) : ""}</option>`).join("");
+    const ligneCopie = iCopie >= 0 ? s.lignes[iCopie] : null;
+    return `<fieldset class="groupe test" data-bloc-test="${t.id}" data-texte="${esc(c.texte)}">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="${t.id}" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        <h4 class="sous-groupe">✍️ Copie</h4>
+        <p class="note">L'enfant recopie le texte de sa classe. Chronométrez, puis touchez le dernier mot qu'il a copié : l'outil compte les mots, calcule les mots par minute et la DS avec la feuille de cotation.</p>
+        <div class="grille2">
+          <label class="champ"><span>Classe de comparaison</span><select data-chemin="lespargot.classe">
+            <option value=""${a.classe ? "" : " selected"}>Celle du dossier${dossier.groupe ? " (" + esc(dossier.groupe) + ")" : ""}</option>${optClasse}</select></label>
+          <label class="champ"><span>Texte recopié</span><select data-chemin="lespargot.texte">
+            <option value=""${a.texte ? "" : " selected"}>Celui de la classe${c.texte && !a.texte ? " (" + esc(LP.NOMS_TEXTES[c.texte]) + ")" : ""}</option>${optTexte}</select></label>
+        </div>
+        <p class="calcule" id="lp-ref" aria-live="polite"></p>
+        ${texteHtml}
+        <div class="chrono-manos"><button type="button" class="bouton bouton-second bouton-petit" data-lp-chrono="1">⏱️ Démarrer le chronomètre</button><output class="temps-chrono" id="lp-chrono"></output></div>
+        <div class="grille3">
+          <label class="champ"><span>Mots copiés</span><input type="text" inputmode="numeric" data-chemin="lespargot.mots" value="${val("mots")}" placeholder="${c.motsTexte ? "sur " + c.motsTexte : "ex. 52"}"></label>
+          <label class="champ"><span>Temps : minutes</span><input type="text" inputmode="numeric" data-chemin="lespargot.min" value="${val("min")}" placeholder="ex. 4"></label>
+          <label class="champ"><span>et secondes</span><input type="text" inputmode="decimal" data-chemin="lespargot.sec" value="${val("sec")}" placeholder="ex. 15"></label>
+        </div>
+        <output class="ds-ligne" id="lp-res"></output>
+        <label class="champ"><span>Observation</span><input type="text" data-chemin="lespargot.obs" value="${val("obs")}" placeholder="mots oubliés, retours au modèle, fatigue…"></label>
+        ${ligneCopie ? `<details class="lp-manuel"${!c.fait && ligneCopie.valeur ? " open" : ""}><summary>Saisir directement le score de la copie (sans le calcul)</summary>${htmlLigneTest(t, ligneCopie, iCopie)}</details>` : ""}
+        <h4 class="sous-groupe">Autres épreuves</h4>
+        ${autres}
+        <button type="button" class="bouton bouton-second" data-ajouter-epreuve="${t.id}">Ajouter une épreuve</button>
+        <label class="champ"><span>Observations générales</span><textarea data-test="${t.id}" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation(t.id)}
+      </div>
+    </fieldset>`;
+  }
+
+  function majLespargot() {
+    const bloc = $('[data-bloc-test="lespargot"]');
+    if (!bloc) return;
+    const c = B.calculLespargot(B.normaliserDossier(dossier));
+    if (bloc.dataset.texte !== c.texte) { reconstruireTest("lespargot"); return majLespargot(); }
+    const ref = $("#lp-ref");
+    if (ref) ref.textContent = !c.classe ? c.alerte
+      : "Norme de " + c.classe + " : " + B.formaterNombre(c.norme.moy) + " mots par minute en moyenne, écart-type " + B.formaterNombre(c.norme.et) +
+        (c.norme.interpolee ? " (valeur intermédiaire, grisée sur la feuille)" : "") + "." +
+        (c.texte ? " Texte de " + LP.NOMS_TEXTES[c.texte] + " : " + c.motsTexte + " mots" + (LP.TEXTES[c.texte].titre ? ", titre compris" : "") + "." : "") + (c.alerte ? " " + c.alerte : "");
+    const o = $("#lp-res");
+    if (o) {
+      const niv = c.ds !== null ? B.niveau(c.ds, B.normaliserReglages(reglages)) : null;
+      o.className = "ds-ligne" + (niv ? " niveau-" + niv : "");
+      o.textContent = c.mpm === null ? (c.mots !== null && c.temps === null ? "Indiquez le temps de copie." : c.temps !== null && c.mots === null ? "Indiquez le nombre de mots copiés." : "")
+        : B.formaterNombre(c.mpm, 1) + " mots par minute" + (c.ds !== null ? " · DS " + B.formaterDS(c.ds) + " : " + B.APPRECIATIONS[niv] : "");
+    }
+    $$(".lp-mot", bloc).forEach((b) => b.classList.toggle("copie", c.mots !== null && +b.dataset.lpMot <= c.mots));
+  }
+
+  // Chronomètre de la copie : un appui démarre, un second arrête et reporte le temps.
+  let chronoLp = null;
+  function basculerChronoLespargot() {
+    const b = $("[data-lp-chrono]"), o = $("#lp-chrono");
+    if (chronoLp) {
+      clearInterval(chronoLp.minuteur);
+      const s = (performance.now() - chronoLp.debut) / 1000;
+      chronoLp = null;
+      const a = lespargotDonnees();
+      a.min = String(Math.floor(s / 60)); a.sec = String(Math.round(s % 60));
+      if (a.sec === "60") { a.min = String(+a.min + 1); a.sec = "0"; }
+      if (b) b.textContent = "⏱️ Démarrer le chronomètre";
+      $('[data-chemin="lespargot.min"]').value = a.min;
+      $('[data-chemin="lespargot.sec"]').value = a.sec;
+      if (o) o.textContent = "Temps reporté. Touchez maintenant le dernier mot copié.";
+      annoncer("Chronomètre arrêté.");
+      nonEnregistre = true;
+      majTout();
+      return;
+    }
+    chronoLp = { debut: performance.now(), minuteur: null };
+    if (b) b.textContent = "⏹️ Arrêter";
+    const tic = () => { const s = Math.floor((performance.now() - chronoLp.debut) / 1000); if (o) o.textContent = Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s"; };
+    chronoLp.minuteur = setInterval(tic, 250);
+    tic();
+  }
+
+  // Toucher un mot du texte : nombre de mots copiés jusqu'à ce mot (un second appui sur le même mot efface).
+  function choisirMotLespargot(n) {
+    const a = lespargotDonnees();
+    a.mots = a.mots === String(n) ? "" : String(n);
+    const champ = $('[data-chemin="lespargot.mots"]');
+    if (champ) champ.value = a.mots;
+    nonEnregistre = true;
+    majTout();
+  }
+
   /* ---------- DTVP-3 : feuille de cotation du livret de l'examinateur ---------- */
   const D3 = window.Dtvp3;
   function dtvp3Donnees() { dossier.dtvp3 = D3.normaliser(dossier.dtvp3); return dossier.dtvp3; }
@@ -2694,16 +2799,8 @@
       : "Score de différence : renseignez les indices IVM et PVRMR.";
   }
 
-  function htmlTest(t) {
-    if (t.id === "manos" && reglages.manosGrille) return htmlManos(t);
-    if (t.id === "ajuriaguerra") return htmlAjuri(t);
-    if (t.id === "dtvp3") return htmlDtvp3(t);
-    const s = dossier.tests[t.id];
-    const fait = s.fait === "oui";
-    return `<fieldset class="groupe test" data-bloc-test="${t.id}">
-      <legend><label class="case case-titre"><input type="checkbox" data-test="${t.id}" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
-      <div class="test-corps"${fait ? "" : " hidden"}>
-        ${s.lignes.map((l, i) => `<div class="epreuve">
+  function htmlLigneTest(t, l, i) {
+    return `<div class="epreuve">
           <div class="grille-epreuve">
             <label class="champ e-nom"><span>Épreuve</span><input type="text" data-test="${t.id}" data-tl="${i}:epreuve" value="${esc(l.epreuve)}"></label>
             <label class="champ"><span>Type de score</span><select data-test="${t.id}" data-tl="${i}:type">${optionsType(l.type)}</select></label>
@@ -2716,7 +2813,20 @@
           <label class="champ"><span>Observation</span><input type="text" data-test="${t.id}" data-tl="${i}:commentaire" value="${esc(l.commentaire)}"></label>
           <div class="epreuve-pied"><output id="tl-${t.id}-${i}" class="ds-ligne"></output>
             <button type="button" class="bouton-lien" data-suppr-epreuve="${t.id}:${i}">Retirer l'épreuve</button></div>
-        </div>`).join("")}
+        </div>`;
+  }
+
+  function htmlTest(t) {
+    if (t.id === "manos" && reglages.manosGrille) return htmlManos(t);
+    if (t.id === "ajuriaguerra") return htmlAjuri(t);
+    if (t.id === "lespargot") return htmlLespargot(t);
+    if (t.id === "dtvp3") return htmlDtvp3(t);
+    const s = dossier.tests[t.id];
+    const fait = s.fait === "oui";
+    return `<fieldset class="groupe test" data-bloc-test="${t.id}">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="${t.id}" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        ${s.lignes.map((l, i) => htmlLigneTest(t, l, i)).join("")}
         <button type="button" class="bouton bouton-second" data-ajouter-epreuve="${t.id}">Ajouter une épreuve</button>
         ${t.id === "manos" ? `<p class="note">Pour coter le Man.O.S épreuve par épreuve (critères, temps, déviations standard calculées), importez le fichier du cabinet dans les réglages : il contient la grille et les normes.</p>` : ""}
         <label class="champ"><span>Observations générales</span><textarea data-test="${t.id}" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
@@ -3352,6 +3462,7 @@
     });
     majManos();
     majAjuri();
+    majLespargot();
     majDtvp3();
     majPreconisations();
     majOccupation();
@@ -4755,6 +4866,8 @@
     if (el.dataset.reproposerDiag) return reproposerDiagnostic(el.dataset.reproposerDiag);
     if (el.dataset.manosChrono) return basculerChronoManos(el.dataset.manosChrono);
     if (el.dataset.ajuriChrono) return basculerChronoAjuri(el.dataset.ajuriChrono);
+    if (el.dataset.lpChrono) return basculerChronoLespargot();
+    if (el.dataset.lpMot) return choisirMotLespargot(+el.dataset.lpMot);
     if (el.dataset.manosChronoStop) return arreterChronoManos(true);
     if (el.dataset.etapeAjout) return modifierPlanning((l) => { if (l.length < A.MAX_ETAPES) l.push(el.dataset.etapeAjout); });
     if (el.dataset.etapeHaut) return modifierPlanning((l) => { const i = +el.dataset.etapeHaut; if (i > 0) l.splice(i - 1, 0, l.splice(i, 1)[0]); });

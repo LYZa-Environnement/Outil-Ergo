@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"), require("./dtvp3.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri, racine.Dtvp3);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri, Dtvp3) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"), require("./dtvp3.js"), require("./lespargot.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri, racine.Dtvp3, racine.Lespargot);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri, Dtvp3, Lespargot) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -730,6 +730,7 @@
     d.clavier = Clavier.vide();
     d.manos = Manos.vide();
     d.ajuri = Ajuri.vide();
+    d.lespargot = Lespargot.vide();
     d.dtvp3 = Dtvp3.vide();
     return d;
   }
@@ -762,6 +763,7 @@
     d.clavier = Clavier.normaliser(src.clavier);
     d.manos = Manos.normaliser(src.manos);
     d.ajuri = Ajuri.normaliser(src.ajuri);
+    d.lespargot = Lespargot.normaliser(src.lespargot);
     d.dtvp3 = Dtvp3.normaliser(src.dtvp3);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
@@ -1015,6 +1017,9 @@
     return Ajuri.calcul(d.ajuri, { classe: d.groupe, ageAns: ag ? ag.ans + ag.mois / 12 : null, sexe: d.normesSexe === "ensemble" ? "" : d.sexe });
   }
 
+  // Lespargot (copie) : mots par minute comparés à la moyenne et à l'écart-type de la classe.
+  function calculLespargot(d) { return Lespargot.calcul(d.lespargot, { classe: d.groupe }); }
+
   function calculerTests(dossier, reglages) {
     const d = normaliserDossier(dossier);
     const reg = normaliserReglages(reglages);
@@ -1031,6 +1036,14 @@
       const ajuri = t.id === "ajuriaguerra" ? calculAjuri(d) : null;
       const ajuriSaisi = ajuri && (ajuri.faites || ajuri.epreuves.some((e) => e.obs));
       if (ajuriSaisi) lignes = Ajuri.lignesTest(ajuri);
+      // Lespargot : la ligne « Copie » est calculée à partir des mots copiés et du temps.
+      const lesp = t.id === "lespargot" ? calculLespargot(d) : null;
+      if (lesp && lesp.fait) {
+        const i = s.lignes.findIndex((l) => l.id === "copie");
+        const l = { epreuve: i >= 0 ? s.lignes[i].epreuve || "Copie" : "Copie", type: "lespargot", valeurTexte: Lespargot.valeurTexte(lesp), valeurCourte: Lespargot.resume(lesp),
+          commentaire: lesp.obs, ds: lesp.ds, niveau: niveau(lesp.ds, reg), remplie: true };
+        if (i >= 0) lignes[i] = l; else lignes.unshift(l);
+      }
       // DTVP-3 : score brut, rang percentile et terme descriptif de la feuille de cotation, à côté de chaque note.
       const dtvp3 = t.id === "dtvp3" ? Dtvp3.calcul(d.dtvp3, s.lignes, reg.dtvp3Cles) : null;
       if (dtvp3) {
@@ -2359,7 +2372,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
-    classeManos, calculManos, calculAjuri, Dtvp3,
+    classeManos, calculManos, calculAjuri, calculLespargot, Lespargot, Dtvp3,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });

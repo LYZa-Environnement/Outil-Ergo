@@ -1466,3 +1466,15 @@ h4.sous-groupe.repliable.replie + .sous-corps { display: none; }
 .dtvp-age, .dtvp-difference { font-weight: 600; }
 .table-dtvp td { text-align: center; }
 .table-dtvp small { font-weight: 400; color: var(--gris); }
+
+/* Lespargot : texte à recopier, mots à toucher */
+.lp-texte { background: var(--papier-2); border-radius: var(--rayon); padding: 12px 14px; margin: 6px 0 14px; line-height: 2; font-size: 1.05rem; }
+.lp-texte p { margin: 0 0 6px; }
+.lp-titre { font-weight: 700; text-align: center; }
+.lp-source { font-size: .85rem; color: var(--gris); font-style: italic; line-height: 1.4; }
+.lp-mot { font: inherit; color: inherit; background: none; border: 0; border-radius: 6px; padding: 2px 3px; margin: 0; cursor: pointer; min-height: 32px; }
+.lp-mot:hover, .lp-mot:focus-visible { background: var(--encre-claire); outline: 2px solid var(--encre); outline-offset: 0; }
+.lp-mot.copie { background: var(--vert-fond); text-decoration: underline; text-decoration-color: var(--vert); text-decoration-thickness: 2px; }
+.lp-ponct { padding: 0 1px; }
+.lp-manuel { margin: 10px 0 16px; }
+.lp-manuel summary { cursor: pointer; color: var(--accent, var(--encre)); font-weight: 700; padding: 4px 0; }
