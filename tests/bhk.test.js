@@ -101,7 +101,7 @@ test("rédaction : accords, BHK, conclusion, préconisations", () => {
   assert.match(t.bhk, /Remarques : lettres miroirs\./);
   assert.match(t.bhk, /EVA 2\/10/);
   assert.match(t.observation, /Geste graphique : sens de tracé partiellement respecté\./);
-  assert.match(t.complementaires, /Coordination œil-main : note standard 5, DS −1,67, très inférieur à la moyenne, pathologique\./);
+  assert.match(t.complementaires, /Coordination œil-main : note standard 5 \(faible selon le manuel\), DS −1,67, très inférieur à la moyenne, pathologique\./);
   assert.match(t.conclusion, /^Léa est une enfant de 8 ans et 7 mois, scolarisée en CE2\./);
   assert.match(t.conclusion, /Sur le plan de la personne :\n/);
   assert.match(t.conclusion, /une lenteur d'écriture marquée \(BHK : DS −1,50\)/);

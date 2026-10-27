@@ -66,6 +66,8 @@
       if (integres.esoCotation && !r.esoCotation) r.esoCotation = B.normaliserReglages({ esoCotation: integres.esoCotation }).esoCotation;
       // Grille et normes du Man.O.S (exemplaire du cabinet), si elles ne sont pas déjà enregistrées.
       if (integres.manos && !r.manosGrille) r.manosGrille = B.normaliserReglages({ manosGrille: integres.manos }).manosGrille;
+      // Réponses attendues du DTVP-3 (exemplaire du cabinet), si elles ne sont pas déjà enregistrées.
+      if (integres.dtvp3 && !r.dtvp3Cles) r.dtvp3Cles = window.Dtvp3.normaliserCles(integres.dtvp3);
       // Logo du cabinet (documents et PDF), s'il n'a pas été choisi sur cet appareil.
       if (integres.logo && !r.logoCabinet) r.logoCabinet = B.normaliserReglages({ logoCabinet: integres.logo }).logoCabinet;
       // Questionnaire d'auto-évaluation du cabinet : libellés et domaines, si aucun libellé n'est encore saisi.
@@ -95,6 +97,8 @@
     if (cot && (remplacer || !reglages.esoCotation)) { reglages.esoCotation = cot; faits.push("grille de cotation de l'ESO"); }
     const manos = obj.manos ? B.normaliserReglages({ manosGrille: obj.manos }).manosGrille : null;
     if (manos && (remplacer || !reglages.manosGrille)) { reglages.manosGrille = manos; faits.push("grille et normes du Man.O.S"); }
+    const dtvp3 = obj.dtvp3 ? window.Dtvp3.normaliserCles(obj.dtvp3) : null;
+    if (dtvp3 && (remplacer || !reglages.dtvp3Cles)) { reglages.dtvp3Cles = dtvp3; faits.push("réponses attendues du DTVP-3"); }
     const logo = obj.logo ? B.normaliserReglages({ logoCabinet: obj.logo }).logoCabinet : null;
     if (logo && (remplacer || !reglages.logoCabinet)) { reglages.logoCabinet = logo; faits.push("logo du cabinet"); }
     const avq = obj.avq && typeof obj.avq === "object" ? B.normaliserReglages({ avqLibelles: obj.avq }).avqLibelles : null;
@@ -2523,9 +2527,133 @@
     tic();
   }
 
+  /* ---------- DTVP-3 : feuille de cotation du livret de l'examinateur ---------- */
+  const D3 = window.Dtvp3;
+  function dtvp3Donnees() { dossier.dtvp3 = D3.normaliser(dossier.dtvp3); return dossier.dtvp3; }
+  function ligneDtvp3(id) {
+    const s = dossier.tests.dtvp3;
+    let l = s.lignes.find((x) => x.id === id);
+    if (!l) {
+      const def = B.TESTS.find((t) => t.id === "dtvp3").lignes.find((x) => x[0] === id);
+      l = { id: id, epreuve: def ? def[1] : id, type: def ? def[2] : "ns", valeur: "", moy: "", et: "", sens: "haut", commentaire: "" };
+      s.lignes.push(l);
+    }
+    return l;
+  }
+  function htmlDtvp3(t) {
+    const s = dossier.tests.dtvp3, fait = s.fait === "oui";
+    const x = D3.normaliser(dossier.dtvp3), cles = reglages.dtvp3Cles;
+    const champ = (cle, val, attrs) => `<input type="text" inputmode="numeric" class="case-num" data-dtvp="${cle}" value="${esc(val === undefined || val === null ? "" : val)}"${attrs || ""}>`;
+    const blocSous = (st) => {
+      let corps = "";
+      if (st.id === "eh") {
+        corps = st.items.map((it, i) => {
+          const n = i + 1, seg = ((x.segments.eh || {})[n]) || {};
+          return `<div class="dtvp-item-eh" id="dtvp-eh-${n}">
+            <label class="champ champ-court"><span>Item ${n} (sur ${it.max})</span>${champ(`item:eh:${n}`, (x.items.eh || {})[n])}</label>
+            <details class="dtvp-segments"${Object.keys(seg).length ? " open" : ""}><summary>Segment par segment (${it.segments} segments, 0 à ${it.maxSeg})</summary>
+              <div class="dtvp-grille">${Array.from({ length: it.segments }, (_, k) => `<label><span>${k + 1}</span>${champ(`seg:eh:${n}:${k + 1}`, seg[k + 1], ` maxlength="1" aria-label="Item ${n}, segment ${k + 1}"`)}</label>`).join("")}</div>
+            </details></div>`;
+        }).join("");
+      } else {
+        const cle = st.lettres && cles && cles[st.id];
+        corps = `<div class="dtvp-grille${cle ? " dtvp-grille-lettres" : ""}">${st.items.map((it, i) => {
+          const n = i + 1;
+          if (cle) {
+            const ch = (x.choix[st.id] || {})[n] || "";
+            return `<div class="dtvp-item" id="dtvp-${st.id}-${n}"><span>${n}</span><div class="dtvp-lettres">${cle[i][0].split("").map((l) =>
+              `<label><input type="checkbox" data-dtvp="lettre:${st.id}:${n}:${l}"${ch.indexOf(l) >= 0 ? " checked" : ""}><span>${l}</span></label>`).join("")}</div><output id="dtvp-pts-${st.id}-${n}"></output></div>`;
+          }
+          return `<label class="dtvp-item" id="dtvp-${st.id}-${n}"><span>${n}</span>${champ(`item:${st.id}:${n}`, (x.items[st.id] || {})[n], ` maxlength="1" aria-label="${esc(st.nom)}, item ${n} (0 à ${it.max})"`)}</label>`;
+        }).join("")}</div>`;
+      }
+      const aide = st.id === "eh" ? "Tous les items sont proposés. Items 1 et 2 : 1 point par segment sans sortie ni coupure ; items 3 à 5 : 0 à 4 points par segment (voir le manuel)."
+        : st.id === "co" ? "0 à 3 points par item (voir le manuel). Arrêt après 3 items consécutifs à 0."
+        : st.id === "vc" ? (cles && cles.vc ? "Touchez la lettre choisie par l'enfant : 1 point si elle est juste. Arrêt après 3 items consécutifs à 0." : "1 si la réponse est juste, 0 sinon. Arrêt après 3 items consécutifs à 0.")
+        : (cles && cles[st.id] ? "Touchez les lettres choisies par l'enfant : 1 point par forme juste, 0 à l'item si une forme choisie est fausse. Arrêt après 3 items consécutifs à 0."
+          : "Points de l'item : 1 par forme juste, 0 si l'enfant a choisi une forme fausse. Arrêt après 3 items consécutifs à 0.");
+      return `<h4 class="sous-groupe">${st.code} · ${esc(st.nom)} <span class="resume-dtvp" id="dtvp-res-${st.id}"></span></h4>
+        <div class="dtvp-sous-test" data-dtvp-st="${st.id}">
+          <p class="note">${aide}</p>
+          ${corps}
+          <p class="note dtvp-plafond" id="dtvp-plafond-${st.id}" hidden></p>
+          <div class="grille2">
+            <label class="champ champ-court"><span>Ou score brut directement${st.lettres && !st.unique && !(cles && cles[st.id]) ? "" : ` (sur ${st.lettres && cles && cles[st.id] ? cles[st.id].reduce((a, c) => a + c[1].length, 0) : st.items.reduce((a, i) => a + i.max, 0)})`}</span>${champ(`brut:${st.id}`, x.bruts[st.id])}</label>
+            <label class="champ"><span>Observation</span><input type="text" data-dtvp="obs:${st.id}" value="${esc(x.obs[st.id] || "")}"></label>
+          </div>
+        </div>`;
+    };
+    const val = (id) => { const l = s.lignes.find((y) => y.id === id); return l ? l.valeur : ""; };
+    const lignesSous = D3.SOUS_TESTS.map((st) => `<tr><th scope="row">${st.code} · ${esc(st.nom)}</th>
+      <td><output id="dtvp-brut-${st.id}"></output></td>
+      <td><input type="text" class="case-num" data-dtvp="ae:${st.id}" value="${esc(x.ae[st.id] || "")}" placeholder="a;m" aria-label="Âge équivalent ${esc(st.nom)}"></td>
+      <td>${champ(`rp:${st.id}`, x.rp[st.id], ` inputmode="decimal" aria-label="Rang percentile ${esc(st.nom)}"`)}</td>
+      <td>${champ(`ns:${st.ligne}`, val(st.ligne), ` aria-label="Note standard ${esc(st.nom)}"`)}</td>
+      <td>1</td><td><output id="dtvp-terme-${st.id}"></output></td></tr>`).join("");
+    const lignesComp = D3.COMPOSITES.map((c) => `<tr><th scope="row">${esc(c.nom)} <small>(${c.sous.map((id) => D3.SOUS_TESTS.find((y) => y.id === id).code).join(" + ")})</small></th>
+      <td><output id="dtvp-somme-${c.id}"></output></td>
+      <td>${champ(`rp:${c.id}`, x.rp[c.id], ` inputmode="decimal" aria-label="Rang percentile ${esc(c.nom)}"`)}</td>
+      <td>${champ(`ns:${c.ligne}`, val(c.ligne), ` aria-label="Indice composite ${esc(c.nom)}"`)}</td>
+      <td>${c.sem}</td><td><output id="dtvp-terme-${c.id}"></output></td></tr>`).join("");
+    return `<fieldset class="groupe test" data-bloc-test="dtvp3">
+      <legend><label class="case case-titre"><input type="checkbox" data-test="dtvp3" data-tchamp="fait"${fait ? " checked" : ""}><span>${esc(t.titre)}</span></label></legend>
+      <div class="test-corps"${fait ? "" : " hidden"}>
+        <p class="note">Feuille de cotation du livret : notez chaque item, le score brut se calcule (avec le plafond de 3 items consécutifs à 0). Reportez ensuite les notes du manuel dans les tableaux : sommes des notes standard, termes descriptifs et score de différence se calculent.${cles ? "" : " Pour cocher directement les lettres choisies par l'enfant (figure-fond, closure, constance), les réponses attendues peuvent être ajoutées au fichier du cabinet."}</p>
+        <p class="dtvp-age" id="dtvp-age"></p>
+        ${D3.SOUS_TESTS.map(blocSous).join("")}
+        <h4 class="sous-groupe">Section 2 · Résultats aux sous-tests</h4>
+        <div class="defile"><table class="table-normes table-dtvp"><thead><tr><th scope="col">Sous-test</th><th scope="col">Score brut</th><th scope="col">Âge équivalent</th><th scope="col">Rang percentile</th><th scope="col">Note standard</th><th scope="col">SEM</th><th scope="col">Terme descriptif</th></tr></thead><tbody>${lignesSous}</tbody></table></div>
+        <h4 class="sous-groupe">Section 3 · Indices composites</h4>
+        <div class="defile"><table class="table-normes table-dtvp"><thead><tr><th scope="col">Composite</th><th scope="col">Somme des notes standard</th><th scope="col">Rang percentile</th><th scope="col">Indice composite</th><th scope="col">SEM</th><th scope="col">Terme descriptif</th></tr></thead><tbody>${lignesComp}</tbody></table></div>
+        <p class="dtvp-difference" id="dtvp-difference"></p>
+        <details class="consigne-manos"><summary>Termes descriptifs (section 4)</summary><div class="defile"><table class="table-normes"><thead><tr><th scope="col">Terme</th><th scope="col">Note standard</th><th scope="col">Indice composite</th></tr></thead><tbody>${D3.TERMES.map((x) => `<tr><th scope="row">${x[1]}</th><td>${x[2]}–${x[3]}</td><td>${x[4] === 0 ? "< 70" : x[5] === 200 ? "> 130" : x[4] + "–" + x[5]}</td></tr>`).join("")}</tbody></table></div></details>
+        <output id="tl-dtvp3-ds" class="ds-ligne"></output>
+        <label class="champ"><span>Observations générales</span><textarea data-test="dtvp3" data-tchamp="notes" rows="2">${esc(s.notes)}</textarea></label>
+        ${htmlPassation("dtvp3")}
+      </div>
+    </fieldset>`;
+  }
+  function majDtvp3() {
+    const bloc = $('[data-bloc-test="dtvp3"]');
+    if (!bloc) return;
+    const c = D3.calcul(dossier.dtvp3, dossier.tests.dtvp3.lignes, reglages.dtvp3Cles);
+    const a = B.age(dossier.naissance, dossier.passation);
+    $("#dtvp-age").textContent = a ? "Âge pour les tables de normes : " + D3.ageNormes(a) + " (années et mois, sans arrondir)." : "Renseignez la date de naissance et la date du bilan (Dossier) pour afficher l'âge à utiliser dans les tables.";
+    c.sousTests.forEach((st) => {
+      st.items.forEach((it, i) => {
+        const n = i + 1, el = $(`#dtvp-${st.id}-${n}`) || $(`#dtvp-eh-${n}`);
+        if (el) el.classList.toggle("apres-plafond", st.plafond !== null && n > st.plafond);
+        const pts = $(`#dtvp-pts-${st.id}-${n}`);
+        if (pts) pts.textContent = it && it.source === "lettres" ? it.points + " pt" : "";
+        if (st.id === "eh") {
+          const inp = $(`[data-dtvp="item:eh:${n}"]`);
+          if (inp && it && it.source === "segments") { inp.value = it.points; inp.readOnly = true; inp.title = "Calculé à partir des segments"; }
+          else if (inp && inp.readOnly) { inp.readOnly = false; inp.title = ""; inp.value = ((dossier.dtvp3.items || {}).eh || {})[n] ?? ""; }
+        }
+      });
+      const p = $("#dtvp-plafond-" + st.id);
+      p.hidden = st.plafond === null;
+      p.textContent = st.plafond !== null ? "Plafond atteint à l'item " + st.plafond + " : les items suivants ne sont pas proposés." : "";
+      const surMax = st.max !== null ? " / " + st.max : "";
+      const brut = st.brut !== null ? st.brut + surMax : st.somme !== null ? st.somme + surMax + " (en cours)" : "";
+      $("#dtvp-res-" + st.id).textContent = brut ? "· " + brut + (st.brutSaisi ? " (saisi)" : "") : "";
+      $("#dtvp-brut-" + st.id).textContent = st.brut !== null ? String(st.brut) : st.partiel ? (st.manquants.length === 1 ? "item " + st.manquants[0] + " à coter" : st.manquants.length + " items à coter") : "–";
+      $("#dtvp-terme-" + st.id).textContent = st.nsHorsBorne ? "note de 1 à 20" : st.terme ? st.terme.nom : "";
+    });
+    c.composites.forEach((k) => {
+      $("#dtvp-somme-" + k.id).textContent = k.sommeNS !== null ? String(k.sommeNS) : "–";
+      $("#dtvp-terme-" + k.id).textContent = k.terme ? k.terme.nom : "";
+    });
+    const d = c.difference;
+    $("#dtvp-difference").textContent = d
+      ? "Score de différence (IVM − PVRMR) : " + d.ecart + " points, " + (d.niveau === "clinique" ? "cliniquement significatif (28 ou plus)." : d.niveau === "statistique" ? "statistiquement significatif (12 ou plus)." : "non significatif (moins de 12).")
+      : "Score de différence : renseignez les indices IVM et PVRMR.";
+  }
+
   function htmlTest(t) {
     if (t.id === "manos" && reglages.manosGrille) return htmlManos(t);
     if (t.id === "ajuriaguerra") return htmlAjuri(t);
+    if (t.id === "dtvp3") return htmlDtvp3(t);
     const s = dossier.tests[t.id];
     const fait = s.fait === "oui";
     return `<fieldset class="groupe test" data-bloc-test="${t.id}">
@@ -2618,6 +2746,9 @@
     $("#etat-normes-reglages").textContent += reglages.manosGrille
       ? " Man.O.S : grille et normes enregistrées (" + window.Manos.CLASSES.filter((k) => reglages.manosGrille.classes[k]).join(", ") + ")."
       : " Man.O.S : grille et normes absentes (elles sont dans le fichier du cabinet).";
+    $("#etat-normes-reglages").textContent += reglages.dtvp3Cles
+      ? " DTVP-3 : réponses attendues enregistrées (" + ["fg", "vc", "fc"].filter((k) => reglages.dtvp3Cles[k]).map((k) => window.Dtvp3.SOUS_TESTS.find((x) => x.id === k).nom.toLowerCase()).join(", ") + ")."
+      : "";
     if (!nb) { $("#tableau-normes").innerHTML = ""; return; }
     const f = (v) => (v ? B.formaterNombre(v[0]) + " / " + B.formaterNombre(v[1]) : "–");
     const table = (ind, ref, cles, titre) => {
@@ -2868,6 +2999,29 @@
       dossier.manos = dossier.manos || M.vide();
       dossier.manos.classe = el.value;
       reconstruireTest("manos");
+    } else if (el.dataset.dtvp) {
+      const p = el.dataset.dtvp.split(":"), x = dtvp3Donnees();
+      const [k, id, n, m] = p;
+      const v = el.value.trim();
+      const ranger = (obj, cle, val) => { if (val === "" || val === null) delete obj[cle]; else obj[cle] = val; };
+      if (k === "item") { x.items[id] = x.items[id] || {}; ranger(x.items[id], n, v === "" ? "" : Number(v.replace(",", "."))); }
+      else if (k === "seg") { x.segments.eh = x.segments.eh || {}; x.segments.eh[n] = x.segments.eh[n] || {}; ranger(x.segments.eh[n], m, v === "" ? "" : Number(v)); }
+      else if (k === "lettre") {
+        if (e.type !== "change") return;
+        x.choix[id] = x.choix[id] || {};
+        const set = new Set((x.choix[id][n] || "").split("").filter(Boolean));
+        if (el.checked) set.add(m); else set.delete(m);
+        ranger(x.choix[id], n, Array.from(set).sort().join(""));
+      }
+      else if (k === "brut") ranger(x.bruts, id, v === "" ? "" : Number(v));
+      else if (k === "ae" || k === "rp" || k === "obs") ranger(x[k], id, el.value);
+      else if (k === "ns") ligneDtvp3(id).valeur = el.value;
+      // Valeur hors bornes : gardée telle quelle à l'écran, ignorée par le calcul (le libellé le signale).
+      dossier.dtvp3 = D3.normaliser(x);
+      if (k === "item" || k === "seg" || k === "brut") {
+        const ok = v === "" || D3.normaliser({ items: { [id]: { [n]: v } }, segments: { eh: { [n]: { [m]: v } } }, bruts: { [id]: v } });
+        el.classList.toggle("invalide", v !== "" && !(k === "item" ? (ok.items[id] || {})[n] !== undefined : k === "seg" ? (((ok.segments.eh || {})[n]) || {})[m] !== undefined : ok.bruts[id] !== undefined));
+      }
     } else if (el.dataset.test) {
       const s = dossier.tests[el.dataset.test];
       if (el.dataset.tchamp === "fait") {
@@ -3154,6 +3308,7 @@
     });
     majManos();
     majAjuri();
+    majDtvp3();
     majPreconisations();
     majOccupation();
     majTdc();

@@ -5,9 +5,9 @@
  * Aucune dépendance au navigateur : utilisable dans la page et dans les tests Node.
  */
 (function (racine, fabrique) {
-  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"));
-  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri);
-})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri) {
+  if (typeof module === "object" && module.exports) module.exports = fabrique(require("./sensoriel.js"), require("./occupation.js"), require("./accueil.js"), require("./seances.js"), require("./clavier.js"), require("./manos.js"), require("./ajuriaguerra.js"), require("./dtvp3.js"));
+  else racine.BHK = fabrique(racine.Senso, racine.Occup, racine.Accueil, racine.Seances, racine.Clavier, racine.Manos, racine.Ajuri, racine.Dtvp3);
+})(typeof self !== "undefined" ? self : this, function (Senso, Occup, Accueil, Seances, Clavier, Manos, Ajuri, Dtvp3) {
   "use strict";
 
   /* ================= Outils ================= */
@@ -619,6 +619,7 @@
       esoLibelles: { sp: [], p: [], l: [] },
       esoCotation: null,
       manosGrille: null,
+      dtvp3Cles: null,
       avqLibelles: Occup.libellesAvqp(null),
       photoCabinet: null,
       logoCabinet: null,
@@ -662,6 +663,7 @@
     });
     out.esoCotation = Senso.normaliserCotationEso(r.esoCotation);
     out.manosGrille = Manos.normaliserGrille(r.manosGrille);
+    out.dtvp3Cles = Dtvp3.normaliserCles(r.dtvp3Cles);
     // Questionnaire d'autonomie : celui de l'outil par défaut ; des libellés enregistrés (domaine par domaine) le remplacent.
     if (r.avqLibelles && typeof r.avqLibelles === "object") {
       const l = Occup.libellesAvqp(r.avqLibelles);
@@ -728,6 +730,7 @@
     d.clavier = Clavier.vide();
     d.manos = Manos.vide();
     d.ajuri = Ajuri.vide();
+    d.dtvp3 = Dtvp3.vide();
     return d;
   }
 
@@ -759,6 +762,7 @@
     d.clavier = Clavier.normaliser(src.clavier);
     d.manos = Manos.normaliser(src.manos);
     d.ajuri = Ajuri.normaliser(src.ajuri);
+    d.dtvp3 = Dtvp3.normaliser(src.dtvp3);
     if (src.tdc && typeof src.tdc === "object") {
       d.tdc.fait = src.tdc.fait === "oui" ? "oui" : "";
       ["debut", "exclusion"].forEach((k) => { if (["oui", "non"].indexOf(src.tdc[k]) >= 0) d.tdc[k] = src.tdc[k]; });
@@ -1027,7 +1031,13 @@
       const ajuri = t.id === "ajuriaguerra" ? calculAjuri(d) : null;
       const ajuriSaisi = ajuri && (ajuri.faites || ajuri.epreuves.some((e) => e.obs));
       if (ajuriSaisi) lignes = Ajuri.lignesTest(ajuri);
-      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos, ajuri: ajuriSaisi ? ajuri : null };
+      // DTVP-3 : score brut, rang percentile et terme descriptif de la feuille de cotation, à côté de chaque note.
+      const dtvp3 = t.id === "dtvp3" ? Dtvp3.calcul(d.dtvp3, s.lignes, reg.dtvp3Cles) : null;
+      if (dtvp3) {
+        const comp = Dtvp3.complements(dtvp3);
+        lignes.forEach((l, i) => { const c = comp[s.lignes[i].id]; if (c) { l.terme = c.terme; l.complement = c.autres; } });
+      }
+      return { id: t.id, court: t.court, titre: t.titre, section: t.section, fait: s.fait === "oui", notes: s.notes.trim(), lignes: lignes, manos: manos, ajuri: ajuriSaisi ? ajuri : null, dtvp3: dtvp3 };
     });
   }
 
@@ -1809,8 +1819,9 @@
 
     // Vitesse d'écriture et bilans complémentaires
     const phraseLigne = (l) => {
-      const morceaux = [l.valeurTexte];
+      const morceaux = [l.valeurTexte + (l.terme ? " (" + l.terme + " selon le manuel)" : "")];
       if (l.ds !== null && l.type !== "ds") morceaux.push("DS " + formaterDS(l.ds));
+      (l.complement || []).forEach((c) => morceaux.push(c));
       let t = l.epreuve + " : " + morceaux.join(", ");
       if (l.niveau) t += ", " + min(APPRECIATIONS[l.niveau]);
       if (l.commentaire) t += ". " + maj(l.commentaire);
@@ -1832,6 +1843,8 @@
       const lignes = t.lignes.filter((l) => l.remplie || l.commentaire);
       const l = [t.titre + " :"];
       lignes.forEach((x) => l.push("– " + (x.remplie ? phraseLigne(x) : point(x.epreuve + " : " + x.commentaire))));
+      const diff = t.dtvp3 ? Dtvp3.phraseDifference(t.dtvp3, a) : "";
+      if (diff) l.push(diff);
       if (t.notes) l.push(point(maj(t.notes)));
       if (l.length === 1) l.push("[Résultats à compléter.]");
       const passation = Accueil.phrasePassation(d.passations[t.id]);
@@ -2346,7 +2359,7 @@
     calculerBHK, calculerTests, rediger, titreSection, texteVersBlocs, modeleDocument,
     SECTIONS_ECOLE, modeleSyntheseEcole, modeleBilanSynthese, CHAMPS_DIAG, propositionsDiagnostic, occupationsRetenues, sourcesDiagnostic, mesures, instantane, evolution, TENDANCES, normesPresentes, ageMois,
     donneesGraphiques, TITRES_GRAPHIQUES, LARGEURS_GRAPHIQUES, accords, indicateurs, papier, cellule,
-    classeManos, calculManos, calculAjuri,
+    classeManos, calculManos, calculAjuri, Dtvp3,
     reperesTdc, SOURCE_TDC, ETATS_TDC, repartition, PHRASES_EXEMPLES,
   };
 });
