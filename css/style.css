@@ -856,6 +856,39 @@ details[open] > .othope-famille-tete::before, details[open] > .othope-sf-tete::b
   .tri-haut { padding: 4px 0; }
 }
 /* ---------- Jeu de cartes SensOT-dir ---------- */
+.sj-avec-photo { padding: 0; background: #fff; }
+.sj-photo { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.sj-lu { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sj-carte.sj-avec-photo { border-width: 0; background: transparent; box-shadow: 0 10px 28px rgba(20, 30, 60, .25); width: min(320px, 74vw, 46vh); }
+.sj-carte.sj-avec-photo .sj-photo { border-radius: 16px; }
+.sj-petite.sj-avec-photo { min-height: 0; aspect-ratio: 3 / 4; border-color: transparent; }
+.sj-petite.sj-avec-photo .sj-photo { border-radius: 10px; }
+.sj-rappel.sj-avec-photo { width: auto; height: min(150px, 22vh); aspect-ratio: 3 / 4; border: 0; background: transparent; }
+.sj-rappel.sj-avec-photo .sj-photo { border-radius: 10px; }
+.sj-sensation.sj-avec-photo { padding: 4px; aspect-ratio: 3 / 4; min-height: 0; }
+.sj-grille .sj-petite.sj-avec-photo { padding: 4px; }
+/* Photos des cartes du coffret (réglage dans le bloc SensOT-dir) */
+.sensot-photos { margin: .6rem 0; }
+.sensot-photos > summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
+.tuiles-titre { margin: 1rem 0 .4rem; font-size: 1rem; }
+.tuiles-titre small { color: var(--gris); font-weight: 400; }
+.tuiles-photos { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.tuile-photo { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; font-size: .85rem; }
+.tuile-photo-image { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 4; border: 2px dashed var(--seyes); border-radius: 10px; background: var(--papier-2); cursor: pointer; overflow: hidden; }
+.tuile-photo.a-photo .tuile-photo-image { border-style: solid; background: #fff; }
+.tuile-photo-image img { width: 100%; height: 100%; object-fit: contain; }
+.tuile-photo-image:focus-within { outline: 3px solid var(--encre); outline-offset: 2px; }
+.tuile-photo-vide { font-size: 1.8rem; opacity: .6; }
+.tuile-photo-nom { line-height: 1.25; }
+.guide-photos { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: rgba(20, 24, 32, .55); }
+.guide-photos-boite { width: min(520px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 18px 14px; background: var(--papier); border-radius: 16px; box-shadow: 0 10px 34px rgba(0, 0, 0, .3); text-align: center; }
+.guide-photos-etape { margin: 0; color: var(--gris); font-weight: 700; }
+.guide-photos-nom { margin: 0; font: 600 1.5rem/1.25 var(--police-titre); color: var(--encre-fonce); }
+.guide-photos-apercu { width: min(220px, 60vw); aspect-ratio: 3 / 4; display: grid; place-items: center; padding: 10px; border: 2px dashed var(--seyes); border-radius: 12px; color: var(--gris); }
+.guide-photos-apercu img { width: 100%; height: 100%; object-fit: contain; }
+.guide-photos-prendre { font-size: 1.15rem; min-height: 56px; padding-inline: 28px; }
+.guide-photos-bas { justify-content: center; }
+
 .sj [data-couleur="bleu"] { --c: var(--acc-dossier); --c-fond: var(--acc-dossier-fond); }
 .sj [data-couleur="violet"] { --c: var(--acc-entretien); --c-fond: var(--acc-entretien-fond); }
 .sj [data-theme-carte="orange"] { --t: #D9822B; }

@@ -33,10 +33,17 @@
       racine.speechSynthesis.speak(u);
     } catch (e) { /* lecture indisponible */ }
   }
+  // Photos des cartes du cabinet (PhotosSensot), données au lancement : la photo remplace le pictogramme.
+  let photos = {};
+  const photo = (id) => photos[id] && photos[id].donnees;
+  // Contenu d'une carte : la photo du coffret si elle existe (intitulé gardé pour la lecture à voix haute), sinon bandeau et pictogramme.
+  function interieur(c) {
+    const ph = photo(c.id);
+    if (ph) return `<img class="sj-photo" src="${esc(ph)}" alt=""><span class="sj-bandeau sj-lu">${esc(c.nom)}</span>`;
+    return `<span class="sj-bandeau">${esc(c.nom)}</span><span class="sj-emoji" aria-hidden="true">${esc(c.emoji)}</span>`;
+  }
   function carteHtml(c, classe, attrs) {
-    return `<div class="${classe}" data-theme-carte="${COULEUR_THEME[c.theme] || "gris"}" ${attrs || ""}>
-      <span class="sj-bandeau">${esc(c.nom)}</span>
-      <span class="sj-emoji" aria-hidden="true">${esc(c.emoji)}</span></div>`;
+    return `<div class="${classe}${photo(c.id) ? " sj-avec-photo" : ""}" data-theme-carte="${COULEUR_THEME[c.theme] || "gris"}" ${attrs || ""}>${interieur(c)}</div>`;
   }
   function boite(p, i, n) {
     return `<button type="button" class="tri-pile" data-pile="${p.id}" data-couleur="${p.couleur}">
@@ -46,6 +53,7 @@
 
   function lancer(opts) {
     const prenom = (opts.prenom || "").trim();
+    photos = opts.photos || {};
     const cartes = (opts.cartes && opts.cartes.length ? opts.cartes : S.CARTES_SENSOT).slice();
     const P1 = S.PLATEAU1_SENSOT, FREQ = S.FREQUENCES_SENSOT, SENS = S.SENSATIONS_SENSOT;
     const p1Grandes = P1.slice(0, 3), p1Petites = P1.slice(3);
@@ -217,8 +225,8 @@
         scene.innerHTML = `<div class="tri-choix">
           <p class="tri-consigne">${esc(consigne)}</p>
           <p class="tri-phrase tri-petit sj-nb"></p>
-          <div class="tri-grille sj-grille">${l.map((c) => `<button type="button" class="tri-petite sj-petite" data-choix="${esc(c.id)}" data-theme-carte="${COULEUR_THEME[c.theme] || "gris"}" aria-pressed="false">
-            <span class="sj-bandeau">${esc(c.nom)}</span><span class="sj-emoji" aria-hidden="true">${esc(c.emoji)}</span><span class="tri-etoile" aria-hidden="true">★</span></button>`).join("")}</div>
+          <div class="tri-grille sj-grille">${l.map((c) => `<button type="button" class="tri-petite sj-petite${photo(c.id) ? " sj-avec-photo" : ""}" data-choix="${esc(c.id)}" data-theme-carte="${COULEUR_THEME[c.theme] || "gris"}" aria-pressed="false">
+            ${interieur(c)}<span class="tri-etoile" aria-hidden="true">★</span></button>`).join("")}</div>
           <button type="button" class="tri-go" data-sj="suite">J'ai choisi</button>
           ${bas()}
         </div>`;
@@ -240,8 +248,8 @@
         scene.innerHTML = `<div class="tri-choix">
           <p class="tri-consigne">${esc(consigne)}</p>
           ${carteHtml(c, "sj-rappel")}
-          <div class="tri-grille sj-sensations">${SENS.map((s) => `<button type="button" class="tri-petite sj-sensation" data-sensation="${s.id}" aria-pressed="${cible[id] === s.id}">
-            <span class="tri-petite-emoji" aria-hidden="true">${s.emoji}</span><span class="tri-petite-texte">${esc(s.label)}</span></button>`).join("")}</div>
+          <div class="tri-grille sj-sensations">${SENS.map((s) => `<button type="button" class="tri-petite sj-sensation${photo("s-" + s.id) ? " sj-avec-photo" : ""}" data-sensation="${s.id}" aria-pressed="${cible[id] === s.id}" aria-label="${esc(s.label)}">
+            ${photo("s-" + s.id) ? `<img class="sj-photo" src="${esc(photo("s-" + s.id))}" alt="">` : `<span class="tri-petite-emoji" aria-hidden="true">${s.emoji}</span><span class="tri-petite-texte">${esc(s.label)}</span>`}</button>`).join("")}</div>
           ${bas(`<button type="button" class="tri-lien" data-sj="sans-sensation">Je ne sais pas</button>`)}
         </div>`;
         scene.dataset.cible = cible === R.sens ? "sens" : "effets";
@@ -346,7 +354,7 @@
           const id = ecran.type === "sens" ? R.genes[ecran.i] : R.plaisirs[ecran.i];
           (ecran.type === "sens" ? R.sens : R.effets)[id] = b.dataset.sensation;
           b.setAttribute("aria-pressed", "true");
-          if (voix) dire(b.textContent.trim());
+          if (voix) dire(b.getAttribute("aria-label") || b.textContent.trim());
           occupe = true;
           return setTimeout(() => { occupe = false; avancer(); }, mouvementReduit() ? 0 : 260);
         }

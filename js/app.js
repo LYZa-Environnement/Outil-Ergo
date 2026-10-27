@@ -559,6 +559,9 @@
         <div class="cartes-liste">${S.THEMES_SENSOT.map((t) => `<label class="carte-case"><input type="checkbox" data-sensot-categorie="${t.id}"><span>${esc(t.nom)} <small>(${S.CARTES_SENSOT.filter((x) => x.theme === t.id).length})</small></span></label>`).join("")}</div>
         <p class="calcule" id="sensot-nb-cartes"></p>
       </fieldset>
+      <details class="sensot-photos" id="sensot-photos"><summary>Photos de mes cartes <small id="sensot-photos-compte"></small></summary>
+        <div id="sensot-photos-corps"></div>
+      </details>
       <div class="barre-actions">
         <button type="button" class="bouton" data-action="lancer-sensot">Lancer le jeu de cartes avec l'enfant</button>
         <button type="button" class="bouton-lien" data-action="effacer-sensot" hidden>Effacer le jeu</button>
@@ -620,13 +623,100 @@
     });
   }
 
+  /* ---------- Photos des cartes du coffret (SensOT-dir) ---------- */
+
+  let photosSensot = {}, photosSensotChargees = false, guidePhotos = null;
+  const SENSATIONS_CARTES = () => S.SENSATIONS_SENSOT.map((x) => ({ id: "s-" + x.id, nom: x.label, emoji: x.emoji, theme: "sensation" }));
+  function toutesCartesPhoto() { return S.CARTES_SENSOT.concat(SENSATIONS_CARTES()); }
+  function chargerPhotosSensot() {
+    if (photosSensotChargees || !window.PhotosSensot) return;
+    photosSensotChargees = true;
+    window.PhotosSensot.toutes().then((p) => { photosSensot = p || {}; majPhotosSensot(); });
+  }
+  function tuilePhoto(c) {
+    const ph = photosSensot[c.id];
+    return `<div class="tuile-photo${ph ? " a-photo" : ""}">
+      <label class="tuile-photo-image" title="${ph ? "Reprendre la photo" : "Prendre la photo"}">
+        ${ph ? `<img src="${esc(ph.donnees)}" alt="">` : `<span class="tuile-photo-vide" aria-hidden="true">📷</span>`}
+        <input type="file" accept="image/*" capture="environment" class="masque" data-action="photo-sensot" data-carte="${c.id}" aria-label="${ph ? "Reprendre la photo" : "Photographier la carte"} : ${esc(c.nom)}">
+      </label>
+      <span class="tuile-photo-nom">${esc(c.nom)}</span>
+      ${ph ? `<button type="button" class="bouton-lien" data-action="retirer-photo-sensot" data-carte="${c.id}">Retirer</button>` : ""}
+    </div>`;
+  }
+  function majPhotosSensot() {
+    const corps = $("#sensot-photos-corps");
+    if (!corps) return;
+    const toutes = toutesCartesPhoto();
+    const n = toutes.filter((c) => photosSensot[c.id]).length;
+    $("#sensot-photos-compte").textContent = "(" + n + " sur " + toutes.length + ")";
+    const groupes = S.THEMES_SENSOT.map((t) => [t.nom, S.CARTES_SENSOT.filter((c) => c.theme === t.id)]).concat([["Cartes « sensations »", SENSATIONS_CARTES()]]);
+    corps.innerHTML = `<p class="note">Photographiez une fois les cartes de votre coffret : pendant le jeu, l'enfant voit vos vraies cartes à la place des pictogrammes. Posez chaque carte à plat, bien éclairée, et cadrez-la au plus près. Les photos restent sur cet appareil : sur une autre tablette, il faudra les reprendre.</p>
+      <div class="barre-actions">
+        <button type="button" class="bouton" data-action="photos-sensot-guide">${n ? "Continuer les photos à la suite" : "Photographier les cartes à la suite"}</button>
+        ${n ? `<button type="button" class="bouton-lien" data-action="photos-sensot-vider">Retirer toutes les photos</button>` : ""}
+      </div>
+      ${groupes.map(([nom, l]) => `<h5 class="tuiles-titre">${esc(nom)} <small>${l.filter((c) => photosSensot[c.id]).length}/${l.length}</small></h5><div class="tuiles-photos">${l.map(tuilePhoto).join("")}</div>`).join("")}`;
+  }
+  async function garderPhotoSensot(id, fichier) {
+    const ph = await chargerPhoto(fichier, 900);
+    await window.PhotosSensot.mettre(id, ph);
+    photosSensot[id] = ph;
+    majPhotosSensot();
+  }
+
+  // Prise de vue guidée : une carte après l'autre, en commençant par celles qui n'ont pas encore de photo.
+  function ouvrirGuidePhotos() {
+    const manque = toutesCartesPhoto().filter((c) => !photosSensot[c.id]);
+    guidePhotos = { liste: manque.length ? manque : toutesCartesPhoto(), i: 0, faites: 0 };
+    const el = document.createElement("div");
+    el.className = "guide-photos";
+    el.id = "guide-photos";
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", "Photographier les cartes");
+    document.body.appendChild(el);
+    document.body.classList.add("sans-defilement");
+    afficherGuidePhotos();
+  }
+  function afficherGuidePhotos() {
+    const el = $("#guide-photos");
+    if (!el || !guidePhotos) return;
+    const g = guidePhotos, c = g.liste[g.i];
+    if (!c) return fermerGuidePhotos();
+    const theme = S.THEMES_SENSOT.find((t) => t.id === c.theme);
+    const ph = photosSensot[c.id];
+    el.innerHTML = `<div class="guide-photos-boite">
+      <p class="guide-photos-etape">Carte ${g.i + 1} sur ${g.liste.length}${theme ? " · " + esc(theme.nom) : " · sensations"}</p>
+      <p class="guide-photos-nom"><span aria-hidden="true">${esc(c.emoji)}</span> ${esc(c.nom)}</p>
+      <div class="guide-photos-apercu">${ph ? `<img src="${esc(ph.donnees)}" alt="Photo actuelle de la carte">` : `<span>Cherchez cette carte dans le coffret,<br>posez-la à plat et prenez-la en photo.</span>`}</div>
+      <label class="bouton guide-photos-prendre">📷 ${ph ? "Reprendre la photo" : "Prendre la photo"}
+        <input type="file" accept="image/*" capture="environment" class="masque" data-action="photo-sensot" data-carte="${c.id}" data-guide="1"></label>
+      <div class="barre-actions guide-photos-bas">
+        <button type="button" class="bouton-lien" data-action="guide-photos-precedente"${g.i ? "" : " disabled"}>← Carte précédente</button>
+        <button type="button" class="bouton-lien" data-action="guide-photos-passer">Passer cette carte →</button>
+        <button type="button" class="bouton bouton-second" data-action="guide-photos-fin">J'ai fini</button>
+      </div>
+    </div>`;
+    el.querySelector(".guide-photos-prendre").focus();
+  }
+  function fermerGuidePhotos() {
+    const el = $("#guide-photos");
+    const n = guidePhotos ? guidePhotos.faites : 0;
+    if (el) el.remove();
+    document.body.classList.remove("sans-defilement");
+    guidePhotos = null;
+    majPhotosSensot();
+    if (n) annoncer(n + " photo" + (n > 1 ? "s" : "") + " de cartes enregistrée" + (n > 1 ? "s" : ""));
+  }
+
   async function lancerSensot() {
     const t = dossier.senso.sensot;
     if (!window.SensotJeu) return;
     if (S.sensotJeu(t) && !(await demander("Refaire le jeu de cartes ? Le classement et les choix actuels seront remplacés (les précisions et préconisations déjà écrites sont gardées).", "Refaire le jeu"))) return;
     const proposees = S.cartesProposees(t);
     if (!proposees.length) { annoncer("Cochez au moins une catégorie."); return; }
-    const res = await window.SensotJeu.lancer({ prenom: dossier.prenom, cartes: proposees });
+    const res = await window.SensotJeu.lancer({ prenom: dossier.prenom, cartes: proposees, photos: photosSensot });
     if (!res) { annoncer("Jeu arrêté, aucune carte rangée."); return; }
     const avant = t.cartes;
     t.cartes = {};
@@ -653,6 +743,8 @@
       blocRealise("dunn-scolaire", "Profil sensoriel 2 de Dunn : compagnon scolaire", "senso.dunnScolaire", htmlDunn("scolaire")) +
       blocRealise("eso", "Engagement sensori-occupationnel (ESO)", "senso.eso", htmlEso()) +
       blocRealise("sensot", "SensOT-dir (version enfant)", "senso.sensot", htmlSensot());
+    photosSensotChargees = false;
+    chargerPhotosSensot();
   }
 
   function construireManip() {
@@ -5182,6 +5274,21 @@
         return;
       }
       case "lancer-sensot": return lancerSensot();
+      case "photos-sensot-guide": return ouvrirGuidePhotos();
+      case "guide-photos-passer": guidePhotos.i++; return afficherGuidePhotos();
+      case "guide-photos-precedente": guidePhotos.i = Math.max(0, guidePhotos.i - 1); return afficherGuidePhotos();
+      case "guide-photos-fin": return fermerGuidePhotos();
+      case "retirer-photo-sensot": {
+        const id = el.dataset.carte;
+        window.PhotosSensot.retirer(id).then(() => { delete photosSensot[id]; majPhotosSensot(); annoncer("Photo retirée"); }).catch((err) => annoncer(err.message));
+        return;
+      }
+      case "photos-sensot-vider":
+        demander("Retirer toutes les photos des cartes de cet appareil ? Le jeu reprendra les pictogrammes.", "Tout retirer").then((ok) => {
+          if (!ok) return;
+          window.PhotosSensot.vider().then(() => { photosSensot = {}; majPhotosSensot(); annoncer("Photos des cartes retirées"); }).catch((err) => annoncer(err.message));
+        });
+        return;
       case "effacer-sensot": {
         const avant = instantane();
         Object.assign(dossier.senso.sensot, { cartes: {}, genes: [], plaisirs: [] });
@@ -5385,6 +5492,14 @@
         reglages.logoCabinet = { donnees: ph.donnees, l: ph.l, h: ph.h };
         sauverReglages(); majTout();
         annoncer("Logo enregistré : il apparaît en haut des documents et des PDF pour les parents");
+      }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
+    } else if (action === "photo-sensot") {
+      const f = e.target.files && e.target.files[0];
+      const id = e.target.dataset.carte, guide = e.target.dataset.guide;
+      if (!f) return true;
+      garderPhotoSensot(id, f).then(() => {
+        if (guide && guidePhotos) { guidePhotos.faites++; guidePhotos.i++; afficherGuidePhotos(); }
+        else annoncer("Photo de la carte enregistrée");
       }).catch((err) => annoncer(err.message)).finally(() => { e.target.value = ""; });
     } else if (action === "photo-carte") {
       const f = e.target.files && e.target.files[0];
